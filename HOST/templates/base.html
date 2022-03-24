@@ -1,0 +1,51 @@
+<html>
+<head>
+<style>
+input[type="submit"], input[type="button"], td, th {
+font-size: 18px;
+}
+table, th, td {
+border: 3px solid black;
+align: center;
+}
+button{
+background-color: yellow;
+}
+</style>
+<title>vm manager
+</title>
+{{turbo()}}
+</head>
+<body>
+<div id="last_activity"></div>
+<div id="vm_activities"></div>
+<div id="1_click_data"></div>
+<div id="vm_data"></div>
+<table>
+<tr>
+<td>Host IP
+<td>Public IP
+<td>CPU(%)
+<td>RAM(%)
+<td>Options
+<td>Displays
+</tr>
+<tr>
+<td><div id="host_local_ip"></div></td>
+<td><div id="host_public_ip"></div></td>
+<td><div id="host_cpu"></div></td>
+<td><div id="host_ram"></div></td>
+<td><form method="POST" action="/auto_action/">
+<button name="clone" value="clone" style="width:100%; border: 3px solid black">Clone[10, 50]</button>
+<button name="assign_ips" value="assign_ips" style="width:100%; border: 3px solid black">Assign IPs[10, 50]</br>Current: <div id='vm_ip_assign_counter'>10</div></button>
+</form></td>
+<td><div id="host_image"></div></td>
+</tr>
+</table>
+<form method="POST" action="/manual_action/">
+Manual Action Script:</br>
+action: <input type="text" name="action"></br>
+target: <input type="text" name="target">
+<button onclick="/manual_action/">Go</button>
+</form></br></br>
+</form>

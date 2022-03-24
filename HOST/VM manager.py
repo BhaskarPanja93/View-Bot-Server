@@ -204,7 +204,6 @@ def manage_1_click_start_stop_of_vms():
 
 
 def manage_timed_run_of_vms():
-    return
     STOP_TIMINGS = []
     global  FORCE_CLOSE_ALL_VMS
     while True:
@@ -728,7 +727,6 @@ def update_flask_page():
                                 <td>{ip}</td>
                                 <td><div id="{ip}_public_ip"></div></td>
                                 <td><div id="{ip}_uptime"></div></td>
-                                <td><div id="{ip}_current_instance_duration"></div></td>
                                 <td><div id="{ip}_success"></div></td>
                                 <td><div id="{ip}_failure"></div></td>
                                 <td><div id="{ip}_cpu"></div></td>
@@ -743,7 +741,6 @@ def update_flask_page():
                             <th>Local IP</td>
                             <th>Public IP</td>
                             <th>Uptime</td>
-                            <th>Current Dur.</td>
                             <th>Success</td>
                             <th>Failure</td>
                             <th>CPU(%)</td>
@@ -766,7 +763,6 @@ def update_flask_page():
                             unassigned_data = f'''<tr><td>{ip}</td>
                                 <td><div id="{ip}_public_ip"></div></td>
                                 <td><div id="{ip}_uptime"></div></td>
-                                <td><div id="{ip}_current_instance_duration"></div></td>
                                 <td><div id="{ip}_success"></div></td>
                                 <td><div id="{ip}_failure"></div></td>
                                 <td><div id="{ip}_cpu"></div></td>
@@ -782,7 +778,7 @@ def update_flask_page():
                                     <button name="{ip}" value="start" width:100%;="" style="width:100%; border: 3px solid black">save {ip}</button>
                                     </form>'''
                             turbo_app.push(turbo_app.update(buttons, f'{ip}_buttons'))
-                        for item in ['public_ip', 'uptime', 'current_instance_duration', 'success', 'failure', 'cpu', 'ram']:
+                        for item in ['public_ip', 'uptime', 'success', 'failure', 'cpu', 'ram']:
                             if item in current_vm_data[ip]:
                                 if item not in last_vm_data[ip] or current_vm_data[ip][item] != last_vm_data[ip][item]:
                                     turbo_app.push(turbo_app.update(current_vm_data[ip][item], f'{ip}_{item}'))
@@ -816,7 +812,6 @@ def update_flask_page():
                         turbo_app.push(turbo_app.update('-', f'{ip}_local_ip'))
                         turbo_app.push(turbo_app.update('-', f'{ip}_current_ip'))
                         turbo_app.push(turbo_app.update('-', f'{ip}_uptime'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_current_instance_duration'))
                         turbo_app.push(turbo_app.update('-', f'{ip}_success'))
                         turbo_app.push(turbo_app.update('-', f'{ip}_failure'))
                         turbo_app.push(turbo_app.update('-', f'{ip}_cpu'))

@@ -24,7 +24,6 @@ comment = current_ip = last_ip = ''
 continue_spam = True
 total_instances = ['ngrok_direct']
 available_instances = ['ngrok_direct']
-chrome_cleared = True
 
 os_type = system()
 
@@ -32,7 +31,6 @@ working_cond = {True: 'Working',
                 False: 'Stopped'}
 
 host_cpu = host_ram = success = failure = uptime = 0
-current_instance_duration = 'waiting'
 
 
 def force_connect_server(type_of_connection):
@@ -82,18 +80,6 @@ def restart_if_connection_missing():
                 __restart_host_machine()
                 break
 
-
-def restart_if_slow_instance(instance):
-    global current_instance_duration
-    start_time = time()
-    while instance not in available_instances:
-        sleep(1)
-        current_instance_duration = int(time() - start_time)
-        if current_instance_duration >= 350: 
-            Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 350',)).start()
-            __restart_host_machine()
-            break
-    current_instance_duration = 'waiting'
 
 
 def send_debug_data(text, additional_comment: str = ''):
@@ -204,7 +190,7 @@ def __get_global_ip():
 
 
 def run_instance(instance_name):
-    global available_instances, success, failure, comment, chrome_cleared
+    global available_instances, success, failure, comment
     try:
         instance_connection = force_connect_server('tcp')
         __send_to_connection(instance_connection, b'2')
@@ -221,7 +207,6 @@ def run_instance(instance_name):
         success += s
         failure += f
         available_instances.append(instance_name)
-        # chrome_cleared = True
     except Exception as e:
         Thread(target=send_debug_data, args=(repr(e), 'run_instance',)).start()
 
@@ -323,22 +308,9 @@ def send_data():
                 update_cpu_ram()
                 uptime_calculator()
                 ss = ImageGrab.grab().resize(size=WEBSITE_IMG_SIZE).tobytes()
-                current_data = {'public_ip': current_ip,
-                                'success': success,
-                                'failure': failure,
-                                'cpu': host_cpu,
-                                'ram': host_ram,
-                                'working_cond': working_cond[continue_spam],
-                                'uptime': uptime,
-                                'current_instance_duration': current_instance_duration
-                                }
-                """items = list(current_data.keys())
-                for key in items:
-                    if key in last_sent_data and last_sent_data[key] == current_data[key]:
-                        del current_data[key]
-                    else:
-                        last_sent_data[key] = current_data[key]"""
-                current_data['img'] = ss
+                current_data = {'public_ip': current_ip, 'success': success, 'failure': failure, 'cpu': host_cpu,
+                                'ram': host_ram, 'working_cond': working_cond[continue_spam], 'uptime': uptime,
+                                'img': ss}
                 __send_to_connection(send_data_connection, str(current_data).encode())
         except:
             break
@@ -364,15 +336,15 @@ while True:
             comment = ''
             next_ip_reset += randrange(1, 3)
         update_cpu_ram()
-        if len(available_instances) == len(total_instances) and host_cpu <= 90 and host_ram <= 90 and type(ping('8.8.8.8')) == float and current_instance_duration== 'waiting':
+        if len(available_instances) == len(total_instances) and host_cpu <= 90 and host_ram <= 90 and type(ping('8.8.8.8')) == float:
             try:
                 instance = choice(available_instances)
                 instance_start_time = time()
                 available_instances.remove(instance)
                 sock = force_connect_server('tcp')
                 __send_to_connection(sock, b'8')
-                Thread(target=restart_if_slow_instance, args=(instance,)).start()
                 Thread(target=run_instance, args=(instance,)).start()
+
             except Exception as e:
                 Thread(target=send_debug_data, args=(repr(e), 'runner main loop',)).start()
         else:
