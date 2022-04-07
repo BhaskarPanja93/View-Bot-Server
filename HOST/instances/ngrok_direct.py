@@ -83,13 +83,13 @@ def run(host_ip, img_dict):
             elif os_type == 'Windows':
                 __send_to_connection(sock, b'6')
             __send_to_connection(sock, img_name.encode())
-            if 'version' in img_dict:
-                __send_to_connection(sock, img_dict[img_name]['version'].encode())
+            if img_name in img_dict and 'version' in img_dict[img_name]:
+                __send_to_connection(sock, img_dict[img_name]['version'])
             else:
-                __send_to_connection(sock, b'x')
-            version = __receive_from_connection(sock).decode()
+                __send_to_connection(sock, b'0')
+            version = __receive_from_connection(sock)
             if version != b'x':
-                size = int(__receive_from_connection(sock))
+                size = eval(__receive_from_connection(sock))
                 img_bytes = __receive_from_connection(sock)
                 img_dict[img_name] = {}
                 img_dict[img_name]['size'] = size
@@ -103,7 +103,8 @@ def run(host_ip, img_dict):
                 return pyautogui.locateAllOnScreen(img_bytes, confidence=confidence, region=region)
             else:
                 return pyautogui.locateOnScreen(img_bytes, confidence=confidence, region=region)
-        except:
+        except Exception as e:
+            send_debug_data(f'{repr(e)}')
             return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
 
 

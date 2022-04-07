@@ -19,8 +19,8 @@ BUFFER_SIZE = 1024*10
 HOST_PORT = 59999
 WEB_PORT = 60000
 vm_ip_ranges = [10, 50]
-MIN_RAM_ALLOWED = 40
-MAX_RAM_ALLOWED = 55
+MIN_RAM_ALLOWED = 30
+MAX_RAM_ALLOWED = 45
 INDIVIDUAL_VM_RAM = 7
 
 website_url = ''
@@ -257,27 +257,28 @@ def accept_connections_from_locals():
                 __send_to_connection(connection, f'{website_url}/website{randrange(0, 100)}.html'.encode())
             elif request_code == 5:
                 img_name = __receive_from_connection(connection).decode()
-                version = __receive_from_connection(connection).decode()
+                version = __receive_from_connection(connection)
                 if (img_name not in linux_img_files) or (
                         path.getmtime(f'images/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
                     linux_img_files[img_name] = {}
-                    linux_img_files[img_name]['version'] = path.getmtime(f'images/Linux/{img_name}.PNG')
+                    linux_img_files[img_name]['version'] = str(
+                        path.getmtime(f'images/Linux/{img_name}.PNG')).encode()
                     linux_img_files[img_name]['file'] = Image.open(f'images/Linux/{img_name}.PNG')
                 if version != linux_img_files[img_name]['version']:
-                    __send_to_connection(connection, linux_img_files[img_name]['version'].encode())
+                    __send_to_connection(connection, linux_img_files[img_name]['version'])
                     __send_to_connection(connection, str(linux_img_files[img_name]['file'].size).encode())
                     __send_to_connection(connection, linux_img_files[img_name]['file'].tobytes())
                 else:
                     __send_to_connection(connection, b'x')
             elif request_code == 6:
                 img_name = __receive_from_connection(connection).decode()
-                version = __receive_from_connection(connection).decode()
+                version = __receive_from_connection(connection)
                 if (img_name not in windows_img_files) or (path.getmtime(f'images/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
                     windows_img_files[img_name] = {}
-                    windows_img_files[img_name]['version'] = path.getmtime(f'images/Windows/{img_name}.PNG')
+                    windows_img_files[img_name]['version'] = str(path.getmtime(f'images/Windows/{img_name}.PNG')).encode()
                     windows_img_files[img_name]['file'] = Image.open(f'images/Windows/{img_name}.PNG')
                 if version != windows_img_files[img_name]['version']:
-                    __send_to_connection(connection, windows_img_files[img_name]['version'].encode())
+                    __send_to_connection(connection, windows_img_files[img_name]['version'])
                     __send_to_connection(connection, str(windows_img_files[img_name]['file'].size).encode())
                     __send_to_connection(connection, windows_img_files[img_name]['file'].tobytes())
                 else:
