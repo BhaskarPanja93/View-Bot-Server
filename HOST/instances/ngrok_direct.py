@@ -50,19 +50,6 @@ def run(host_ip):
         connection.send(b'-')
         return data_bytes
 
-    def temp_remove_possibility(item, duration=0):
-        data = possible_screen_conditions[item]
-        possible_screen_conditions[item] = []
-        if duration != 0:
-            _ = 0
-            while not success and not failure and _ != duration:
-                sleep(1)
-                _ += 1
-            possible_screen_conditions[item] = data
-            del data
-        else:
-            del data
-
 
     def __close_chrome_safe():
         for sign in ['chrome close region 1', 'chrome close region 2']:
@@ -170,7 +157,6 @@ def run(host_ip):
     typing_speed = 0.06
     try:
         possible_screen_conditions = {
-            'chrome_push_ads': ['chrome push ads region'],
             'clear_chrome_cookies': ['reset settings'],
             'enable_extensions': ['enable extensions'],
             'google_captcha': ['google captcha'],
@@ -187,6 +173,7 @@ def run(host_ip):
             'chrome_restore': ['chrome restore 1', 'chrome restore 2'],
             'force_restart_system': [],
             'nothing_opened': ['chrome icon'],
+            'chrome_push_ads': ['chrome push ads region']
         }
         while not success and not failure:
             coordinates = [0, 0, 0, 0]
