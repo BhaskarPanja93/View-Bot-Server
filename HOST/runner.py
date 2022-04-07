@@ -24,6 +24,7 @@ comment = current_ip = last_ip = ''
 continue_spam = True
 total_instances = ['ngrok_direct']
 available_instances = ['ngrok_direct']
+img_dict = {}
 
 os_type = system()
 
@@ -190,7 +191,7 @@ def __get_global_ip():
 
 
 def run_instance(instance_name):
-    global available_instances, success, failure, comment
+    global available_instances, success, failure, comment, img_dict
     try:
         instance_connection = force_connect_server('tcp')
         __send_to_connection(instance_connection, b'2')
@@ -202,7 +203,7 @@ def run_instance(instance_name):
         instance_connection.close()
         del instance_connection
         import instance
-        instance_name, s, f, comment = instance.run(host_ip=host_ip)
+        instance_name, s, f, comment, img_dict = instance.run(host_ip=host_ip, img_dict=img_dict)
         del instance
         success += s
         failure += f

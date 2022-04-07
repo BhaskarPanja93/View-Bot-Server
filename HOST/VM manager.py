@@ -1,9 +1,7 @@
 from platform import system
 from PIL import Image, ImageGrab
-from ping3 import ping
-from pyautogui import size
 from turbo_flask import Turbo
-from os import system as system_caller, getcwd, pardir, popen
+from os import system as system_caller, popen
 from os import path
 import socket
 from random import choice, randrange
@@ -13,8 +11,7 @@ from psutil import virtual_memory
 from psutil import cpu_percent as cpu
 from flask import Flask, render_template, request, redirect, send_file
 from pyngrok import ngrok, conf
-from requests import get, post
-from selenium import webdriver
+from requests import get
 
 
 WEBSITE_IMG_SIZE = (320, 180)
@@ -22,31 +19,20 @@ BUFFER_SIZE = 1024*10
 HOST_PORT = 59999
 WEB_PORT = 60000
 vm_ip_ranges = [10, 50]
-vm_disabled = []
-website_url = ''
-vm_with_vpn_issue = []
-current_session = []
-host_data = host_cpu = host_ram = ''
-FORCE_CLOSE_ALL_VMS = False
-CURRENT_FORCE_CLOSE_ACTION = ""
-old_current_vm_data = []
-active_ips = []
-reported_ips = []
-html_data = ''
-current_host_data = {}
-current_active_vm_count = 0
-last_vm_data = {}
-current_vm_data = {}
-vm_data_update_connections = {}
-ONE_CLICK_START_BOOL = True
 MIN_RAM_ALLOWED = 40
 MAX_RAM_ALLOWED = 55
 INDIVIDUAL_VM_RAM = 7
+
+website_url = ''
+vm_with_vpn_issue = []
+old_current_vm_data = []
+reported_ips = []
+last_vm_data = {}
+vm_data_update_connections = {}
+ONE_CLICK_START_BOOL = True
 vm_ip_assign_counter = vm_ip_ranges[0]
-current_activity = ''
 last_one_click_start_data = ''
-last_activity = ''
-last_host_data = ''
+last_host_data = {}
 last_vm_activity = ''
 
 """from importlib import import_module
@@ -79,27 +65,6 @@ del import_module"""
 
 
 os_type = system()
-
-
-def __restart_host_machine(duration=0):
-    if os_type == 'Linux':
-        system_caller('systemctl reboot -i')
-    elif os_type == 'Windows':
-        system_caller(f'shutdown -r -f -t {duration}')
-
-
-def __shutdown_host_machine(duration=0):
-    if os_type == 'Linux':
-        system_caller("shutdown now -h")
-    elif os_type == 'Windows':
-        system_caller(f'shutdown -s -f -t {duration}')
-
-
-def __close_all_chrome():
-    if os_type == 'Linux':
-        system_caller("pkill chrome")
-    elif os_type == 'Windows':
-        system_caller('taskkill /F /IM "chrome.exe" /T')
 
 
 def __send_to_connection(connection, data_bytes: bytes):
@@ -194,7 +159,7 @@ def return_stopped_vms():
 
 vm_stop_queue = []
 def start_vm(_id):
-    if _id not in vm_stop_queue:
+    if _id not in vm_stop_queue and _id != 'adf':
         system_caller(f'vboxmanage startvm {_id} --type headless')
 
 
@@ -227,31 +192,6 @@ def manage_1_click_start_stop_of_vms():
                 count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
                 for _ in range(count):
                     start_vm(choice(return_stopped_vms()))
-                #sleep(3)
-
-
-"""def manage_1_click_start_stop_of_vms():
-    global ONE_CLICK_START_BOOL, current_activity, manage_1_click_counter
-    LAST_BOOL = not ONE_CLICK_START_BOOL
-    while True:
-        if LAST_BOOL != ONE_CLICK_START_BOOL:
-            LAST_BOOL = ONE_CLICK_START_BOOL
-            manage_1_click_counter = 0
-        if ONE_CLICK_START_BOOL:
-            if manage_1_click_counter == 30:
-                manage_1_click_counter = 0
-                start_action('start', 'random_vm')
-                current_activity = f'{ctime()} start'
-        else:
-            start_action('SD', 'all_vm')
-            current_activity = f'{ctime()} sd'
-            if manage_1_click_counter == 40:
-                manage_1_click_counter = 0
-                start_action('poweroff', 'all_vm')
-                current_activity = f'{ctime()} poweroff'
-        manage_1_click_counter += 1
-        sleep(1)"""
-
 
 
 
@@ -317,20 +257,31 @@ def accept_connections_from_locals():
                 __send_to_connection(connection, f'{website_url}/website{randrange(0, 100)}.html'.encode())
             elif request_code == 5:
                 img_name = __receive_from_connection(connection).decode()
-                if (img_name not in linux_img_files) or (path.getmtime(f'images/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
+                version = __receive_from_connection(connection).decode()
+                if (img_name not in linux_img_files) or (
+                        path.getmtime(f'images/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
                     linux_img_files[img_name] = {}
                     linux_img_files[img_name]['version'] = path.getmtime(f'images/Linux/{img_name}.PNG')
                     linux_img_files[img_name]['file'] = Image.open(f'images/Linux/{img_name}.PNG')
-                __send_to_connection(connection, str(linux_img_files[img_name]['file'].size).encode())
-                __send_to_connection(connection, linux_img_files[img_name]['file'].tobytes())
+                if version != linux_img_files[img_name]['version']:
+                    __send_to_connection(connection, linux_img_files[img_name]['version'].encode())
+                    __send_to_connection(connection, str(linux_img_files[img_name]['file'].size).encode())
+                    __send_to_connection(connection, linux_img_files[img_name]['file'].tobytes())
+                else:
+                    __send_to_connection(connection, b'x')
             elif request_code == 6:
                 img_name = __receive_from_connection(connection).decode()
+                version = __receive_from_connection(connection).decode()
                 if (img_name not in windows_img_files) or (path.getmtime(f'images/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
                     windows_img_files[img_name] = {}
                     windows_img_files[img_name]['version'] = path.getmtime(f'images/Windows/{img_name}.PNG')
                     windows_img_files[img_name]['file'] = Image.open(f'images/Windows/{img_name}.PNG')
-                __send_to_connection(connection, str(windows_img_files[img_name]['file'].size).encode())
-                __send_to_connection(connection, windows_img_files[img_name]['file'].tobytes())
+                if version != windows_img_files[img_name]['version']:
+                    __send_to_connection(connection, windows_img_files[img_name]['version'].encode())
+                    __send_to_connection(connection, str(windows_img_files[img_name]['file'].size).encode())
+                    __send_to_connection(connection, windows_img_files[img_name]['file'].tobytes())
+                else:
+                    __send_to_connection(connection, b'x')
             elif request_code == 7:
                 text = __receive_from_connection(connection).decode()
                 connection.close()
@@ -348,7 +299,6 @@ def accept_connections_from_locals():
                 else:
                     vm_with_vpn_issue.remove(local_ip)
                     __send_to_connection(connection, b'sd')
-                    vm_disabled.append(local_ip)
             elif request_code == 11:
                 pass
             elif request_code == 99:
@@ -450,68 +400,8 @@ def start_action(action, target):
 
 
 
-def recreate_html():
-    global html_data
-    html_data = f'''
-<html>
-<head>
-<style>
-input[type="submit"], input[type="button"], td, th {{
-font-size: 18px;
-}}
-table, th, td {{
-border: 3px solid black;
-align: center;
-}}
-button{{
-background-color: yellow;
-}}
-</style>
-<title>vm manager
-</title>
-{{{{turbo()}}}}
-</head>
-<body>
-<div id="last_activity"></div>
-<div id="vm_activities"></div>
-<div id="1_click_data"></div>
-<div id="vm_data"></div>
-<table>
-<tr>
-<td>Host IP
-<td>Public IP
-<td>CPU(%)
-<td>RAM(%)
-<td>Options
-<td>Displays
-</tr>
-<tr>
-<td><div id="host_local_ip"></div></td>
-<td><div id="host_public_ip"></div></td>
-<td><div id="host_cpu"></div></td>
-<td><div id="host_ram"></div></td>
-<td><form method="POST" action="/auto_action/">
-<button name="clone" value="clone" style="width:100%; border: 3px solid black">Clone</button>
-<button name="assign_ips" value="assign_ips" style="width:100%; border: 3px solid black">Assign IPs</br>Current: <div id='vm_ip_assign_counter'></div></button>
-</form></td>
-<td><div id="host_image"></div></td>
-</tr>
-</table>
-<form method="POST" action="/manual_action/">
-Manual Action Script:</br>
-action: <input type="text" name="action"></br>
-target: <input type="text" name="target">
-<button onclick="/manual_action/">Go</button>
-</form></br></br>
-</form>
-</body>
-</html>'''
-    with open('templates/base.html','w') as file:
-        file.write(html_data)
-
-
 def update_flask_page():
-    global host_public_ip, current_vm_data, last_vm_data, current_host_data, last_host_data, last_vm_activity, old_current_vm_data, reported_ips, active_ips, host_local_ip, host_data, host_cpu, host_ram, current_activity, last_activity, last_one_click_start_data
+    global host_public_ip, last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, reported_ips, host_local_ip, last_one_click_start_data
     def receive_data(vm_ip):
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], str(WEBSITE_IMG_SIZE).encode())
@@ -557,9 +447,6 @@ def update_flask_page():
                     last_one_click_start_data = ONE_CLICK_START_DATA
                     turbo_app.push(turbo_app.update(ONE_CLICK_START_DATA, '1_click_data'))
                 current_vm_activity = f"""{len(current_vm_data)} Working </br>"""
-                if current_activity != last_activity:
-                    turbo_app.push(turbo_app.update(current_activity, 'last_activity'))
-                    last_activity = current_activity
                 if current_vm_activity != last_vm_activity:
                     turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'))
                     last_vm_activity = current_vm_activity
@@ -694,7 +581,6 @@ def update_flask_page():
             sleep(0.5)
 
 
-recreate_html()
 app = Flask(__name__)
 turbo_app = Turbo(app)
 @app.route('/')
@@ -702,12 +588,11 @@ turbo_app = Turbo(app)
 @app.route('/auto_action/', methods=['GET'])
 @app.route('/refresh/', methods=['GET'])
 def refresh():
-    global last_activity, old_current_vm_data, last_vm_activity, last_host_data, last_one_click_start_data, last_vm_data, reported_ips
+    global old_current_vm_data, last_vm_activity, last_host_data, last_one_click_start_data, last_vm_data, reported_ips
     reported_ips = []
     last_vm_data = {}
     last_vm_activity = ''
     last_one_click_start_data = ''
-    last_activity = ''
     old_current_vm_data = []
     last_host_data = {'host_local_ip': '',
                       'host_public_ip': '',
@@ -731,144 +616,7 @@ def auto_action():
     return redirect('/')
 
 
-@app.route('/manual_action/', methods=['POST'])
-def manual_action():
-    action = request.form.to_dict()['action'].upper()
-    target = request.form.to_dict()['target'].upper()
-    auto_action(action, target)
-    return redirect('/')
 
-
-###############################################################
-
-
-
-working_streams = closed_streams = []
-def twitch_viewer():
-    global working_streams, closed_streams
-    streamers = {'Flights1': 'https://www.twitch.tv/flights1',
-                 'JASONR': 'https://www.twitch.tv/jasonr',
-                 'vanity': 'https://www.twitch.tv/vanity',
-                 'karagii': 'https://www.twitch.tv/karagii',
-                 'steel_tv': 'https://www.twitch.tv/steel_tv',
-                 'kyedae': 'https://www.twitch.tv/kyedae',
-                 'sinatraa': 'https://www.twitch.tv/sinatraa',
-                 'TenZ': 'https://www.twitch.tv/tenz',
-                 'zombs': 'https://www.twitch.tv/zombs',
-                 'AsunaWEEB': 'https://www.twitch.tv/asunaweeb',
-                 'Hiko': 'https://www.twitch.tv/hiko',
-                 'AverageJonas': 'https://www.twitch.tv/averagejonas',
-                 'dapr': 'https://www.twitch.tv/dapr',
-                 'ShahZam': 'https://www.twitch.tv/shahzam',
-                 'SicK_cs': 'https://www.twitch.tv/sick_cs',
-                 'VALORANT': 'https://www.twitch.tv/valorant',
-                 'a_babybay': 'https://www.twitch.tv/a_babybay',
-                 'valorantesports2': 'https://www.twitch.tv/valorantesports2',
-                 'nosyy': 'https://www.twitch.tv/nosyy',
-                 'codey': 'https://www.twitch.tv/codey',
-                 'Laski': 'https://www.twitch.tv/laski',
-                 'PureVNS': 'https://www.twitch.tv/purevns',
-                 'LadiffTV': 'https://www.twitch.tv/ladifftv',
-                 'ErycTriceps': 'https://www.twitch.tv/eryctriceps',
-                 'HowToNoodle': 'https://www.twitch.tv/howtonoodle',
-                 'WARDELL': 'https://www.twitch.tv/wardell',
-                 'VALORANT_Esports_TR': 'https://www.twitch.tv/valorant_esports_tr',
-                 'FlowAscending': 'https://www.twitch.tv/flowascending',
-                 'jessica': 'https://www.twitch.tv/jessica',
-                 'geeza': 'https://www.twitch.tv/geeza',
-                 'cNed': 'https://www.twitch.tv/cned',
-                 'Grimm': 'https://www.twitch.tv/grimm',
-                 'TheBcJ': 'https://www.twitch.tv/thebcj',
-                 'valorantesports3': 'https://www.twitch.tv/valorantesports3',
-                 'nerdstreet': 'https://www.twitch.tv/nerdstreet',
-                 'mustbearockstar': 'https://www.twitch.tv/mustbearockstar',
-                 'LotharHS': 'https://www.twitch.tv/lotharhs',
-                 'joona': 'https://www.twitch.tv/joona',
-                 'Emmyuh': 'https://www.twitch.tv/emmyuh',
-                 'ArrumieShannon': 'https://www.twitch.tv/arrumieshannon',
-                 'valorantesports4': 'https://www.twitch.tv/valorantesports4',
-                 'PROD': 'https://www.twitch.tv/prod',
-                 'Subroza':'https://www.twitch.tv/subroza',
-                 'tarik': 'https://www.twitch.tv/tarik'
-                 }
-    count = 0
-    open_tabs = {}
-    driver = webdriver.Chrome()
-    while True:
-        try:
-            if count % 3 == 0:
-                working_streams = []
-                closed_streams = sorted(streamers)
-                try:
-                    driver.quit()
-                except:
-                    pass
-                screen_x, screen_y = size()
-                cookie = "--user-data-dir=" + path.abspath(path.join(getcwd(), pardir)) + '/twitch viewbot cache'
-                chrome_options = webdriver.ChromeOptions()
-                chrome_options.add_argument('no-sandbox')
-                chrome_options.add_argument(cookie)
-                chrome_options.add_argument('--log-level=3')
-                chrome_options.add_argument("--mute-audio")
-                driver = webdriver.Chrome(options=chrome_options)
-                driver.set_window_position(screen_x, screen_y, windowHandle='current')
-            count += 1
-            while type(ping('twitch.tv')) != float:
-                sleep(1)
-            HEADERS = {'client-id': 'kimne78kx3ncx6brgo4mv6wki5h1ko'}
-            for name in streamers:
-                QUERY = {
-                    'query': """
-                            query($login: String) {
-                                user(login: $login) {
-                                    stream {
-                                        id
-                                    }
-                                }
-                            }
-                            """,
-                    'variables': {
-                        'login': name
-                    }
-                }
-                response = post('https://gql.twitch.tv/gql', json=QUERY, headers=HEADERS)
-                if (not response.json()['data']['user']) or (not response.json()['data']['user']['stream']):  ###offline
-                    if name in working_streams:
-                        try:
-                            driver.switch_to.window(open_tabs[name])
-                            driver.close()
-                            working_streams.remove(name)
-                            closed_streams.append(name)
-                            del open_tabs[name]
-                        except Exception as e:
-                            debug_host(repr(e))
-                else:  ###online
-                    if name in closed_streams:
-                        try:
-                            unique_tab_name = name + str(randrange(0, 1000))
-                            open_tabs[name] = unique_tab_name
-                            driver.execute_script(f"window.open('{streamers[name]}', '{unique_tab_name}');")
-                            working_streams.append(name)
-                            closed_streams.remove(name)
-                        except Exception as e:
-                            debug_host(repr(e))
-            for i in range(5):
-                for unique_tab_name in sorted(open_tabs):
-                    driver.switch_to.window(open_tabs[unique_tab_name])
-                    if i ==0 :
-                        driver.refresh()
-                        sleep(20)
-                    else:
-                        sleep(5)
-            sleep(10 * 60)
-        except Exception as e:
-            debug_host(repr(e))
-
-
-
-# Thread(target=change_all_ids).start()
-Thread(target=twitch_viewer).start()
-#Thread(target=manage_timed_run_of_vms).start()
 Thread(target=manage_1_click_start_stop_of_vms).start()
 Thread(target=update_flask_page).start()
 Thread(target=change_ids).start()

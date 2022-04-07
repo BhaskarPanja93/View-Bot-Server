@@ -15,7 +15,7 @@ os_type = system()
 start_time = last_change_timing = time()
 
 
-def run(host_ip):
+def run(host_ip, img_dict):
     global start_time, last_change_timing
     link = ''
     from os import remove
@@ -74,7 +74,7 @@ def run(host_ip):
         except:
             pass
 
-    def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None):
+    def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
         sock = force_connect_server('tcp')
         try:
             sock.settimeout(10)
@@ -83,19 +83,28 @@ def run(host_ip):
             elif os_type == 'Windows':
                 __send_to_connection(sock, b'6')
             __send_to_connection(sock, img_name.encode())
-            size = eval(__receive_from_connection(sock))
-            img_data = __receive_from_connection(sock)
-            try:
-                img_data = Image.frombytes(mode="RGBA", size=size, data=img_data, decoder_name='raw')
-            except:
-                img_data = Image.frombytes(mode="RGB", size=size, data=img_data, decoder_name='raw')
-
-            if all_findings:
-                return pyautogui.locateAllOnScreen(img_data, confidence=confidence, region=region)
+            if 'version' in img_dict:
+                __send_to_connection(sock, img_dict[img_name]['version'].encode())
             else:
-                return pyautogui.locateOnScreen(img_data, confidence=confidence, region=region)
+                __send_to_connection(sock, b'x')
+            version = __receive_from_connection(sock).decode()
+            if version != b'x':
+                size = int(__receive_from_connection(sock))
+                img_bytes = __receive_from_connection(sock)
+                img_dict[img_name] = {}
+                img_dict[img_name]['size'] = size
+                img_dict[img_name]['version'] = version
+                img_dict[img_name]['file'] = img_bytes
+            try:
+                img_bytes = Image.frombytes(mode="RGBA", size=img_dict[img_name]['size'], data=img_dict[img_name]['file'], decoder_name='raw')
+            except:
+                img_bytes = Image.frombytes(mode="RGB", size=img_dict[img_name]['size'], data=img_dict[img_name]['file'], decoder_name='raw')
+            if all_findings:
+                return pyautogui.locateAllOnScreen(img_bytes, confidence=confidence, region=region)
+            else:
+                return pyautogui.locateOnScreen(img_bytes, confidence=confidence, region=region)
         except:
-            return __find_image_on_screen(img_name, all_findings, confidence, region)
+            return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
 
 
     def __click(location, position='center'):
@@ -341,4 +350,4 @@ def run(host_ip):
         failure = True
         comment = ''
         Thread(target=send_debug_data, args=(sign, f' exception {repr(e)} failure',)).start()
-    return ['ngrok_direct', int(success), int(failure), comment]
+    return ['ngrok_direct', int(success), int(failure), comment, img_dict]
