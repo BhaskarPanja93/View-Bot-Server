@@ -285,11 +285,11 @@ def accept_connections_from_locals():
             elif request_code == 7:
                 text = __receive_from_connection(connection).decode()
                 connection.close()
-                f = open(f'static/texts/{local_ip} current.txt', 'a')
+                f = open(f'condition_imgs/texts/{local_ip} current.txt', 'a')
                 f.write(f'[{ctime()}] : {text}\n')
                 f.close()
             elif request_code == 8:
-                open(f'static/texts/{local_ip} current.txt', 'w').close()
+                open(f'condition_imgs/texts/{local_ip} current.txt', 'w').close()
             elif request_code == 9:
                 __send_to_connection(connection, host_public_ip.encode())
             elif request_code == 10:
@@ -406,7 +406,8 @@ def update_flask_page():
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], str(WEBSITE_IMG_SIZE).encode())
             info = eval(__receive_from_connection(vm_data_update_connections[vm_ip]))
-            Image.frombytes(mode="RGB", data=info['img'], size=WEBSITE_IMG_SIZE).save(f'static/images/{vm_ip}.JPEG')
+            Image.frombytes(mode="RGB", data=info['img'], size=WEBSITE_IMG_SIZE).save(
+                f'condition_imgs/images/{vm_ip}.JPEG')
             info['local_ip'] = vm_ip
             del info['img']
             current_vm_data[vm_ip] = info
@@ -422,7 +423,7 @@ def update_flask_page():
             try:
                 current_vm_data = {}
                 active_ips = []
-                ImageGrab.grab().resize(WEBSITE_IMG_SIZE).save('static/images/host.JPEG')
+                ImageGrab.grab().resize(WEBSITE_IMG_SIZE).save('condition_imgs/images/host.JPEG')
                 host_cpu = cpu(percpu=False)
                 host_ram = virtual_memory()[2]
                 targets = sorted(vm_data_update_connections)
@@ -604,7 +605,7 @@ def refresh():
 @app.route('/image', methods=['GET'])
 def send_image_of_target():
     target=request.args.get('target')
-    return send_file(f'static/images/{target}.JPEG')
+    return send_file(f'condition_imgs/images/{target}.JPEG')
 
 
 @app.route('/auto_action/', methods=['POST'])

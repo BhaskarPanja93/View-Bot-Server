@@ -174,8 +174,8 @@ else:
                     Thread(target=send_debug_data, args=(f"main exception 1 {repr(e)}",)).start()
                     input()
         print('loop over')
-        system_caller(f'netsh interface ip set address "Ethernet" static {ip_initial}{new_ip_part} 255.255.255.0 {ip_initial}1')
-        system_caller('netsh interface ip set dnsservers "Ethernet" static 8.8.8.8 primary')
+        system_caller(f'netsh interface ip set address "Ethernet" condition_imgs {ip_initial}{new_ip_part} 255.255.255.0 {ip_initial}1')
+        system_caller('netsh interface ip set dnsservers "Ethernet" condition_imgs 8.8.8.8 primary')
         sleep(5)
         __shutdown_host_machine(10)
     else:
