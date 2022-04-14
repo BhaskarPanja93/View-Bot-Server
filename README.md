@@ -1,5 +1,5 @@
 # AdflyViewBot
-Contact me if you ahve any problem using this...
+Contact me if you have any problem using this...
 
 Fully Functional Adfly View-Bot mechanism(perpetual)
 Simulate human clicks(No-Ban)
