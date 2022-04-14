@@ -13,10 +13,10 @@ How to use:
 
 How to create the Virtual Machine:
 * Download Oracle VM Virtualbox and create a new VirtualMachine, I use Windows server 2018 for the VirtualMachine(it is the most lightweight), 1.6GB RAM, 14GB SSD Storage, 2 CPU Cores, Bridged Network(DHCP) for each VirtualMachine
-</br>Note the VM must be Windows as of now. Linux based OS is not supported for VM. Host can be anything though**
+</br>*Note the VM must be Windows as of now. Linux based OS is not supported for VM. Host can be anything though*
 * Download and install Chrome, Python and WindscribeVPN in the VM, links later in this document. Pin Chrome to taskbar (Thats what i used to simulate running Chrome to prevent being a bot). Login to Windscribe in the app (Windscribe is the easiest to use). Add the folder you installed Windscribe in to PATH. 
 * For windows run "shell:startup" in cmd and paste the final_main.py file in it.
-</br>This will make sure even if the VM restarts, the bot starts again**
+</br>*This will make sure even if the VM restarts, the bot starts again**
 
 
 Thats it!!
