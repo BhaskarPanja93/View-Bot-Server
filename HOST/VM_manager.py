@@ -1,8 +1,8 @@
 from platform import system
 from PIL import Image, ImageGrab
 from turbo_flask import Turbo
-from os import system as system_caller, popen
-from os import path
+from os import system as system_caller
+from os import path, popen, getcwd
 import socket
 from random import choice, randrange
 from threading import Thread
@@ -95,7 +95,7 @@ for i in socket.gethostbyname_ex(socket.gethostname())[-1]:
 
 def debug_host(text:str):
     print(text)
-    with open('debug/host.txt', 'a') as file:
+    with open('debugging/host.txt', 'a') as file:
         file.write(f'[{ctime()}] : {text}\n')
 
 
@@ -233,16 +233,16 @@ def accept_connections_from_locals():
         try:
             request_code = int(__receive_from_connection(connection))
             if request_code == 0:
-                if ('final_main.py' not in local_python_files) or (path.getmtime('../CLIENT/final_main.py') != local_python_files['final_main.py']['version']):
+                if ('final_main.py' not in local_python_files) or (path.getmtime('CLIENT/final_main.py') != local_python_files['final_main.py']['version']):
                     local_python_files['final_main.py'] = {}
-                    local_python_files['final_main.py']['version'] = path.getmtime('../CLIENT/final_main.py')
-                    local_python_files['final_main.py']['file'] = open('../CLIENT/final_main.py', 'rb').read()
+                    local_python_files['final_main.py']['version'] = path.getmtime('CLIENT/final_main.py')
+                    local_python_files['final_main.py']['file'] = open('CLIENT/final_main.py', 'rb').read()
                 __send_to_connection(connection, local_python_files['final_main.py']['file'])
             elif request_code == 1:
-                if ('runner.py' not in local_python_files) or (path.getmtime('runner.py') != local_python_files['runner.py']['version']):
+                if ('runner.py' not in local_python_files) or (path.getmtime('CLIENT/runner.py') != local_python_files['runner.py']['version']):
                     local_python_files['runner.py'] = {}
-                    local_python_files['runner.py']['version'] = path.getmtime('runner.py')
-                    local_python_files['runner.py']['file'] = open('runner.py', 'rb').read()
+                    local_python_files['runner.py']['version'] = path.getmtime('CLIENT/runner.py')
+                    local_python_files['runner.py']['file'] = open('CLIENT/runner.py', 'rb').read()
                 __send_to_connection(connection, local_python_files['runner.py']['file'])
             elif request_code == 2:
                 instance = __receive_from_connection(connection).decode()
@@ -255,8 +255,9 @@ def accept_connections_from_locals():
                 text = __receive_from_connection(connection).decode()
                 size = eval(__receive_from_connection(connection))
                 _id = randrange(1, 100000)
-                Image.frombytes(mode="RGB", size=size, data=__receive_from_connection(connection), decoder_name='raw').save(f"debug/images/{_id}.PNG")
-                f = open(f'debug/{local_ip}.txt', 'a')
+                Image.frombytes(mode="RGB", size=size, data=__receive_from_connection(connection), decoder_name='raw').save(
+                    f"debugging/images/{_id}.PNG")
+                f = open(f'debugging/{local_ip}.txt', 'a')
                 f.write(f'[{_id}] : [{ctime()}] : {text}\n')
                 f.close()
             elif request_code == 4:
@@ -264,10 +265,10 @@ def accept_connections_from_locals():
             elif request_code == 5:
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
-                if (img_name not in linux_img_files) or (path.getmtime(f'images/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
+                if (img_name not in linux_img_files) or (path.getmtime(f'req_imgs/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
                     linux_img_files[img_name] = {}
-                    linux_img_files[img_name]['version'] = str(path.getmtime(f'images/Linux/{img_name}.PNG')).encode()
-                    linux_img_files[img_name]['file'] = Image.open(f'images/Linux/{img_name}.PNG')
+                    linux_img_files[img_name]['version'] = str(path.getmtime(f'req_imgs/Linux/{img_name}.PNG')).encode()
+                    linux_img_files[img_name]['file'] = Image.open(f'req_imgs/Linux/{img_name}.PNG')
                 if version != linux_img_files[img_name]['version']:
                     __send_to_connection(connection, linux_img_files[img_name]['version'])
                     __send_to_connection(connection, str(linux_img_files[img_name]['file'].size).encode())
@@ -277,10 +278,10 @@ def accept_connections_from_locals():
             elif request_code == 6:
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
-                if (img_name not in windows_img_files) or (path.getmtime(f'images/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
+                if (img_name not in windows_img_files) or (path.getmtime(f'req_imgs/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
                     windows_img_files[img_name] = {}
-                    windows_img_files[img_name]['version'] = str(path.getmtime(f'images/Windows/{img_name}.PNG')).encode()
-                    windows_img_files[img_name]['file'] = Image.open(f'images/Windows/{img_name}.PNG')
+                    windows_img_files[img_name]['version'] = str(path.getmtime(f'req_imgs/Windows/{img_name}.PNG')).encode()
+                    windows_img_files[img_name]['file'] = Image.open(f'req_imgs/Windows/{img_name}.PNG')
                 if version != windows_img_files[img_name]['version']:
                     __send_to_connection(connection, windows_img_files[img_name]['version'])
                     __send_to_connection(connection, str(windows_img_files[img_name]['file'].size).encode())
@@ -310,6 +311,8 @@ def change_ids(sleep_dur=10 * 60):
     paragraph_lines = open('read only/paragraph.txt', 'rb').read().decode().split('.')
     working_ids = open('read only/working ids.txt', 'r').read().split('\n')
     youtube_links = open('read only/youtube links.txt', 'r').read().split('\n')
+    for _ in range(youtube_links.count('')):
+        youtube_links.remove('')
     while True:
         modify_website_files(paragraph_lines, working_ids, youtube_links)
         restart_ngrok()
@@ -317,14 +320,13 @@ def change_ids(sleep_dur=10 * 60):
 
 
 def modify_website_files(paragraph_lines, working_ids, youtube_links):
-    for _ in range(youtube_links.count('')):
-        youtube_links.remove('')
+
     for html_file_number in range(100):
-        file = open(f'websites/website{html_file_number}.html', 'w')
+        file = open(f'html_files/website{html_file_number}.html', 'w')
         data = ''
         for para_length in range(randrange(400, 1000)):
             data += choice(paragraph_lines) + '.'
-            if randrange(0, 10) % 4 == 0:
+            if randrange(0, 10) % 5 == 0:
                 data += f"<a href='https://{choice(['adf.ly','j.gs', 'q.gs'])}/{choice(working_ids)}/{choice(youtube_links)}'> CLICK HERE </a>"
 
         """<script type="text/javascript">
@@ -366,7 +368,7 @@ def restart_ngrok():
     ngrok.set_auth_token("1sMCB71WhshXdJVe6l4oWIBcBSf_3ohhewzCi9Bzw5dBwUnDY")
     conf.get_default().region = choice(NGROK_SERVER_LOCATIONS)
     ngrok.disconnect(website_url)
-    website_tunnel = ngrok.connect('file:///websites', bind_tls=False)
+    website_tunnel = ngrok.connect('file:///html_files', bind_tls=False)
     website_url = website_tunnel.public_url
     if not website_url:
         restart_ngrok()
@@ -394,7 +396,7 @@ def update_flask_page():
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], str(WEBSITE_IMG_SIZE).encode())
             info = eval(__receive_from_connection(vm_data_update_connections[vm_ip]))
-            Image.frombytes(mode="RGB", data=info['img'], size=WEBSITE_IMG_SIZE).save(f'condition_imgs/images/{vm_ip}.JPEG')
+            Image.frombytes(mode="RGB", data=info['img'], size=WEBSITE_IMG_SIZE).save(f'live_imgs/{vm_ip}.JPEG')
             info['local_ip'] = vm_ip
             del info['img']
             current_vm_data[vm_ip] = info
@@ -409,7 +411,7 @@ def update_flask_page():
         if turbo_app.clients:
             try:
                 current_vm_data = {}
-                ImageGrab.grab().resize(WEBSITE_IMG_SIZE).save('condition_imgs/images/host.JPEG')
+                ImageGrab.grab().resize(WEBSITE_IMG_SIZE).save('live_imgs/host.JPEG')
                 host_cpu = cpu(percpu=False)
                 host_ram = virtual_memory()[2]
                 targets = sorted(vm_data_update_connections)
@@ -567,7 +569,7 @@ def refresh():
 @app.route('/image', methods=['GET'])
 def send_image_of_target():
     target=request.args.get('target')
-    return send_file(f'condition_imgs/images/{target}.JPEG')
+    return send_file(f'live_imgs/{target}.JPEG')
 
 
 @app.route('/auto_action/', methods=['POST'])

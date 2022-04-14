@@ -25,7 +25,7 @@ def run(local_ip):
     globals()['success']=False
     globals()['failure']=False
     screen_x,screen_y=pyautogui.size()
-    img_location='images\\'
+    img_location='req_imgs\\'
     extension='.png'
     pyautogui.FAILSAFE=False
     mouse_movement_speed=0.4
