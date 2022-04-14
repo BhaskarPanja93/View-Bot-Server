@@ -25,6 +25,7 @@ INDIVIDUAL_VM_RAM = 7
 
 website_url = ''
 vm_with_vpn_issue = []
+vpn_disabled_vms = []
 old_current_vm_data = []
 last_vm_data = {}
 vm_data_update_connections = {}
@@ -254,9 +255,8 @@ def accept_connections_from_locals():
             elif request_code == 3:
                 text = __receive_from_connection(connection).decode()
                 size = eval(__receive_from_connection(connection))
-                _id = randrange(1, 100000)
-                Image.frombytes(mode="RGB", size=size, data=__receive_from_connection(connection), decoder_name='raw').save(
-                    f"debugging/images/{_id}.PNG")
+                _id = randrange(1, 1000000)
+                Image.frombytes(mode="RGB", size=size, data=__receive_from_connection(connection), decoder_name='raw').save(f"debugging/images/{_id}.PNG")
                 f = open(f'debugging/{local_ip}.txt', 'a')
                 f.write(f'[{_id}] : [{ctime()}] : {text}\n')
                 f.close()
@@ -296,6 +296,7 @@ def accept_connections_from_locals():
                     __send_to_connection(connection, b'rs')
                 else:
                     vm_with_vpn_issue.remove(local_ip)
+                    vpn_disabled_vms.append(local_ip)
                     __send_to_connection(connection, b'sd')
             elif request_code == 100:
                 vm_data_update_connections[local_ip] = connection
