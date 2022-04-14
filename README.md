@@ -24,13 +24,9 @@ Thats it!!
 
 Links:
 > *Chrome*: https://www.google.com/intl/en_in/chrome
-
 > *Python*: https://www.python.org/ftp/python/3.9.7/python-3.9.7-amd64.exe
-
 > *Windscribe*: https://windscribe.com/download
-
 > *VirtualBox*: https://www.oracle.com/in/virtualization/technologies/vm/downloads/virtualbox-downloads.html
-
 > *Windows Server ISO*: https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server
 
 Contact me if you have any problem using this...
