@@ -161,7 +161,7 @@ def return_stopped_vms():
 
 vm_stop_queue = []
 def start_vm(_id):
-    if _id not in vm_stop_queue and _id != 'adf':
+    if _id not in vm_stop_queue and _id != 'adf' and _id not in vpn_disabled_vms:
         system_caller(f'vboxmanage startvm {_id} --type headless')
 
 
