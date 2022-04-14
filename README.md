@@ -16,7 +16,7 @@ How to create the Virtual Machine:
 </br>*Note the VM must be Windows as of now. Linux based OS is not supported for VM. Host can be anything though*
 * Download and install Chrome, Python and WindscribeVPN in the VM, links later in this document. Pin Chrome to taskbar (Thats what i used to simulate running Chrome to prevent being a bot). Login to Windscribe in the app (Windscribe is the easiest to use). Add the folder you installed Windscribe in to PATH. 
 * For windows run "shell:startup" in cmd and paste the final_main.py file in it.
-</br>*This will make sure even if the VM restarts, the bot starts again**
+</br>*This will make sure even if the VM restarts, the bot starts again*
 
 
 Thats it!!
