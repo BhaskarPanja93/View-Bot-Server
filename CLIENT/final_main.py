@@ -14,11 +14,9 @@ pip.main(['install', 'requests'])
 del pip"""
 
 
-from threading import Thread
 import socket
 from os import system as system_caller
 from platform import system
-from time import sleep
 import pyautogui
 from PIL import Image, ImageGrab
 pyautogui.FAILSAFE = False
@@ -137,48 +135,6 @@ if open('final_main.py', 'rb').read() != main_data:
         main_file.write(main_data)
     system_caller('final_main.py')
 else:
-    try:
-        ip_assign_check = force_connect_server('tcp')
-        __send_to_connection(ip_assign_check, b'99')
-        new_ip_part = __receive_from_connection(ip_assign_check).decode()
-        print(f'{new_ip_part=}')
-    except Exception as e:
-        Thread(target=send_debug_data, args=(f"main exception 1 {repr(e)}",)).start()
-        input()
-    if new_ip_part != 'x':
-        for img_name in ['windscribe_login', 'windscribe_username', 'windscribe_password', 'windscribe_connect']:
-            while True:
-                __close_all_chrome()
-                try:
-                    if img_name == 'windscribe_login':
-                        system_caller('windscribelauncher login')
-                    coordinates = __find_image_on_screen(img_name, confidence=0.8)
-                    if coordinates:
-                        __click(coordinates)
-                        if img_name == 'windscribe_username':
-                            pyautogui.typewrite(f'dummy_email_{new_ip_part}')
-                        elif img_name == 'windscribe_password':
-                            pyautogui.typewrite('aba123aba')
-                            pyautogui.press('enter')
-                        break
-                    else:
-                        if img_name == 'windscribe_connect':
-                            img_name = 'windscribe_news_feed'
-                            coordinates = __find_image_on_screen(img_name, confidence=0.8)
-                            if coordinates:
-                                break
-                            else:
-                                img_name = 'windscribe_connect'
-                                coordinates = __find_image_on_screen(img_name, confidence=0.8)
-                except Exception as e:
-                    Thread(target=send_debug_data, args=(f"main exception 1 {repr(e)}",)).start()
-                    input()
-        print('loop over')
-        system_caller(f'netsh interface ip set address "Ethernet" condition_imgs {ip_initial}{new_ip_part} 255.255.255.0 {ip_initial}1')
-        system_caller('netsh interface ip set dnsservers "Ethernet" condition_imgs 8.8.8.8 primary')
-        sleep(5)
-        __shutdown_host_machine(10)
-    else:
         connection = force_connect_server('tcp')
         __send_to_connection(connection, b'1')
         open('runner.py', 'wb').close()

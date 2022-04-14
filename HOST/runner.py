@@ -278,7 +278,6 @@ def send_data():
     send_data_connection.settimeout(5)
     while True:
         try:
-
             WEBSITE_IMG_SIZE = eval(__receive_from_connection(send_data_connection))
             if WEBSITE_IMG_SIZE == "":
                 pass
@@ -319,7 +318,6 @@ while True:
                 instance_start_time = time()
                 available_instances.remove(instance)
                 sock = force_connect_server('tcp')
-                __send_to_connection(sock, b'8')
                 Thread(target=run_instance, args=(instance,)).start()
 
             except Exception as e:

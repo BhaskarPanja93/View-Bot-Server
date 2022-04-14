@@ -26,7 +26,6 @@ INDIVIDUAL_VM_RAM = 7
 website_url = ''
 vm_with_vpn_issue = []
 old_current_vm_data = []
-reported_ips = []
 last_vm_data = {}
 vm_data_update_connections = {}
 ONE_CLICK_START_BOOL = True
@@ -34,10 +33,11 @@ vm_ip_assign_counter = vm_ip_ranges[0]
 last_one_click_start_data = ''
 last_host_data = {}
 last_vm_activity = ''
+debug_data = ''
+
 
 """from importlib import import_module
-requirements={'selenium':'==3.14.1',
-              'flask':'',
+requirements={'flask':'',
               'subprocess':'',
               'threading':'',
               'socket':'',
@@ -94,6 +94,7 @@ for i in socket.gethostbyname_ex(socket.gethostname())[-1]:
             ip_initial += x + '.'
 
 def debug_host(text:str):
+    print(text)
     with open('debug/host.txt', 'a') as file:
         file.write(f'[{ctime()}] : {text}\n')
 
@@ -179,8 +180,9 @@ def queue_vm_stop(_id):
 
 
 def manage_1_click_start_stop_of_vms():
-    global ONE_CLICK_START_BOOL
+    global ONE_CLICK_START_BOOL, debug_data
     while True:
+        action = ''
         sleep(2)
         if ONE_CLICK_START_BOOL:
             ram = virtual_memory()[2]
@@ -188,10 +190,15 @@ def manage_1_click_start_stop_of_vms():
                 count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
                 for _ in range(count):
                     queue_vm_stop(choice(return_running_vms()))
+                action += f'stop {count}'
             elif ram < MAX_RAM_ALLOWED:
                 count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
                 for _ in range(count):
                     start_vm(choice(return_stopped_vms()))
+                action += f'start {count}'
+            else:
+                action += 'none'
+            debug_data = f"{ctime()} {ram} {action}"
 
 
 
@@ -199,22 +206,21 @@ def accept_connections_from_locals():
     local_python_files = {}
     windows_img_files = {}
     linux_img_files = {}
-    """
-     0:'main_file_check',
-     1:'runner_file_check',
-     2:'instance_file_check',
-     3:'debug_data',
-     4:'ngrok_link_check',
-     5:'linux_image_sender',
-     6:'windows_image_sender',
-     7:'current_state',
-     8:'clear current state file',
-     9: 'public_ip_check',
-     10: 'vpn_issue_checker'
-     11: Vacant
-     99: 'ip_assigning + vpn_login'
-     100:'runner_send_data'
-     """
+
+    '''
+         0:'main_file_check',
+         1:'runner_file_check',
+         2:'instance_file_check',
+         3:'debug_data',
+         4:'ngrok_link_check',
+         5:'linux_image_sender',
+         6:'windows_image_sender',
+         7: 
+         8: 
+         9: 'public_ip_check',
+         10: 'vpn_issue_checker'
+         100:'runner_send_data'
+    '''
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('0.0.0.0', HOST_PORT))
@@ -258,11 +264,9 @@ def accept_connections_from_locals():
             elif request_code == 5:
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
-                if (img_name not in linux_img_files) or (
-                        path.getmtime(f'images/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
+                if (img_name not in linux_img_files) or (path.getmtime(f'images/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
                     linux_img_files[img_name] = {}
-                    linux_img_files[img_name]['version'] = str(
-                        path.getmtime(f'images/Linux/{img_name}.PNG')).encode()
+                    linux_img_files[img_name]['version'] = str(path.getmtime(f'images/Linux/{img_name}.PNG')).encode()
                     linux_img_files[img_name]['file'] = Image.open(f'images/Linux/{img_name}.PNG')
                 if version != linux_img_files[img_name]['version']:
                     __send_to_connection(connection, linux_img_files[img_name]['version'])
@@ -283,14 +287,6 @@ def accept_connections_from_locals():
                     __send_to_connection(connection, windows_img_files[img_name]['file'].tobytes())
                 else:
                     __send_to_connection(connection, b'x')
-            elif request_code == 7:
-                text = __receive_from_connection(connection).decode()
-                connection.close()
-                f = open(f'condition_imgs/texts/{local_ip} current.txt', 'a')
-                f.write(f'[{ctime()}] : {text}\n')
-                f.close()
-            elif request_code == 8:
-                open(f'condition_imgs/texts/{local_ip} current.txt', 'w').close()
             elif request_code == 9:
                 __send_to_connection(connection, host_public_ip.encode())
             elif request_code == 10:
@@ -300,15 +296,6 @@ def accept_connections_from_locals():
                 else:
                     vm_with_vpn_issue.remove(local_ip)
                     __send_to_connection(connection, b'sd')
-            elif request_code == 11:
-                pass
-            elif request_code == 99:
-                if int(str(local_ip).replace(str(ip_initial), '')) > vm_ip_ranges[-1]:
-                    __send_to_connection(connection, str(vm_ip_assign_counter).encode())
-                    print(vm_ip_assign_counter)
-                    vm_ip_assign_counter += 1
-                else:
-                    __send_to_connection(connection, b'x')
             elif request_code == 100:
                 vm_data_update_connections[local_ip] = connection
         except:
@@ -338,7 +325,6 @@ def modify_website_files(paragraph_lines, working_ids, youtube_links):
         for para_length in range(randrange(400, 1000)):
             data += choice(paragraph_lines) + '.'
             if randrange(0, 10) % 4 == 0:
-                # data += f"<a href='https://{choice(youtube_links)}'> CLICK HERE </a>"
                 data += f"<a href='https://{choice(['adf.ly','j.gs', 'q.gs'])}/{choice(working_ids)}/{choice(youtube_links)}'> CLICK HERE </a>"
 
         """<script type="text/javascript">
@@ -361,6 +347,7 @@ def modify_website_files(paragraph_lines, working_ids, youtube_links):
         <TITLE>
         Nothing's here {html_file_number}
         </TITLE>
+        <meta name="referrer" content="origin">
         </HEAD>
         <BODY>
         {data}
@@ -402,13 +389,12 @@ def start_action(action, target):
 
 
 def update_flask_page():
-    global host_public_ip, last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, reported_ips, host_local_ip, last_one_click_start_data
+    global host_public_ip, last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, host_local_ip, last_one_click_start_data, debug_data
     def receive_data(vm_ip):
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], str(WEBSITE_IMG_SIZE).encode())
             info = eval(__receive_from_connection(vm_data_update_connections[vm_ip]))
-            Image.frombytes(mode="RGB", data=info['img'], size=WEBSITE_IMG_SIZE).save(
-                f'condition_imgs/images/{vm_ip}.JPEG')
+            Image.frombytes(mode="RGB", data=info['img'], size=WEBSITE_IMG_SIZE).save(f'condition_imgs/images/{vm_ip}.JPEG')
             info['local_ip'] = vm_ip
             del info['img']
             current_vm_data[vm_ip] = info
@@ -423,7 +409,6 @@ def update_flask_page():
         if turbo_app.clients:
             try:
                 current_vm_data = {}
-                active_ips = []
                 ImageGrab.grab().resize(WEBSITE_IMG_SIZE).save('condition_imgs/images/host.JPEG')
                 host_cpu = cpu(percpu=False)
                 host_ram = virtual_memory()[2]
@@ -452,13 +437,9 @@ def update_flask_page():
                 if current_vm_activity != last_vm_activity:
                     turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'))
                     last_vm_activity = current_vm_activity
-                for ip_address in sorted(current_vm_data):
-                    active_ips.append(ip_address)
-                    if ip_address not in reported_ips:
-                        reported_ips.append(ip_address)
                 if sorted(current_vm_data) != sorted(old_current_vm_data):
                     individual_vms = ''
-                    for ip in sorted(reported_ips):
+                    for ip in sorted(current_vm_data):
                         individual_vms += f'''<tr>
                                 <td>{ip}</td>
                                 <td><div id="{ip}_public_ip"></div></td>
@@ -467,7 +448,6 @@ def update_flask_page():
                                 <td><div id="{ip}_failure"></div></td>
                                 <td><div id="{ip}_cpu"></div></td>
                                 <td><div id="{ip}_ram"></div></td>
-                                <td><div id="{ip}_buttons"></div></td>
                                 <td><div id="{ip}_working_cond"></div></td>
                                 <td><div id="{ip}_image"></div></td>
                                 </tr>
@@ -481,7 +461,6 @@ def update_flask_page():
                             <th>Failure</td>
                             <th>CPU(%)</td>
                             <th>RAM(%)</td>
-                            <th>Options</td>
                             <th>Working State</td>
                             <th>Displays</td>
                             </tr>
@@ -492,70 +471,55 @@ def update_flask_page():
                     last_host_data = {}
                     last_vm_activity = {}
                     old_current_vm_data = current_vm_data
-                for ip in sorted(reported_ips):
-                    if ip in current_vm_data:
-                        if ip not in last_vm_data or last_vm_data[ip] == {}:
-                            last_vm_data[ip] = {}
-                            unassigned_data = f'''<tr><td>{ip}</td>
-                                <td><div id="{ip}_public_ip"></div></td>
-                                <td><div id="{ip}_uptime"></div></td>
-                                <td><div id="{ip}_success"></div></td>
-                                <td><div id="{ip}_failure"></div></td>
-                                <td><div id="{ip}_cpu"></div></td>
-                                <td><div id="{ip}_ram"></div></td>
-                                <td><div id="{ip}_buttons"></div></td>
-                                <td><div id="{ip}_working_cond"></div></td>
-                                <td><div id="{ip}_image"></div></td></tr>
-                                '''
-                            turbo_app.push(turbo_app.update(unassigned_data, f'{ip}_unassigned'))
-                            buttons = f'''<form method="POST" action="/auto_action/">
-                                    <button name="{ip}" value="SD" style="width:100%; border: 3px solid black">sd {ip}</button>
-                                    <button name="{ip}" value="RS" width:100%;="" style="width:100%; border: 3px solid black">rs {ip}</button>
-                                    <button name="{ip}" value="start" width:100%;="" style="width:100%; border: 3px solid black">save {ip}</button>
-                                    </form>'''
-                            turbo_app.push(turbo_app.update(buttons, f'{ip}_buttons'))
-                        for item in ['public_ip', 'uptime', 'success', 'failure', 'cpu', 'ram']:
-                            if item in current_vm_data[ip]:
-                                if item not in last_vm_data[ip] or current_vm_data[ip][item] != last_vm_data[ip][item]:
-                                    turbo_app.push(turbo_app.update(current_vm_data[ip][item], f'{ip}_{item}'))
-                                    last_vm_data[ip][item] = current_vm_data[ip][item]
-                        if 'working_cond' in current_vm_data[ip]:
-                            if 'working_cond' not in last_vm_data[ip] or (current_vm_data[ip]['working_cond'] == 'Working' and last_vm_data[ip]['working_cond'] != 'Working'):
-                                last_vm_data[ip]['working_cond'] = 'Working'
-                                options = f"""<form method="POST" action="/auto_action/">
-                                <select name="{ip}" onchange="this.form.submit()">
-                                '<option value="Pause">Stopped</option>'
-                                '<option value="Resume" selected>Working</option>'
-                                </select>
-                                </form
-                                """
-                                turbo_app.push(turbo_app.update(options, f'{ip}_working_cond'))
-                                last_vm_data[ip]['working_cond'] = current_vm_data[ip]['working_cond']
-                            elif 'working_cond' not in last_vm_data[ip] or (current_vm_data[ip]['working_cond'] == 'Stopped' and last_vm_data[ip]['working_cond'] != 'Stopped'):
-                                last_vm_data[ip]['working_cond'] = 'Stopped'
-                                options = f"""<form method="POST" action="/auto_action/">
-                                <select name="{ip}" onchange="this.form.submit()">
-                                '<option value="Resume">Working</option>'
-                                '<option value="Pause" selected>Stopped</option>'
-                                </select>
-                                </form>
-                                """
-                                turbo_app.push(turbo_app.update(options, f'{ip}_working_cond'))
-                                last_vm_data[ip]['working_cond'] = current_vm_data[ip]['working_cond']
-                        turbo_app.push(turbo_app.update(f'<img src="/image?target={ip}&random={randrange(0,100000)}" width="160" height="90">', f'{ip}_image'))
-                    else:
+                for ip in sorted(current_vm_data):
+                    if ip not in last_vm_data or last_vm_data[ip] == {}:
                         last_vm_data[ip] = {}
-                        turbo_app.push(turbo_app.update('-', f'{ip}_local_ip'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_current_ip'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_uptime'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_success'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_failure'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_cpu'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_ram'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_buttons'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_working_op1'))
-                        turbo_app.push(turbo_app.update('-', f'{ip}_working_op2'))
-
+                        unassigned_data = f'''<tr><td>{ip}</td>
+                            <td><div id="{ip}_public_ip"></div></td>
+                            <td><div id="{ip}_uptime"></div></td>
+                            <td><div id="{ip}_success"></div></td>
+                            <td><div id="{ip}_failure"></div></td>
+                            <td><div id="{ip}_cpu"></div></td>
+                            <td><div id="{ip}_ram"></div></td>
+                            <td><div id="{ip}_working_cond"></div></td>
+                            <td><div id="{ip}_image"></div></td></tr>
+                            '''
+                        turbo_app.push(turbo_app.update(unassigned_data, f'{ip}_unassigned'))
+                        buttons = f'''<form method="POST" action="/auto_action/">
+                                <button name="{ip}" value="SD" style="width:100%; border: 3px solid black">sd {ip}</button>
+                                <button name="{ip}" value="RS" width:100%;="" style="width:100%; border: 3px solid black">rs {ip}</button>
+                                <button name="{ip}" value="start" width:100%;="" style="width:100%; border: 3px solid black">save {ip}</button>
+                                </form>'''
+                        turbo_app.push(turbo_app.update(buttons, f'{ip}_buttons'))
+                    for item in ['public_ip', 'uptime', 'success', 'failure', 'cpu', 'ram']:
+                        if item in current_vm_data[ip]:
+                            if item not in last_vm_data[ip] or current_vm_data[ip][item] != last_vm_data[ip][item]:
+                                turbo_app.push(turbo_app.update(current_vm_data[ip][item], f'{ip}_{item}'))
+                                last_vm_data[ip][item] = current_vm_data[ip][item]
+                    if 'working_cond' in current_vm_data[ip]:
+                        if 'working_cond' not in last_vm_data[ip] or (current_vm_data[ip]['working_cond'] == 'Working' and last_vm_data[ip]['working_cond'] != 'Working'):
+                            last_vm_data[ip]['working_cond'] = 'Working'
+                            options = f"""<form method="POST" action="/auto_action/">
+                            <select name="{ip}" onchange="this.form.submit()">
+                            '<option value="Pause">Stopped</option>'
+                            '<option value="Resume" selected>Working</option>'
+                            </select>
+                            </form
+                            """
+                            turbo_app.push(turbo_app.update(options, f'{ip}_working_cond'))
+                            last_vm_data[ip]['working_cond'] = current_vm_data[ip]['working_cond']
+                        elif 'working_cond' not in last_vm_data[ip] or (current_vm_data[ip]['working_cond'] == 'Stopped' and last_vm_data[ip]['working_cond'] != 'Stopped'):
+                            last_vm_data[ip]['working_cond'] = 'Stopped'
+                            options = f"""<form method="POST" action="/auto_action/">
+                            <select name="{ip}" onchange="this.form.submit()">
+                            '<option value="Resume">Working</option>'
+                            '<option value="Pause" selected>Stopped</option>'
+                            </select>
+                            </form>
+                            """
+                            turbo_app.push(turbo_app.update(options, f'{ip}_working_cond'))
+                            last_vm_data[ip]['working_cond'] = current_vm_data[ip]['working_cond']
+                    turbo_app.push(turbo_app.update(f'<img src="/image?target={ip}&random={randrange(0, 100000)}" width="160" height="90">', f'{ip}_image'))
                 if 'host_local_ip' not in last_host_data or last_host_data['host_local_ip'] != host_local_ip:
                     turbo_app.push(turbo_app.update(host_local_ip, "host_local_ip"))
                     last_host_data['host_local_ip'] = host_local_ip
@@ -572,15 +536,16 @@ def update_flask_page():
                     turbo_app.push(turbo_app.update(str(vm_ip_assign_counter), 'vm_ip_assign_counter'))
                     last_host_data['vm_ip_assign_counter'] = vm_ip_assign_counter
                 turbo_app.push(turbo_app.update(f'<img src="/image?target=host&random={randrange(0, 100000)}" width="320" height="180">', 'host_image'))
+                turbo_app.push(turbo_app.update(debug_data, 'debug_data'))
             except Exception as e:
                 debug_host(repr(e))
             system_caller('cls')
         else:
+            sleep(1)
             targets = sorted(vm_data_update_connections)
             if len(targets) >= 1:
                 target= choice(targets)
                 Thread(target=send_blank_command, args=(target,)).start()
-            sleep(0.5)
 
 
 app = Flask(__name__)
@@ -590,16 +555,12 @@ turbo_app = Turbo(app)
 @app.route('/auto_action/', methods=['GET'])
 @app.route('/refresh/', methods=['GET'])
 def refresh():
-    global old_current_vm_data, last_vm_activity, last_host_data, last_one_click_start_data, last_vm_data, reported_ips
-    reported_ips = []
+    global old_current_vm_data, last_vm_activity, last_host_data, last_one_click_start_data, last_vm_data
     last_vm_data = {}
     last_vm_activity = ''
     last_one_click_start_data = ''
     old_current_vm_data = []
-    last_host_data = {'host_local_ip': '',
-                      'host_public_ip': '',
-                      'host_cpu': '',
-                      'host_ram': ''}
+    last_host_data = {}
     return render_template('base.html')
 
 
