@@ -7,7 +7,7 @@ Simulate human clicks(No-Ban)
 How to use:
 
 * Copy the final_main.py file (from CLIENTS directory) into the Virtual Machine and run it.
-* In main machine run the file VM_manager.py (from HOST directory).
+* In main machine run the file VM_manager.py.
 
 
 
