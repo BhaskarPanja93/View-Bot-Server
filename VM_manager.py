@@ -2,7 +2,7 @@ from platform import system
 from PIL import Image, ImageGrab
 from turbo_flask import Turbo
 from os import system as system_caller
-from os import path, popen, getcwd
+from os import path, popen
 import socket
 from random import choice, randrange
 from threading import Thread
@@ -166,7 +166,8 @@ def start_vm(_id):
 
 
 
-def queue_vm_stop(_id):
+def queue_vm_stop(_id, duration = 0):
+    sleep(duration)
     if _id not in vm_stop_queue:
         vm_stop_queue.append(_id)
         system_caller(f'vboxmanage controlvm {_id} acpipowerbutton')
@@ -183,23 +184,32 @@ def queue_vm_stop(_id):
 def manage_1_click_start_stop_of_vms():
     global ONE_CLICK_START_BOOL, debug_data
     while True:
-        action = ''
-        sleep(2)
-        if ONE_CLICK_START_BOOL:
-            ram = virtual_memory()[2]
-            if ram > MIN_RAM_ALLOWED and len(return_running_vms()):
-                count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
-                for _ in range(count):
-                    queue_vm_stop(choice(return_running_vms()))
-                action += f'stop {count}'
-            elif ram < MAX_RAM_ALLOWED:
-                count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
-                for _ in range(count):
-                    start_vm(choice(return_stopped_vms()))
-                action += f'start {count}'
-            else:
-                action += 'none'
-            debug_data = f"{ctime()} {ram} {action}"
+        try:
+            action = ''
+            sleep(2)
+            if ONE_CLICK_START_BOOL:
+                ram = virtual_memory()[2]
+                if ram > MIN_RAM_ALLOWED and len(return_running_vms()):
+                    count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
+                    for _ in range(count):
+                        running_vms = return_running_vms()
+                        if running_vms:
+                            queue_vm_stop(choice(running_vms))
+                    action += f'stop {count}'
+                elif ram < MAX_RAM_ALLOWED:
+                    count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
+                    for _ in range(count):
+                        stopped_vms = return_stopped_vms()
+                        if stopped_vms:
+                            vm_id = choice(stopped_vms)
+                            start_vm(vm_id)
+                            Thread(target=queue_vm_stop, args=(vm_id, 60*2,)).start()
+                    action += f'start {count}'
+                else:
+                    action += 'none'
+                debug_data = f"{ctime()} {ram} {action}"
+        except Exception as e:
+            debug_host('manage_1_click_start_stop_of_vms '+str(repr(e)))
 
 
 
@@ -240,17 +250,17 @@ def accept_connections_from_locals():
                     local_python_files['final_main.py']['file'] = open('CLIENT/final_main.py', 'rb').read()
                 __send_to_connection(connection, local_python_files['final_main.py']['file'])
             elif request_code == 1:
-                if ('runner.py' not in local_python_files) or (path.getmtime('CLIENT/runner.py') != local_python_files['runner.py']['version']):
+                if ('runner.py' not in local_python_files) or (path.getmtime('py_files/runner.py') != local_python_files['runner.py']['version']):
                     local_python_files['runner.py'] = {}
-                    local_python_files['runner.py']['version'] = path.getmtime('CLIENT/runner.py')
-                    local_python_files['runner.py']['file'] = open('CLIENT/runner.py', 'rb').read()
+                    local_python_files['runner.py']['version'] = path.getmtime('py_files/runner.py')
+                    local_python_files['runner.py']['file'] = open('py_files/runner.py', 'rb').read()
                 __send_to_connection(connection, local_python_files['runner.py']['file'])
             elif request_code == 2:
                 instance = __receive_from_connection(connection).decode()
-                if f'{instance}.py' not in local_python_files or (path.getmtime(f'instances/{instance}.py') != local_python_files[f'{instance}.py']['version']):
+                if f'{instance}.py' not in local_python_files or (path.getmtime(f'py_files/{instance}.py') != local_python_files[f'{instance}.py']['version']):
                     local_python_files[f'{instance}.py'] = {}
-                    local_python_files[f'{instance}.py']['version'] = path.getmtime(f'instances/{instance}.py')
-                    local_python_files[f'{instance}.py']['file'] = open(f'instances/{instance}.py', 'rb').read()
+                    local_python_files[f'{instance}.py']['version'] = path.getmtime(f'py_files/{instance}.py')
+                    local_python_files[f'{instance}.py']['file'] = open(f'py_files/{instance}.py', 'rb').read()
                 __send_to_connection(connection, local_python_files[f'{instance}.py']['file'])
             elif request_code == 3:
                 text = __receive_from_connection(connection).decode()
@@ -321,7 +331,6 @@ def change_ids(sleep_dur=10 * 60):
 
 
 def modify_website_files(paragraph_lines, working_ids, youtube_links):
-
     for html_file_number in range(100):
         file = open(f'html_files/website{html_file_number}.html', 'w')
         data = ''

