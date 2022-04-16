@@ -1,3 +1,6 @@
+BUFFER_SIZE = 1024 * 10
+HOST_PORT = 59999
+
 import socket
 from time import time, sleep
 import pyautogui
@@ -9,8 +12,6 @@ from os import system as system_caller
 pyautogui.FAILSAFE = False
 
 
-BUFFER_SIZE = 1024*10
-HOST_PORT = 59999
 os_type = system()
 start_time = last_change_timing = time()
 
