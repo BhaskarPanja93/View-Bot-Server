@@ -1,3 +1,13 @@
+import pip
+pip.main(['install', 'pillow'])
+pip.main(['install', 'pyautogui'])
+pip.main(['install', 'psutil'])
+pip.main(['install', 'requests'])
+pip.main(['install', 'flask'])
+pip.main(['install', 'pyngrok'])
+del pip
+
+
 from platform import system
 from PIL import Image, ImageGrab
 from turbo_flask import Turbo
@@ -13,14 +23,13 @@ from flask import Flask, render_template, request, redirect, send_file
 from pyngrok import ngrok, conf
 from requests import get
 
-
 WEBSITE_IMG_SIZE = (320, 180)
-BUFFER_SIZE = 1024*10
+BUFFER_SIZE = 1024 * 10
 HOST_PORT = 59999
 WEB_PORT = 60000
 vm_ip_ranges = [10, 50]
-MIN_RAM_ALLOWED = 30
-MAX_RAM_ALLOWED = 45
+MIN_RAM_ALLOWED = 20
+MAX_RAM_ALLOWED = 40
 INDIVIDUAL_VM_RAM = 7
 
 website_url = ''
@@ -35,35 +44,6 @@ last_one_click_start_data = ''
 last_host_data = {}
 last_vm_activity = ''
 debug_data = ''
-
-
-"""from importlib import import_module
-requirements={'flask':'',
-              'subprocess':'',
-              'threading':'',
-              'socket':'',
-              'os':'',
-              'psutil':'',
-              'requests':'',
-              'random':'',
-              'time':'',
-              'sys':'',
-              'ping3':'',
-              'pyngrok':'',
-              'pyautogui':''
-              }
-for i in requirements:
-    try:
-        globals()[i]=globals()[i] = import_module(i)
-    except:
-        import pip
-        pip.main(['install', i])
-        globals()[i]=globals()[i] = import_module(i)
-        del pip
-del import_module"""
-
-
-
 
 os_type = system()
 
@@ -94,7 +74,8 @@ for i in socket.gethostbyname_ex(socket.gethostname())[-1]:
         for x in i.split('.')[0:3]:
             ip_initial += x + '.'
 
-def debug_host(text:str):
+
+def debug_host(text: str):
     print(text)
     with open('debugging/host.txt', 'a') as file:
         file.write(f'[{ctime()}] : {text}\n')
@@ -141,13 +122,13 @@ def __get_global_ip():
                     return get('https://ipinfo.io/json?token=' + tokens[choice(sorted(tokens))]).json()['ip']
                 except:
                     return ''
-host_public_ip = __get_global_ip()
 
+
+host_public_ip = __get_global_ip()
 
 
 def return_available_vms():
     return [eval(_.split()[0]) for _ in popen('vboxmanage list vms').readlines()]
-
 
 
 def return_running_vms():
@@ -158,15 +139,15 @@ def return_stopped_vms():
     return list(set([eval(_.split()[0]) for _ in popen('vboxmanage list vms').readlines()]) - set([eval(_.split()[0]) for _ in popen('vboxmanage list runningvms').readlines()]))
 
 
-
 vm_stop_queue = []
+
+
 def start_vm(_id):
     if _id not in vm_stop_queue and _id != 'adf' and _id not in vpn_disabled_vms:
         system_caller(f'vboxmanage startvm {_id} --type headless')
 
 
-
-def queue_vm_stop(_id, duration = 0):
+def queue_vm_stop(_id, duration=0):
     sleep(duration)
     if _id not in vm_stop_queue:
         vm_stop_queue.append(_id)
@@ -190,27 +171,26 @@ def manage_1_click_start_stop_of_vms():
             if ONE_CLICK_START_BOOL:
                 ram = virtual_memory()[2]
                 if ram > MIN_RAM_ALLOWED and len(return_running_vms()):
-                    count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
+                    count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED) / 2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
                     for _ in range(count):
                         running_vms = return_running_vms()
                         if running_vms:
                             queue_vm_stop(choice(running_vms))
                     action += f'stop {count}'
                 elif ram < MAX_RAM_ALLOWED:
-                    count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED)/2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
+                    count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED) / 2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
                     for _ in range(count):
                         stopped_vms = return_stopped_vms()
                         if stopped_vms:
                             vm_id = choice(stopped_vms)
                             start_vm(vm_id)
-                            Thread(target=queue_vm_stop, args=(vm_id, 60*2,)).start()
+                            Thread(target=queue_vm_stop, args=(vm_id, 60,)).start()
                     action += f'start {count}'
                 else:
                     action += 'none'
                 debug_data = f"{ctime()} {ram} {action}"
         except Exception as e:
-            debug_host('manage_1_click_start_stop_of_vms '+str(repr(e)))
-
+            debug_host('manage_1_click_start_stop_of_vms ' + str(repr(e)))
 
 
 def accept_connections_from_locals():
@@ -236,6 +216,7 @@ def accept_connections_from_locals():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('0.0.0.0', HOST_PORT))
     sock.listen()
+
     def acceptor():
         global vm_ip_assign_counter
         connection, address = sock.accept()
@@ -244,20 +225,23 @@ def accept_connections_from_locals():
         try:
             request_code = int(__receive_from_connection(connection))
             if request_code == 0:
-                if ('final_main.py' not in local_python_files) or (path.getmtime('CLIENT/final_main.py') != local_python_files['final_main.py']['version']):
+                if ('final_main.py' not in local_python_files) or (
+                        path.getmtime('CLIENT/final_main.py') != local_python_files['final_main.py']['version']):
                     local_python_files['final_main.py'] = {}
                     local_python_files['final_main.py']['version'] = path.getmtime('CLIENT/final_main.py')
                     local_python_files['final_main.py']['file'] = open('CLIENT/final_main.py', 'rb').read()
                 __send_to_connection(connection, local_python_files['final_main.py']['file'])
             elif request_code == 1:
-                if ('runner.py' not in local_python_files) or (path.getmtime('py_files/runner.py') != local_python_files['runner.py']['version']):
+                if ('runner.py' not in local_python_files) or (
+                        path.getmtime('py_files/runner.py') != local_python_files['runner.py']['version']):
                     local_python_files['runner.py'] = {}
                     local_python_files['runner.py']['version'] = path.getmtime('py_files/runner.py')
                     local_python_files['runner.py']['file'] = open('py_files/runner.py', 'rb').read()
                 __send_to_connection(connection, local_python_files['runner.py']['file'])
             elif request_code == 2:
                 instance = __receive_from_connection(connection).decode()
-                if f'{instance}.py' not in local_python_files or (path.getmtime(f'py_files/{instance}.py') != local_python_files[f'{instance}.py']['version']):
+                if f'{instance}.py' not in local_python_files or (
+                        path.getmtime(f'py_files/{instance}.py') != local_python_files[f'{instance}.py']['version']):
                     local_python_files[f'{instance}.py'] = {}
                     local_python_files[f'{instance}.py']['version'] = path.getmtime(f'py_files/{instance}.py')
                     local_python_files[f'{instance}.py']['file'] = open(f'py_files/{instance}.py', 'rb').read()
@@ -266,7 +250,8 @@ def accept_connections_from_locals():
                 text = __receive_from_connection(connection).decode()
                 size = eval(__receive_from_connection(connection))
                 _id = randrange(1, 1000000)
-                Image.frombytes(mode="RGB", size=size, data=__receive_from_connection(connection), decoder_name='raw').save(f"debugging/images/{_id}.PNG")
+                Image.frombytes(mode="RGB", size=size, data=__receive_from_connection(connection),
+                                decoder_name='raw').save(f"debugging/images/{_id}.PNG")
                 f = open(f'debugging/{local_ip}.txt', 'a')
                 f.write(f'[{_id}] : [{ctime()}] : {text}\n')
                 f.close()
@@ -275,7 +260,8 @@ def accept_connections_from_locals():
             elif request_code == 5:
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
-                if (img_name not in linux_img_files) or (path.getmtime(f'req_imgs/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
+                if (img_name not in linux_img_files) or (
+                        path.getmtime(f'req_imgs/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
                     linux_img_files[img_name] = {}
                     linux_img_files[img_name]['version'] = str(path.getmtime(f'req_imgs/Linux/{img_name}.PNG')).encode()
                     linux_img_files[img_name]['file'] = Image.open(f'req_imgs/Linux/{img_name}.PNG')
@@ -288,9 +274,11 @@ def accept_connections_from_locals():
             elif request_code == 6:
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
-                if (img_name not in windows_img_files) or (path.getmtime(f'req_imgs/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
+                if (img_name not in windows_img_files) or (
+                        path.getmtime(f'req_imgs/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
                     windows_img_files[img_name] = {}
-                    windows_img_files[img_name]['version'] = str(path.getmtime(f'req_imgs/Windows/{img_name}.PNG')).encode()
+                    windows_img_files[img_name]['version'] = str(
+                        path.getmtime(f'req_imgs/Windows/{img_name}.PNG')).encode()
                     windows_img_files[img_name]['file'] = Image.open(f'req_imgs/Windows/{img_name}.PNG')
                 if version != windows_img_files[img_name]['version']:
                     __send_to_connection(connection, windows_img_files[img_name]['version'])
@@ -312,10 +300,9 @@ def accept_connections_from_locals():
                 vm_data_update_connections[local_ip] = connection
         except:
             pass
+
     Thread(target=acceptor).start()
     Thread(target=acceptor).start()
-
-
 
 
 def change_ids(sleep_dur=10 * 60):
@@ -337,22 +324,7 @@ def modify_website_files(paragraph_lines, working_ids, youtube_links):
         for para_length in range(randrange(400, 1000)):
             data += choice(paragraph_lines) + '.'
             if randrange(0, 10) % 5 == 0:
-                data += f"<a href='https://{choice(['adf.ly','j.gs', 'q.gs'])}/{choice(working_ids)}/{choice(youtube_links)}'> CLICK HERE </a>"
-
-        """<script type="text/javascript">
-        var adfly_id = {choice(working_ids)};
-        var adfly_advert = 'int';
-        var adfly_protocol = 'https';
-        var adfly_domain = '{choice(['adf.ly','j.gs', 'q.gs'])}';
-        var domains = [];
-        var frequency_cap = '5';
-        var frequency_delay = '5';
-        var init_delay = '3';
-        var popunder = true;
-        </script>
-        <script src="https://cdn.adf.ly/js/link-converter.js"></script>
-        <script src="https://cdn.adf.ly/js/entry.js"></script>"""
-
+                data += f"<a href='https://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{choice(working_ids)}/{choice(youtube_links)}'> CLICK HERE </a>"
         html_data = f"""
         <HTML>
         <HEAD>
@@ -370,20 +342,17 @@ def modify_website_files(paragraph_lines, working_ids, youtube_links):
         file.close()
 
 
-
 def restart_ngrok():
     ngrok.kill()
     global website_url
-    NGROK_SERVER_LOCATIONS = ['in', 'au', 'us', 'eu', 'ap', 'jp', 'sa']
+    ngrok_server_locations = ['in', 'au', 'us', 'eu', 'ap', 'jp', 'sa']
     ngrok.set_auth_token("1sMCB71WhshXdJVe6l4oWIBcBSf_3ohhewzCi9Bzw5dBwUnDY")
-    conf.get_default().region = choice(NGROK_SERVER_LOCATIONS)
+    conf.get_default().region = choice(ngrok_server_locations)
     ngrok.disconnect(website_url)
     website_tunnel = ngrok.connect('file:///html_files', bind_tls=False)
     website_url = website_tunnel.public_url
     if not website_url:
         restart_ngrok()
-
-
 
 
 def start_action(action, target):
@@ -398,10 +367,9 @@ def start_action(action, target):
             Thread(target=system_caller, args=(f'vboxmanage clonevm adf --name={ip_initial}{_} --register',)).start()
 
 
-
-
 def update_flask_page():
     global host_public_ip, last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, host_local_ip, last_one_click_start_data, debug_data
+
     def receive_data(vm_ip):
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], str(WEBSITE_IMG_SIZE).encode())
@@ -412,11 +380,13 @@ def update_flask_page():
             current_vm_data[vm_ip] = info
         except:
             pass
+
     def send_blank_command(vm_ip):
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], b"('')")
         except:
             pass
+
     while True:
         if turbo_app.clients:
             try:
@@ -429,22 +399,22 @@ def update_flask_page():
                     Thread(target=receive_data, args=(vm_local_ip,)).start()
                 sleep(1)
                 if ONE_CLICK_START_BOOL:
-                    ONE_CLICK_START_DATA = f"""<form method="POST" action="/auto_action/">
+                    one_click_start_data = f"""<form method="POST" action="/auto_action/">
                         <select name="1_click_start_stop" onchange="this.form.submit()">
                         '<option value="start"selected>Working</option>'
                         '<option value="stop">Stopped</option>'
                         </select>
                         </form>"""
                 else:
-                    ONE_CLICK_START_DATA = f"""<form method="POST" action="/auto_action/">
+                    one_click_start_data = f"""<form method="POST" action="/auto_action/">
                         <select name="1_click_start_stop" onchange="this.form.submit()">
                         '<option value="start">Working</option>'
                         '<option value="stop" selected>Stopped</option>'
                         </select>
                         </form>"""
-                if ONE_CLICK_START_DATA != last_one_click_start_data:
-                    last_one_click_start_data = ONE_CLICK_START_DATA
-                    turbo_app.push(turbo_app.update(ONE_CLICK_START_DATA, '1_click_data'))
+                if one_click_start_data != last_one_click_start_data:
+                    last_one_click_start_data = one_click_start_data
+                    turbo_app.push(turbo_app.update(one_click_start_data, '1_click_data'))
                 current_vm_activity = f"""{len(current_vm_data)} Working </br>"""
                 if current_vm_activity != last_vm_activity:
                     turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'))
@@ -509,7 +479,9 @@ def update_flask_page():
                                 turbo_app.push(turbo_app.update(current_vm_data[ip][item], f'{ip}_{item}'))
                                 last_vm_data[ip][item] = current_vm_data[ip][item]
                     if 'working_cond' in current_vm_data[ip]:
-                        if 'working_cond' not in last_vm_data[ip] or (current_vm_data[ip]['working_cond'] == 'Working' and last_vm_data[ip]['working_cond'] != 'Working'):
+                        if 'working_cond' not in last_vm_data[ip] or (
+                                current_vm_data[ip]['working_cond'] == 'Working' and last_vm_data[ip][
+                            'working_cond'] != 'Working'):
                             last_vm_data[ip]['working_cond'] = 'Working'
                             options = f"""<form method="POST" action="/auto_action/">
                             <select name="{ip}" onchange="this.form.submit()">
@@ -520,7 +492,9 @@ def update_flask_page():
                             """
                             turbo_app.push(turbo_app.update(options, f'{ip}_working_cond'))
                             last_vm_data[ip]['working_cond'] = current_vm_data[ip]['working_cond']
-                        elif 'working_cond' not in last_vm_data[ip] or (current_vm_data[ip]['working_cond'] == 'Stopped' and last_vm_data[ip]['working_cond'] != 'Stopped'):
+                        elif 'working_cond' not in last_vm_data[ip] or (
+                                current_vm_data[ip]['working_cond'] == 'Stopped' and last_vm_data[ip][
+                            'working_cond'] != 'Stopped'):
                             last_vm_data[ip]['working_cond'] = 'Stopped'
                             options = f"""<form method="POST" action="/auto_action/">
                             <select name="{ip}" onchange="this.form.submit()">
@@ -531,7 +505,9 @@ def update_flask_page():
                             """
                             turbo_app.push(turbo_app.update(options, f'{ip}_working_cond'))
                             last_vm_data[ip]['working_cond'] = current_vm_data[ip]['working_cond']
-                    turbo_app.push(turbo_app.update(f'<img src="/image?target={ip}&random={randrange(0, 100000)}" width="160" height="90">', f'{ip}_image'))
+                    turbo_app.push(turbo_app.update(
+                        f'<img src="/image?target={ip}&random={randrange(0, 100000)}" width="160" height="90">',
+                        f'{ip}_image'))
                 if 'host_local_ip' not in last_host_data or last_host_data['host_local_ip'] != host_local_ip:
                     turbo_app.push(turbo_app.update(host_local_ip, "host_local_ip"))
                     last_host_data['host_local_ip'] = host_local_ip
@@ -544,10 +520,13 @@ def update_flask_page():
                 if 'host_ram' not in last_host_data or last_host_data['host_ram'] != host_ram:
                     turbo_app.push(turbo_app.update(str(host_ram), 'host_ram'))
                     last_host_data['host_ram'] = host_ram
-                if 'vm_ip_assign_counter' not in last_host_data or last_host_data['vm_ip_assign_counter'] != vm_ip_assign_counter:
+                if 'vm_ip_assign_counter' not in last_host_data or last_host_data[
+                    'vm_ip_assign_counter'] != vm_ip_assign_counter:
                     turbo_app.push(turbo_app.update(str(vm_ip_assign_counter), 'vm_ip_assign_counter'))
                     last_host_data['vm_ip_assign_counter'] = vm_ip_assign_counter
-                turbo_app.push(turbo_app.update(f'<img src="/image?target=host&random={randrange(0, 100000)}" width="320" height="180">', 'host_image'))
+                turbo_app.push(turbo_app.update(
+                    f'<img src="/image?target=host&random={randrange(0, 100000)}" width="320" height="180">',
+                    'host_image'))
                 turbo_app.push(turbo_app.update(debug_data, 'debug_data'))
             except Exception as e:
                 debug_host(repr(e))
@@ -556,12 +535,14 @@ def update_flask_page():
             sleep(1)
             targets = sorted(vm_data_update_connections)
             if len(targets) >= 1:
-                target= choice(targets)
+                target = choice(targets)
                 Thread(target=send_blank_command, args=(target,)).start()
 
 
 app = Flask(__name__)
 turbo_app = Turbo(app)
+
+
 @app.route('/')
 @app.route('/manual_action/', methods=['GET'])
 @app.route('/auto_action/', methods=['GET'])
@@ -578,7 +559,7 @@ def refresh():
 
 @app.route('/image', methods=['GET'])
 def send_image_of_target():
-    target=request.args.get('target')
+    target = request.args.get('target')
     return send_file(f'live_imgs/{target}.JPEG')
 
 
@@ -589,7 +570,6 @@ def auto_action():
         action = request.form.to_dict()[target]
     start_action(action, target)
     return redirect('/')
-
 
 
 Thread(target=manage_1_click_start_stop_of_vms).start()

