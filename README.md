@@ -18,10 +18,10 @@ Thats it!!
 
 Links:
 
-Chrome: https://www.google.com/intl/en_in/chrome
-Python: https://www.python.org/ftp/python/3.9.7/python-3.9.7-amd64.exe
-Windscribe: https://windscribe.com/download
-VirtualBox: https://www.oracle.com/in/virtualization/technologies/vm/downloads/virtualbox-downloads.html
-Windows Server ISO: https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server
+Chrome: https://www.google.com/intl/en_in/chrome/n
+Python: https://www.python.org/ftp/python/3.9.7/python-3.9.7-amd64.exe/n
+Windscribe: https://windscribe.com/download/n
+VirtualBox: https://www.oracle.com/in/virtualization/technologies/vm/downloads/virtualbox-downloads.html/n
+Windows Server ISO: https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server/n
 
 Contact me if you have any problem using this...
