@@ -23,6 +23,8 @@ from flask import Flask, render_template, request, redirect, send_file
 from pyngrok import ngrok, conf
 from requests import get
 
+system_caller('cls')
+
 WEBSITE_IMG_SIZE = (320, 180)
 BUFFER_SIZE = 1024 * 10
 HOST_PORT = 59999
@@ -188,7 +190,7 @@ def manage_1_click_start_stop_of_vms():
                     action += f'start {count}'
                 else:
                     action += 'none'
-                debug_data = f"{ctime()} {ram} {action}"
+                debug_data = f"[{ctime()} : {ram} : {action} : {vpn_disabled_vms}]"
         except Exception as e:
             debug_host('manage_1_click_start_stop_of_vms ' + str(repr(e)))
 
@@ -294,7 +296,8 @@ def accept_connections_from_locals():
                     __send_to_connection(connection, b'rs')
                 else:
                     vm_with_vpn_issue.remove(local_ip)
-                    vpn_disabled_vms.append(local_ip)
+                    if local_ip not in vpn_disabled_vms:
+                        vpn_disabled_vms.append(local_ip)
                     __send_to_connection(connection, b'sd')
             elif request_code == 100:
                 vm_data_update_connections[local_ip] = connection
@@ -357,7 +360,9 @@ def restart_ngrok():
 
 def start_action(action, target):
     global vm_data_update_connections, ONE_CLICK_START_BOOL
-    if target == "1_click_start_stop":
+    if target == "pull_code_github" or action == "pull_code_github":
+        Thread(target=system_caller, args=('git pull',)).start()
+    elif target == "1_click_start_stop":
         if action == 'start':
             ONE_CLICK_START_BOOL = True
         elif action == 'stop':
@@ -368,8 +373,7 @@ def start_action(action, target):
 
 
 def update_flask_page():
-    global host_public_ip, last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, host_local_ip, last_one_click_start_data, debug_data
-
+    global host_public_ip, last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, host_local_ip, last_one_click_start_data
     def receive_data(vm_ip):
         try:
             __send_to_connection(vm_data_update_connections[vm_ip], str(WEBSITE_IMG_SIZE).encode())

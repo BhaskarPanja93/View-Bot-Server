@@ -78,7 +78,7 @@ def restart_if_connection_missing():
             if counter >= 120:
                 Thread(target=send_debug_data, args=('connection_missing_restart  counter >= 120',)).start()
                 __restart_host_machine()
-                break
+                input()
 
 
 
@@ -96,14 +96,14 @@ def send_debug_data(text, additional_comment: str = ''):
         pass
 
 
-def __restart_host_machine(duration=5):
+def __restart_host_machine(duration=0):
     if os_type == 'Linux':
         system_caller('systemctl reboot -i')
     elif os_type == 'Windows':
         system_caller(f'shutdown -r -f -t {duration}')
 
 
-def __shutdown_host_machine(duration=5):
+def __shutdown_host_machine(duration=0):
     if os_type == 'Linux':
         system_caller("shutdown now -h")
     elif os_type == 'Windows':
@@ -237,8 +237,10 @@ def restart_vpn_recheck_ip(required=False):
                 code = __receive_from_connection(vpn_issue_connection)
                 if code == b'rs':
                     __restart_host_machine()
+                    input()
                 elif code == b'sd':
                     __shutdown_host_machine()
+                    input()
         elif genuine_ip != current_ip != last_ip and not required:
             break
         else:
