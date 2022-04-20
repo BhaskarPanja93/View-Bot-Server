@@ -30,8 +30,8 @@ BUFFER_SIZE = 1024 * 10
 HOST_PORT = 59999
 WEB_PORT = 60000
 vm_ip_ranges = [10, 50]
-MIN_RAM_ALLOWED = 20
-MAX_RAM_ALLOWED = 40
+MAX_VM_COUNT = 4
+MAX_RAM_ALLOWED = 70
 INDIVIDUAL_VM_RAM = 7
 
 website_url = ''
@@ -147,6 +147,7 @@ vm_stop_queue = []
 def start_vm(_id):
     if _id not in vm_stop_queue and _id != 'adf' and _id not in vpn_disabled_vms:
         system_caller(f'vboxmanage startvm {_id} --type headless')
+        Thread(target=queue_vm_stop, args=(_id, 60*60,)).start()
 
 
 def queue_vm_stop(_id, duration=0):
@@ -172,25 +173,24 @@ def manage_1_click_start_stop_of_vms():
             sleep(2)
             if ONE_CLICK_START_BOOL:
                 ram = virtual_memory()[2]
-                if ram > MIN_RAM_ALLOWED and len(return_running_vms()):
-                    count = int((ram - (MAX_RAM_ALLOWED + MIN_RAM_ALLOWED) / 2) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
-                    for _ in range(count):
-                        running_vms = return_running_vms()
-                        if running_vms:
-                            queue_vm_stop(choice(running_vms))
-                    action += f'stop {count}'
-                elif ram < MAX_RAM_ALLOWED:
-                    count = int(((MAX_RAM_ALLOWED + MIN_RAM_ALLOWED) / 2 - ram) // INDIVIDUAL_VM_RAM) - len(vm_stop_queue)
-                    for _ in range(count):
-                        stopped_vms = return_stopped_vms()
-                        if stopped_vms:
-                            vm_id = choice(stopped_vms)
-                            start_vm(vm_id)
-                            Thread(target=queue_vm_stop, args=(vm_id, 60,)).start()
-                    action += f'start {count}'
+                if len(return_running_vms()) >= MAX_VM_COUNT or ram >= MAX_RAM_ALLOWED:
+                    count1 = int(ram - MAX_RAM_ALLOWED) // INDIVIDUAL_VM_RAM - len(vm_stop_queue)
+                    count2 = len(return_running_vms()) - MAX_VM_COUNT
+                    for _ in range(max(count1, count2)):
+                        if return_running_vms():
+                            queue_vm_stop(choice(return_running_vms()))
+                    action += f'{max(count1, count2)} stopped'
                 else:
-                    action += 'none'
-                debug_data = f"[{ctime()} : {ram} : {action} : {vpn_disabled_vms}]"
+                    count1 = int(MAX_RAM_ALLOWED - ram) // INDIVIDUAL_VM_RAM
+                    count2 = len(return_running_vms()) - MAX_VM_COUNT
+                    count = max(count1, count2) if max(count1, count2) <= MAX_VM_COUNT else MAX_VM_COUNT - len(return_running_vms())
+                    for _ in range(count):
+                        start_vm(choice(return_stopped_vms()))
+                    action += f'{count} start'
+            else:
+                for vm in return_running_vms():
+                    Thread(target=queue_vm_stop, args=(vm,)).start()
+            debug_data = action
         except Exception as e:
             debug_host('manage_1_click_start_stop_of_vms ' + str(repr(e)))
 
@@ -303,7 +303,6 @@ def accept_connections_from_locals():
                 vm_data_update_connections[local_ip] = connection
         except:
             pass
-
     Thread(target=acceptor).start()
     Thread(target=acceptor).start()
 
@@ -367,9 +366,6 @@ def start_action(action, target):
             ONE_CLICK_START_BOOL = True
         elif action == 'stop':
             ONE_CLICK_START_BOOL = False
-    elif action == 'clone':
-        for _ in range(vm_ip_ranges[0], vm_ip_ranges[1] + 1):
-            Thread(target=system_caller, args=(f'vboxmanage clonevm adf --name={ip_initial}{_} --register',)).start()
 
 
 def update_flask_page():

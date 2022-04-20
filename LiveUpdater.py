@@ -10,7 +10,7 @@ class Updater(Thread):
     _process = None
     system_caller('git pull')
     check_interval = 1 ## time to wait (in seconds) before every check is run
-    file_to_check = r"VM_manager.py.py" ## name of file to check for changes
+    file_to_check = r"VM_manager.py" ## name of file to check for changes
     program_to_rerun = r"VM_manager.py" ## name of program to restart
 
     def __init__(self):
@@ -40,8 +40,8 @@ class Updater(Thread):
         if self._process and not self._process.poll():
             self._process.kill()
             self._process.wait()
+            sleep(5)
         print("Restarting...")
-        sleep(5)
         self._process = Popen([executable, self.program_to_rerun])
 
 Updater().start()
