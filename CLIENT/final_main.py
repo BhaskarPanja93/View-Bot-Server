@@ -1,7 +1,5 @@
-host_ip = '192.168.1.2'
-HOST_PORT = 59999
-BUFFER_SIZE = 1024*10
-
+BUFFER_SIZE = 1024*100
+host_ip, host_port = str, int
 import pip
 pip.main(['install', 'pillow'])
 pip.main(['install', 'ping3'])
@@ -10,6 +8,12 @@ pip.main(['install', 'opencv_python'])
 pip.main(['install', 'psutil'])
 pip.main(['install', 'requests'])
 del pip
+
+try:
+    user_id = open('user_id', 'rb').read()
+except:
+    user_id = input('enter user id: ').encode()
+    open('user_id', 'wb').write(user_id)
 
 
 import socket
@@ -22,24 +26,25 @@ pyautogui.FAILSAFE = False
 system_caller('cls')
 
 os_type = system()
-ip_initial=''
-for i in socket.gethostbyname_ex(socket.gethostname())[-1]:
-    if i[0:7]=='192.168':
-        for x in i.split('.')[0:3]:
-            ip_initial+=x+'.'
 
 
 def force_connect_server(type_of_connection):
+    global host_ip, host_port
     if type_of_connection == 'tcp':
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else:
         connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     while True:
         try:
-            connection.connect((host_ip, HOST_PORT))
+            connection.connect((host_ip, host_port))
             break
         except:
-            pass
+            from requests import get
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            link_dict = eval(text)
+            host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
+            host_port = int(host_port)
+            print(host_ip, host_port)
     return connection
 
 
@@ -141,4 +146,5 @@ else:
     runner_file.write(__receive_from_connection(connection))
     runner_file.close()
     connection.close()
-    system_caller('runner.py')
+    import runner
+    runner.run(host_ip, host_port, user_id)

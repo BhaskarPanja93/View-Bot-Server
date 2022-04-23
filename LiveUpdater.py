@@ -10,8 +10,8 @@ class Updater(Thread):
     _process = None
     system_caller('git pull')
     check_interval = 1 ## time to wait (in seconds) before every check is run
-    file_to_check = r"VM_manager.py" ## name of file to check for changes
-    program_to_rerun = r"VM_manager.py" ## name of program to restart
+    file_to_check = r"ADFLY_host.py" ## name of file to check for changes
+    program_to_rerun = r"ADFLY_host.py" ## name of program to restart
 
     def __init__(self):
         Thread.__init__(self)

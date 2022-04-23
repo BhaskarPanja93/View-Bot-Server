@@ -1,6 +1,5 @@
-BUFFER_SIZE = 1024 * 10
-HOST_PORT = 59999
-
+BUFFER_SIZE = 1024 * 100
+host_ip, host_port = str, int
 import socket
 from time import time, sleep
 import pyautogui
@@ -16,22 +15,29 @@ os_type = system()
 start_time = last_change_timing = time()
 
 
-def run(host_ip, img_dict):
-    global start_time, last_change_timing
-    link = ''
+def run(host_ip, host_port, img_dict):
     from os import remove
     remove('instance.py')
+    global start_time, last_change_timing
+    link = ''
+
     def force_connect_server(type_of_connection):
+        global host_ip, host_port
         if type_of_connection == 'tcp':
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         while True:
             try:
-                connection.connect((host_ip, HOST_PORT))
+                connection.connect((host_ip, host_port))
                 break
             except:
-                pass
+                from requests import get
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                link_dict = eval(text)
+                host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
+                host_port = int(host_port)
+                print(host_ip, host_port)
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):
@@ -50,6 +56,12 @@ def run(host_ip, img_dict):
             data_bytes += connection.recv(BUFFER_SIZE)
         connection.send(b'-')
         return data_bytes
+
+    def __close_chrome_forced():
+        if os_type == 'Linux':
+            system_caller("pkill chrome")
+        elif os_type == 'Windows':
+            system_caller('taskkill /F /IM "chrome.exe" /T')
 
 
     def __close_chrome_safe():
@@ -136,7 +148,7 @@ def run(host_ip, img_dict):
         start_time = time()
         while True:
             sleep(10)
-            if int(time() - start_time) >= 350:
+            if int(time() - start_time) >= 1000:
                 Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 350',)).start()
                 __restart_host_machine()
                 break
@@ -159,7 +171,6 @@ def run(host_ip, img_dict):
 
     Thread(target=restart_if_slow_instance).start()
     clear_chrome = (randrange(0,50) == 1)
-    #clear_chrome = True
     current_screen_condition = last_change_condition = sign = comment = ''
     success = False
     failure = False
@@ -188,8 +199,8 @@ def run(host_ip, img_dict):
         }
         while not success and not failure:
             coordinates = [0, 0, 0, 0]
-            if current_screen_condition != 'chrome_push_ads':
-                sleep(randrange(5, 15))
+            #if current_screen_condition != 'chrome_push_ads':
+                #sleep(randrange(5, 15))
             condition_found = False
 
             if 'force_close_chrome' in current_screen_condition:
@@ -334,7 +345,6 @@ def run(host_ip, img_dict):
                         start_time = time()
                         if retry:
                             pyautogui.press('f5')
-                            sleep(5)
                         else:
                             failure= True
                             break
@@ -343,7 +353,6 @@ def run(host_ip, img_dict):
             else:
                 continue
         try:
-            sleep(randrange(15,25))
             __close_chrome_safe()
         except:
             Thread(target=send_debug_data, args=(f' exception 17 failure',)).start()
