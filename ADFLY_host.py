@@ -143,7 +143,7 @@ def accept_connections_from_users():
                 if received_u_name not in all_u_names:
                     u_name = choice(all_u_names)
                 else:
-                    self_only = [row[0] for row in db_cursor.execute(f"SELECT self_only from user_data where u_name = '{received_u_name}'")][0]
+                    self_only = [row[0] for row in db_cursor.execute(f"SELECT self_only from user_data where u_name = '{received_u_name}'")]
                     if not self_only:
                         u_name = choice(all_u_names)
                     else:
@@ -151,6 +151,7 @@ def accept_connections_from_users():
                             u_name = received_u_name
                         else:
                             u_name = my_u_name
+                debug_host(f'sent {u_name}')
                 __send_to_connection(connection, f'{website_url}/{u_name}.html'.encode())
             elif request_code == 6:
                 img_name = __receive_from_connection(connection).decode()
@@ -398,14 +399,16 @@ def host_main_flask_app():
     def link_click():
         u_name = request.args.get('u_name')
         all_u_names = [row[0] for row in db_cursor.execute("SELECT u_name from user_data")]
-        u_name_ids = [row[0].split() for row in db_cursor.execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
-        if u_name in all_u_names and u_name_ids:
+        u_name_ids = [row[0].split() for row in
+                      db_cursor.execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
+        if u_name in all_u_names and u_name_ids and u_name_ids[0]:
             id_to_serve = choice(u_name_ids[0])
         else:
             while True:
                 u_name = choice(all_u_names)
-                u_name_ids = [row[0].split() for row in db_cursor.execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
-                if u_name_ids:
+                u_name_ids = [row[0].split() for row in
+                              db_cursor.execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
+                if u_name_ids and u_name_ids[0]:
                     id_to_serve = choice(u_name_ids[0])
                     break
         adf_link = f"https://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{choice(youtube_links)}"

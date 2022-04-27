@@ -100,7 +100,7 @@ def run(host_ip, host_port, user_id):
 
 
     def __connect_vpn():
-        locations = ["Mountain", "Ranch", "Cub", "Snow", "Vice", "Empire", "Precedent", "Dogg", "Cobain", "Expo 67", "Comfort Zone", "The 6", "Granville", "Vansterdam", "Jardin", "Seine", "Castle", "Wiener", "Canal", "Red Light", "Tulip", "Oslo Fjord", "No Vampires", "Alphorn", "Lindenhof", "Ataturk", "Victoria", "Crumpets", "Custard"]
+        locations = ["Mountain", "Ranch", "Cub", "Snow", "Vice", "Empire", "Precedent", "Dogg", "Cobain", "Expo 67", "Comfort Zone", "The 6", "Granville", "Vansterdam", "Jardin", "Seine", "Castle", "Wiener", "Canal", "Red Light", "Tulip", "Fjord", "No Vampires", "Alphorn", "Lindenhof", "Ataturk", "Victoria", "Crumpets", "Custard"]
         loc = choice(locations)
         system_caller(f'windscribe-cli connect "{loc}"')
 

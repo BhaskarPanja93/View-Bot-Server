@@ -19,6 +19,8 @@ def run(host_ip, host_port, img_dict, user_id):
     remove('instance.py')
     global start_time, last_change_timing
     link = ''
+    success = False
+    failure = False
 
     def force_connect_server(type_of_connection):
         global host_ip, host_port
@@ -159,7 +161,7 @@ def run(host_ip, host_port, img_dict, user_id):
             __send_to_connection(sock, user_id.encode())
             main_link = __receive_from_connection(sock).decode()
             sock.close()
-            if not main_link:
+            if not main_link and 'http' not in main_link:
                 return get_link()
             else:
                 return main_link
@@ -171,8 +173,7 @@ def run(host_ip, host_port, img_dict, user_id):
     Thread(target=restart_if_slow_instance).start()
     clear_chrome = (randrange(0,50) == 1)
     current_screen_condition = last_change_condition = sign = comment = ''
-    success = False
-    failure = False
+
 
     mouse_movement_speed = 0.4
     typing_speed = 0.06
@@ -269,23 +270,15 @@ def run(host_ip, host_port, img_dict, user_id):
                     try:
                         __click(coordinates)
                         pyautogui.hotkey('ctrl', 'a')
-                    except Exception as e:
-                        Thread(target=send_debug_data, args=(f'7.1 exception {repr(e)}',)).start()
-                    if not link:
-                        try:
+                        if clear_chrome:
+                            link = 'chrome://settings/resetProfileSettings'
+                        else:
                             link = get_link()
-                            if clear_chrome:
-                                link = 'chrome://settings/resetProfileSettings'
-                        except Exception as e:
-                            Thread(target=send_debug_data, args=(f'7.2 exception {repr(e)}',)).start()
-                    try:
-                        pyautogui.typewrite(link, typing_speed)
+                            pyautogui.typewrite(link, typing_speed)
+                            sleep(2)
+                            pyautogui.press('enter')
                     except Exception as e:
-                            Thread(target=send_debug_data, args=(f'7.3 exception {repr(e)}',)).start()
-                    try:
-                        pyautogui.press('enter')
-                    except Exception as e:
-                        Thread(target=send_debug_data, args=(f'7.4 exception {repr(e)}',)).start()
+                        send_debug_data(f' {repr(e)} Exception 7 {link=}')
                 elif current_screen_condition == 'google_captcha':
                     try:
                         failure = True
