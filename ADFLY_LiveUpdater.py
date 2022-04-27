@@ -3,12 +3,10 @@ from time import sleep
 from sys import executable
 from threading import Thread
 from os import stat
-from os import system as system_caller
 
 
 class Updater(Thread):
     _process = None
-    system_caller('git pull')
     check_interval = 1 ## time to wait (in seconds) before every check is run
     file_to_check = r"ADFLY_host.py" ## name of file to check for changes
     program_to_rerun = r"ADFLY_host.py" ## name of program to restart

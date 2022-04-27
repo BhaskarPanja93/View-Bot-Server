@@ -1,3 +1,10 @@
+try:
+    user_id = open('user_id', 'r').read()
+except:
+    user_id = input('enter user id: ')
+    open('user_id', 'w').write(user_id)
+
+
 BUFFER_SIZE = 1024*100
 host_ip, host_port = str, int
 import pip
@@ -9,12 +16,6 @@ pip.main(['install', 'psutil'])
 pip.main(['install', 'requests'])
 del pip
 
-try:
-    user_id = open('user_id', 'rb').read()
-except:
-    user_id = input('enter user id: ').encode()
-    open('user_id', 'wb').write(user_id)
-
 
 import socket
 from os import system as system_caller
@@ -24,7 +25,6 @@ from PIL import Image, ImageGrab
 pyautogui.FAILSAFE = False
 
 system_caller('cls')
-
 os_type = system()
 
 
@@ -44,7 +44,6 @@ def force_connect_server(type_of_connection):
             link_dict = eval(text)
             host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
             host_port = int(host_port)
-            print(host_ip, host_port)
     return connection
 
 
@@ -67,28 +66,19 @@ def __receive_from_connection(connection):
     return data_bytes
 
 
-def __shutdown_host_machine(duration=0):
-    if os_type == 'Linux':
-        system_caller("shutdown now -h")
-    elif os_type == 'Windows':
-        system_caller(f'shutdown -s -f -t {duration}')
+def __shutdown_host_machine(duration=5):
+    system_caller(f'shutdown -s -f -t {duration}')
 
 
 def __close_all_chrome():
-    if os_type == 'Linux':
-        system_caller("pkill chrome")
-    elif os_type == 'Windows':
-        system_caller('taskkill /F /IM "chrome.exe" /T')
+    system_caller('taskkill /F /IM "chrome.exe" /T')
 
 
 def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None):
     sock = force_connect_server('tcp')
     try:
         sock.settimeout(10)
-        if os_type == 'Linux':
-            __send_to_connection(sock, b'5')
-        elif os_type == 'Windows':
-            __send_to_connection(sock, b'6')
+        __send_to_connection(sock, b'6')
         __send_to_connection(sock, img_name.encode())
         size = eval(__receive_from_connection(sock))
         img_data = __receive_from_connection(sock)

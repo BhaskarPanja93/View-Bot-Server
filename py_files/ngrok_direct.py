@@ -10,12 +10,11 @@ from PIL import Image, ImageGrab
 from os import system as system_caller
 pyautogui.FAILSAFE = False
 
-
 os_type = system()
 start_time = last_change_timing = time()
 
 
-def run(host_ip, host_port, img_dict):
+def run(host_ip, host_port, img_dict, user_id):
     from os import remove
     remove('instance.py')
     global start_time, last_change_timing
@@ -37,7 +36,6 @@ def run(host_ip, host_port, img_dict):
                 link_dict = eval(text)
                 host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
                 host_port = int(host_port)
-                print(host_ip, host_port)
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):
@@ -146,10 +144,10 @@ def run(host_ip, host_port, img_dict):
     def restart_if_slow_instance():
         global start_time
         start_time = time()
-        while True:
+        while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 1000:
-                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 350',)).start()
+            if int(time() - start_time) >= 600:
+                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 600',)).start()
                 __restart_host_machine()
                 break
 
@@ -158,14 +156,15 @@ def run(host_ip, host_port, img_dict):
         try:
             sock = force_connect_server('tcp')
             __send_to_connection(sock, b'4')
+            __send_to_connection(sock, user_id.encode())
             main_link = __receive_from_connection(sock).decode()
             sock.close()
             if not main_link:
                 return get_link()
             else:
                 return main_link
-        except:
-            Thread(target=send_debug_data, args=('get link exception',)).start()
+        except Exception as e:
+            Thread(target=send_debug_data, args=(f'get link exception {e}',)).start()
             return get_link()
 
 
@@ -199,8 +198,7 @@ def run(host_ip, host_port, img_dict):
         }
         while not success and not failure:
             coordinates = [0, 0, 0, 0]
-            #if current_screen_condition != 'chrome_push_ads':
-                #sleep(randrange(5, 15))
+            sleep(5)
             condition_found = False
 
             if 'force_close_chrome' in current_screen_condition:
@@ -270,16 +268,24 @@ def run(host_ip, host_port, img_dict):
                 elif current_screen_condition == 'blank_chrome':
                     try:
                         __click(coordinates)
-                        pyautogui.hotkey('ctrl','a')
-                        if not link:
+                        pyautogui.hotkey('ctrl', 'a')
+                    except Exception as e:
+                        Thread(target=send_debug_data, args=(f'7.1 exception {repr(e)}',)).start()
+                    if not link:
+                        try:
+                            link = get_link()
                             if clear_chrome:
                                 link = 'chrome://settings/resetProfileSettings'
-                            else:
-                                link = get_link()
+                        except Exception as e:
+                            Thread(target=send_debug_data, args=(f'7.2 exception {repr(e)}',)).start()
+                    try:
                         pyautogui.typewrite(link, typing_speed)
+                    except Exception as e:
+                            Thread(target=send_debug_data, args=(f'7.3 exception {repr(e)}',)).start()
+                    try:
                         pyautogui.press('enter')
                     except Exception as e:
-                        Thread(target=send_debug_data, args=(f'7 exception {repr(e)}',)).start()
+                        Thread(target=send_debug_data, args=(f'7.4 exception {repr(e)}',)).start()
                 elif current_screen_condition == 'google_captcha':
                     try:
                         failure = True
@@ -308,6 +314,7 @@ def run(host_ip, host_port, img_dict):
                 elif current_screen_condition == 'adfly_skip':
                     try:
                         __click(coordinates)
+                        sleep(10)
                     except:
                         Thread(target=send_debug_data, args=(f' exception 11 failure',)).start()
                 elif current_screen_condition == 'click_allow_to_continue':
@@ -353,6 +360,7 @@ def run(host_ip, host_port, img_dict):
             else:
                 continue
         try:
+            sleep(10)
             __close_chrome_safe()
         except:
             Thread(target=send_debug_data, args=(f' exception 17 failure',)).start()
@@ -360,5 +368,5 @@ def run(host_ip, host_port, img_dict):
         success = False
         failure = True
         comment = ''
-        Thread(target=send_debug_data, args=(sign, f' exception {repr(e)} failure',)).start()
+        Thread(target=send_debug_data, args=(sign, f' instance outer exception {repr(e)} failure',)).start()
     return ['ngrok_direct', int(success), int(failure), comment, img_dict]

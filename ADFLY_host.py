@@ -7,11 +7,11 @@ pip.main(['install', 'flask'])
 pip.main(['install', 'pyngrok'])
 del pip
 
-
+import sqlite3
 from PIL import Image
 from turbo_flask import Turbo
 from os import system as system_caller
-from os import path
+from os import path, remove
 import socket
 from random import choice, randrange
 from threading import Thread
@@ -20,13 +20,15 @@ from psutil import virtual_memory
 from psutil import cpu_percent as cpu
 from flask import Flask, render_template, request, redirect
 
+my_u_name = 'bhaskar_main'
+db_connection = sqlite3.connect('read only/user_data.db', check_same_thread=False)
+db_cursor = db_connection.cursor()
 
 BUFFER_SIZE = 1024 * 100
 USER_CONNECTION_PORT = 59999
 HOST_MAIN_WEB_PORT = 60000
 
-
-user_connection = main_html_page_url = website_url = working_ids = youtube_links = last_one_click_start_data = last_vm_activity = debug_data = ''
+user_connection = main_html_page_url = website_url = paragraph_lines = youtube_links = last_one_click_start_data = last_vm_activity = debug_data = ''
 old_current_vm_data = []
 vm_data_update_connections = last_vm_data = last_host_data = {}
 
@@ -80,7 +82,6 @@ def github_link_updater(key, new_data):
 def accept_connections_from_users():
     python_files = {}
     windows_img_files = {}
-    linux_img_files = {}
 
     '''
         -1:'ping',
@@ -89,7 +90,7 @@ def accept_connections_from_users():
          2:'instance_file_check',
          3:'debug_data',
          4:'ngrok_link_check',
-         5:'linux_image_sender',
+         5:
          6:'windows_image_sender',
          7: 
          8: 
@@ -137,20 +138,20 @@ def accept_connections_from_users():
                 f.write(f'[{_id}] : [{ctime()}] : {text}\n')
                 f.close()
             elif request_code == 4:
-                __send_to_connection(connection, f'{website_url}/website{randrange(0, 100)}.html'.encode())
-            elif request_code == 5:
-                img_name = __receive_from_connection(connection).decode()
-                version = __receive_from_connection(connection)
-                if (img_name not in linux_img_files) or (path.getmtime(f'req_imgs/Linux/{img_name}.PNG') != linux_img_files[img_name]['version']):
-                    linux_img_files[img_name] = {}
-                    linux_img_files[img_name]['version'] = str(path.getmtime(f'req_imgs/Linux/{img_name}.PNG')).encode()
-                    linux_img_files[img_name]['file'] = Image.open(f'req_imgs/Linux/{img_name}.PNG')
-                if version != linux_img_files[img_name]['version']:
-                    __send_to_connection(connection, linux_img_files[img_name]['version'])
-                    __send_to_connection(connection, str(linux_img_files[img_name]['file'].size).encode())
-                    __send_to_connection(connection, linux_img_files[img_name]['file'].tobytes())
+                received_u_name = __receive_from_connection(connection).decode()
+                all_u_names = [row[0] for row in db_cursor.execute("SELECT u_name from user_data")]
+                if received_u_name not in all_u_names:
+                    u_name = choice(all_u_names)
                 else:
-                    __send_to_connection(connection, b'x')
+                    self_only = [row[0] for row in db_cursor.execute(f"SELECT self_only from user_data where u_name = '{received_u_name}'")][0]
+                    if not self_only:
+                        u_name = choice(all_u_names)
+                    else:
+                        if randrange(1,10) % 10:
+                            u_name = received_u_name
+                        else:
+                            u_name = my_u_name
+                __send_to_connection(connection, f'{website_url}/{u_name}.html'.encode())
             elif request_code == 6:
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
@@ -173,55 +174,68 @@ def accept_connections_from_users():
                 notify user to change vpn account
                 '''
             elif request_code == 100:
-                user_id = __receive_from_connection(connection).decode()
-                vm_data_update_connections[user_id] = connection
+                random_string = '_-_'
+                for _ in range(5):
+                    random_string += chr(randrange(97, 122))
+                u_name = __receive_from_connection(connection).decode() + random_string
+                vm_data_update_connections[u_name] = connection
         except Exception as e:
             debug_host(repr(e))
     Thread(target=acceptor).start()
     Thread(target=acceptor).start()
 
 
-def change_ids(sleep_dur=10 * 60):
+
+def update_adf_htmls():
+    version = ''
+    old_all_unames = []
     while not main_html_page_url:
         pass
-    global working_ids, youtube_links
+    global youtube_links, paragraph_lines
     paragraph_lines = open('read only/paragraph.txt', 'rb').read().decode().split('.')
-    working_ids = open('read only/working ids.txt', 'r').read().split('\n')
     youtube_links = open('read only/youtube links.txt', 'r').read().split('\n')
     for _ in range(youtube_links.count('')):
         youtube_links.remove('')
     while True:
-        modify_website_files(paragraph_lines)
-        sleep(sleep_dur)
+        if path.getmtime('read only/user_data.db') != version:
+            version = path.getmtime('read only/user_data.db')
+            all_unames = [row[0] for row in db_cursor.execute("SELECT u_name from user_data")]
+            for u_name in list(set(old_all_unames)-set(all_unames)):
+                delete_adf_html_file(u_name)
+            for u_name in list(set(all_unames)-set(old_all_unames)):
+                create_adf_html_file(u_name)
+            old_all_unames = all_unames
+        sleep(1)
 
 
-def modify_website_files(paragraph_lines):
-    for html_file_number in range(100):
-        file = open(f'html_files/website{html_file_number}.html', 'w')
-        data = ''
-        for para_length in range(randrange(400, 1000)):
-            data += choice(paragraph_lines) + '.'
-            if randrange(0, 10) % 5 == 0:
-                random_string = ''
-                for _ in range(10):
-                    random_string+=chr(randrange(97,122))
-                data += f"<a href='{main_html_page_url}/adf_link_click?random={random_string}'> CLICK HERE </a>"
-        html_data = f"""
-        <HTML>
-        <HEAD>
-        <TITLE>
-        Nothing's here {html_file_number}
-        </TITLE>
-        <meta name="referrer" content="origin">
-        </HEAD>
-        <BODY>
-        {data}
-        </BODY>
-        </HTML>
-        """
-        file.write(html_data)
-        file.close()
+def delete_adf_html_file(u_name):
+    remove(f'html_files/{u_name}.html')
 
+
+def create_adf_html_file(u_name):
+    file = open(f'html_files/{u_name}.html', 'w')
+    data = ''
+    for para_length in range(randrange(400, 1000)):
+        data += choice(paragraph_lines) + '.'
+        if randrange(0, 10) % 5 == 0:
+            random_string = ''
+            for _ in range(5):
+                random_string+=chr(randrange(97,122))
+            data += f"<a href='{main_html_page_url}/adf_link_click?u_name={u_name}&random={random_string}'> CLICK HERE </a>"
+    html_data = f"""
+    <HTML>
+    <HEAD>
+    <TITLE>
+    Nothing's here {u_name}
+    </TITLE>
+    </HEAD>
+    <BODY>
+    {data}
+    </BODY>
+    </HTML>
+    """
+    file.write(html_data)
+    file.close()
 
 
 def update_flask_page():
@@ -252,7 +266,7 @@ def update_flask_page():
                 targets = sorted(vm_data_update_connections)
                 for vm_local_ip in targets:
                     Thread(target=receive_data, args=(vm_local_ip,)).start()
-                sleep(1)
+                sleep(2)
                 current_vm_activity = f"""{len(current_vm_data)} Working </br>"""
                 if current_vm_activity != last_vm_activity:
                     turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'))
@@ -260,8 +274,9 @@ def update_flask_page():
                 if sorted(current_vm_data) != sorted(old_current_vm_data):
                     individual_vms = ''
                     for user_id in sorted(current_vm_data):
+                        actual_user_id = user_id.split('_-_')[0]
                         individual_vms += f'''<tr>
-                                <td>{user_id}</td>
+                                <td>{actual_user_id}</td>
                                 <td><div id="{user_id}_public_ip"></div></td>
                                 <td><div id="{user_id}_uptime"></div></td>
                                 <td><div id="{user_id}_success"></div></td>
@@ -312,9 +327,7 @@ def update_flask_page():
                                 turbo_app.push(turbo_app.update(current_vm_data[user_id][item], f'{user_id}_{item}'))
                                 last_vm_data[user_id][item] = current_vm_data[user_id][item]
                     if 'working_cond' in current_vm_data[user_id]:
-                        if 'working_cond' not in last_vm_data[user_id] or (
-                                current_vm_data[user_id]['working_cond'] == 'Working' and last_vm_data[user_id][
-                            'working_cond'] != 'Working'):
+                        if 'working_cond' not in last_vm_data[user_id] or (current_vm_data[user_id]['working_cond'] == 'Working' and last_vm_data[user_id]['working_cond'] != 'Working'):
                             last_vm_data[user_id]['working_cond'] = 'Working'
                             options = f"""<form method="POST" action="/auto_action/">
                             <select name="{user_id}" onchange="this.form.submit()">
@@ -326,8 +339,7 @@ def update_flask_page():
                             turbo_app.push(turbo_app.update(options, f'{user_id}_working_cond'))
                             last_vm_data[user_id]['working_cond'] = current_vm_data[user_id]['working_cond']
                         elif 'working_cond' not in last_vm_data[user_id] or (
-                                current_vm_data[user_id]['working_cond'] == 'Stopped' and last_vm_data[user_id][
-                            'working_cond'] != 'Stopped'):
+                                current_vm_data[user_id]['working_cond'] == 'Stopped' and last_vm_data[user_id]['working_cond'] != 'Stopped'):
                             last_vm_data[user_id]['working_cond'] = 'Stopped'
                             options = f"""<form method="POST" action="/auto_action/">
                             <select name="{user_id}" onchange="this.form.submit()">
@@ -351,7 +363,7 @@ def update_flask_page():
         else:
             sleep(1)
             targets = sorted(vm_data_update_connections)
-            if len(targets) >= 1:
+            if targets:
                 target = choice(targets)
                 Thread(target=send_blank_command, args=(target,)).start()
 
@@ -384,7 +396,19 @@ def host_main_flask_app():
 
     @app.route('/adf_link_click/', methods=['POST', 'GET'])
     def link_click():
-        adf_link = f"https://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{choice(working_ids)}/{choice(youtube_links)}"
+        u_name = request.args.get('u_name')
+        all_u_names = [row[0] for row in db_cursor.execute("SELECT u_name from user_data")]
+        u_name_ids = [row[0].split() for row in db_cursor.execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
+        if u_name in all_u_names and u_name_ids:
+            id_to_serve = choice(u_name_ids[0])
+        else:
+            while True:
+                u_name = choice(all_u_names)
+                u_name_ids = [row[0].split() for row in db_cursor.execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
+                if u_name_ids:
+                    id_to_serve = choice(u_name_ids[0])
+                    break
+        adf_link = f"https://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{choice(youtube_links)}"
         return redirect(adf_link)
 
     app.run(host='0.0.0.0', port=HOST_MAIN_WEB_PORT, debug=True, use_reloader=False, threaded=True)
@@ -438,13 +462,10 @@ def ngrok_host_main_page():
 
 Thread(target=host_main_flask_app).start()
 Thread(target=update_flask_page).start()
-Thread(target=change_ids).start()
 Thread(target=accept_connections_from_users).start()
+Thread(target=update_adf_htmls).start()
+
 ngrok_host_main_page()
 ngrok_htmls()
 ngrok_user_connection()
-
-
-
-
 
