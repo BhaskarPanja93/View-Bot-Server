@@ -1,26 +1,21 @@
-BUFFER_SIZE = 1024 * 100
-host_ip, host_port = str, int
-import socket
-from time import time, sleep
-import pyautogui
-from random import choice, randrange
-from threading import Thread
-from platform import system
-from PIL import Image, ImageGrab
-from os import system as system_caller
-pyautogui.FAILSAFE = False
-
-os_type = system()
-start_time = last_change_timing = time()
+BUFFER_SIZE, host_port, host_ip, start_time  = '','','', ''
 
 
-def run(host_ip, host_port, img_dict, user_id):
+def run(img_dict, u_name):
+
     from os import remove
     remove('instance.py')
-    global start_time, last_change_timing
-    link = ''
-    success = False
-    failure = False
+    global BUFFER_SIZE, start_time
+
+    import socket
+    from time import time, sleep
+    import pyautogui
+    from random import choice, randrange
+    from threading import Thread
+    from platform import system
+    from PIL import Image, ImageGrab
+    from os import system as system_caller
+
 
     def force_connect_server(type_of_connection):
         global host_ip, host_port
@@ -40,6 +35,7 @@ def run(host_ip, host_port, img_dict, user_id):
                 host_port = int(host_port)
         return connection
 
+
     def __send_to_connection(connection, data_bytes: bytes):
         data_byte_length = len(data_bytes)
         connection.send(str(data_byte_length).encode())
@@ -47,6 +43,7 @@ def run(host_ip, host_port, img_dict, user_id):
             connection.send(data_bytes)
         if connection.recv(1) == b'-':
             return
+
 
     def __receive_from_connection(connection):
         length = int(connection.recv(BUFFER_SIZE))
@@ -56,6 +53,7 @@ def run(host_ip, host_port, img_dict, user_id):
             data_bytes += connection.recv(BUFFER_SIZE)
         connection.send(b'-')
         return data_bytes
+
 
     def __close_chrome_forced():
         if os_type == 'Linux':
@@ -87,6 +85,7 @@ def run(host_ip, host_port, img_dict, user_id):
         except:
             pass
 
+
     def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
         sock = force_connect_server('tcp')
         try:
@@ -117,7 +116,7 @@ def run(host_ip, host_port, img_dict, user_id):
             else:
                 return pyautogui.locateOnScreen(img_bytes, confidence=confidence, region=region)
         except Exception as e:
-            send_debug_data(f'{repr(e)}')
+            send_debug_data(f'img find {repr(e)}')
             return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
 
 
@@ -142,7 +141,6 @@ def run(host_ip, host_port, img_dict, user_id):
             system_caller(f'shutdown -r -f -t {duration}')
 
 
-
     def restart_if_slow_instance():
         global start_time
         start_time = time()
@@ -158,25 +156,36 @@ def run(host_ip, host_port, img_dict, user_id):
         try:
             sock = force_connect_server('tcp')
             __send_to_connection(sock, b'4')
-            __send_to_connection(sock, user_id.encode())
-            main_link = __receive_from_connection(sock).decode()
+            __send_to_connection(sock, u_name.encode())
+            from requests import get
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            link_dict = eval(text)
+            main_link = link_dict['adfly_host_main_page']
+            side_link = __receive_from_connection(sock).decode()
             sock.close()
-            if not main_link and 'http' not in main_link:
+            if not main_link and 'http' not in main_link and '?' not in side_link:
                 return get_link()
             else:
-                return main_link
+                return main_link+side_link
         except Exception as e:
             Thread(target=send_debug_data, args=(f'get link exception {e}',)).start()
             return get_link()
 
 
+    pyautogui.FAILSAFE = False
+    BUFFER_SIZE = 1024 * 100
+    os_type = system()
+    start_time = time()
+    link = ''
+    success = False
+    failure = False
     Thread(target=restart_if_slow_instance).start()
     clear_chrome = (randrange(0,50) == 1)
     current_screen_condition = last_change_condition = sign = comment = ''
-
-
     mouse_movement_speed = 0.4
     typing_speed = 0.06
+
+
     try:
         possible_screen_conditions = {
             'clear_chrome_cookies': ['reset settings'],
@@ -192,7 +201,7 @@ def run(host_ip, host_port, img_dict, user_id):
             'force_close_chrome_neutral': ['ngrok wrong link', 'ngrok service unavailable'],
             'force_close_chrome_failure': ['cookies not enabled', 'site cant be reached'],
             'force_click': ['adfly continue'],
-            'chrome_restore': ['chrome restore 1', 'chrome restore 2'],
+            'chrome_restore': ['chrome restore 1'],
             'force_restart_system': [],
             'nothing_opened': ['chrome icon'],
             'chrome_push_ads': ['chrome push ads region']
@@ -201,7 +210,6 @@ def run(host_ip, host_port, img_dict, user_id):
             coordinates = [0, 0, 0, 0]
             sleep(5)
             condition_found = False
-
             if 'force_close_chrome' in current_screen_condition:
                 continue
             else:
@@ -219,7 +227,6 @@ def run(host_ip, host_port, img_dict, user_id):
             if current_screen_condition:
                 try:
                     if current_screen_condition != last_change_condition:
-                        last_change_timing = time()
                         last_change_condition = current_screen_condition
                 except:
                     Thread(target=send_debug_data, args=(f' exception 2 failure',)).start()
@@ -228,7 +235,6 @@ def run(host_ip, host_port, img_dict, user_id):
                     start_time += 1
                     if push_ad_close:
                         __click(push_ad_close)
-                        #sleep(1)
                         pyautogui.move(30,30)
                 elif current_screen_condition == 'clear_chrome_cookies':  #####
                     __click(coordinates)
@@ -270,12 +276,13 @@ def run(host_ip, host_port, img_dict, user_id):
                     try:
                         __click(coordinates)
                         pyautogui.hotkey('ctrl', 'a')
+                        sleep(1)
                         if clear_chrome:
                             link = 'chrome://settings/resetProfileSettings'
                         else:
                             link = get_link()
                             pyautogui.typewrite(link, typing_speed)
-                            sleep(2)
+                            sleep(1)
                             pyautogui.press('enter')
                     except Exception as e:
                         send_debug_data(f' {repr(e)} Exception 7 {link=}')
@@ -353,7 +360,7 @@ def run(host_ip, host_port, img_dict, user_id):
             else:
                 continue
         try:
-            sleep(10)
+            sleep(5)
             __close_chrome_safe()
         except:
             Thread(target=send_debug_data, args=(f' exception 17 failure',)).start()
@@ -362,4 +369,4 @@ def run(host_ip, host_port, img_dict, user_id):
         failure = True
         comment = ''
         Thread(target=send_debug_data, args=(sign, f' instance outer exception {repr(e)} failure',)).start()
-    return ['ngrok_direct', int(success), int(failure), comment, img_dict]
+    return ['ngrok_direct', int(success), comment, img_dict]

