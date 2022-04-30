@@ -34,7 +34,7 @@ def debug_host(text: str):
 
 def github_link_updater(key, new_data):
     try:
-        connection = force_connect_server('192.168.1.2', 50010)
+        connection = force_connect_server('127.0.0.1', 50010)
         dict_to_send = {key: new_data}
         __send_to_connection(connection, str(dict_to_send).encode())
     except Exception as e:

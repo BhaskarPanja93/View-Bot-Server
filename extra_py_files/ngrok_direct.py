@@ -146,8 +146,8 @@ def run(img_dict, u_name):
         start_time = time()
         while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 600:
-                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 600',)).start()
+            if int(time() - start_time) >= 300:
+                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 300',)).start()
                 __restart_host_machine()
                 break
 

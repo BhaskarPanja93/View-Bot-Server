@@ -1,11 +1,4 @@
-import socket
 from os import system as system_caller
-from platform import system
-import pyautogui
-from PIL import Image, ImageGrab
-pyautogui.FAILSAFE = False
-
-
 try:
     user_data = eval(open('self_data', 'r').read())
     u_name = user_data['u_name']
@@ -27,7 +20,11 @@ pip.main(['install', 'opencv_python'])
 pip.main(['install', 'psutil'])
 pip.main(['install', 'requests'])
 del pip
-
+import socket
+from platform import system
+import pyautogui
+from PIL import Image, ImageGrab
+pyautogui.FAILSAFE = False
 system_caller('cls')
 os_type = system()
 

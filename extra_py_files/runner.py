@@ -263,7 +263,7 @@ def run(user_data):
     update_user_agents_connection = force_connect_server()
     __send_to_connection(update_user_agents_connection, b'7')
     user_agents_data = __receive_from_connection(update_user_agents_connection)
-    with open('user agents.txt', 'wb') as file:
+    with open('user_agents.txt', 'wb') as file:
         file.write(user_agents_data)
     start_time = time()
     Thread(target=restart_if_connection_missing).start()
