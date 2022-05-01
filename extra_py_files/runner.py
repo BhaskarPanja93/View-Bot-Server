@@ -89,7 +89,7 @@ def run(user_data):
             __send_to_connection(debug_connection, str((x, y)).encode())
             __send_to_connection(debug_connection, ss)
         except:
-            pass
+            send_debug_data(text, additional_comment)
 
 
     def __restart_host_machine(duration=5):
@@ -110,16 +110,8 @@ def run(user_data):
         system_caller('windscribe-cli disconnect')
 
 
-    def __get_global_ip():
-        for _ in range(10):
-            try:
-                if type(ping('8.8.8.8')) == float:
-                    break
-            except:
-                pass
-            finally:
-                sleep(1)
-        else:
+    def __get_global_ip(trial = 1):
+        if trial >= 3:
             return ''
         try:
             return popen("curl http://checkip.dyndns.org").read().split(': ', 1)[1].split('</body></html>', 1)[0]
@@ -159,7 +151,8 @@ def run(user_data):
                                   }
                         return eval(popen(f"curl https://ipinfo.io/json?token={choice(list(tokens.values()))}").read())["ip"]
                     except:
-                        return ''
+                        sleep(1)
+                        return __get_global_ip(trial)
 
 
     def run_instance(instance_name):
@@ -168,17 +161,17 @@ def run(user_data):
             instance_connection = force_connect_server()
             __send_to_connection(instance_connection, b'2')
             __send_to_connection(instance_connection, instance_name.encode())
-            open('instance.py', 'wb').close()
-            with open('instance.py', 'ab') as instance_file:
+            with open('instance.py', 'wb') as instance_file:
                 instance_file.write(__receive_from_connection(instance_connection))
                 instance_file.close()
             import instance
             instance_name, s, comment, img_dict = instance.run(img_dict=img_dict, u_name=u_name)
-            del instance
             success += s
-            available_instances.append(instance_name)
+            if instance_name not in available_instances:
+                available_instances.append(instance_name)
         except Exception as e:
             Thread(target=send_debug_data, args=(repr(e), 'run_instance',)).start()
+            run_instance(instance_name)
 
 
     def update_current_ip():
@@ -217,7 +210,7 @@ def run(user_data):
                 last_ip = current_ip
                 connection_enabled = False
                 system_caller('windscribe-cli firewall off')
-                __disconnect_all_vpn()
+                #__disconnect_all_vpn()
                 __connect_vpn()
                 connection_enabled = True
                 required = False
@@ -238,28 +231,28 @@ def run(user_data):
 
 
     def send_data():
-        send_data_connection = force_connect_server()
-        __send_to_connection(send_data_connection, b'100')
-        __send_to_connection(send_data_connection, u_name.encode())
-        send_data_connection.settimeout(20)
-        while True:
-            try:
-                received_data = __receive_from_connection(send_data_connection).decode()
-                if received_data == " ":
-                    pass
-                else:
-                    update_cpu_ram()
-                    uptime_calculator()
-                    current_data = {'public_ip': current_ip, 'genuine_ip':genuine_ip, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
-                    __send_to_connection(send_data_connection, str(current_data).encode())
-            except:
-                break
-        send_data()
+        try:
+            send_data_connection = force_connect_server()
+            __send_to_connection(send_data_connection, b'100')
+            __send_to_connection(send_data_connection, u_name.encode())
+            send_data_connection.settimeout(20)
+            while True:
+                    received_data = __receive_from_connection(send_data_connection).decode()
+                    if received_data == "x":
+                        pass
+                    else:
+                        update_cpu_ram()
+                        uptime_calculator()
+                        current_data = {'public_ip': current_ip, 'genuine_ip':genuine_ip, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
+                        __send_to_connection(send_data_connection, str(current_data).encode())
+        except:
+            send_data()
 
     u_name = user_data['u_name']
     __disconnect_all_vpn()
     sleep(3)
-    genuine_ip = __get_global_ip()
+    while not genuine_ip:
+        genuine_ip = __get_global_ip()
     update_user_agents_connection = force_connect_server()
     __send_to_connection(update_user_agents_connection, b'7')
     user_agents_data = __receive_from_connection(update_user_agents_connection)
@@ -278,12 +271,10 @@ def run(user_data):
                 comment = ''
                 next_ip_reset += randrange(1, 3)
             if len(available_instances) == len(total_instances) and type(ping('8.8.8.8')) == float:
-                try:
                     instance = choice(available_instances)
-                    available_instances.remove(instance)
+                    if instance in available_instances:
+                        available_instances.remove(instance)
                     system_caller('cls')
                     Thread(target=run_instance, args=(instance,)).start()
-                except Exception as e:
-                    Thread(target=send_debug_data, args=(repr(e), 'runner main loop',)).start()
             else:
                 sleep(2)

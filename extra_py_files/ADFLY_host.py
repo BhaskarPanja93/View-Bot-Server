@@ -335,13 +335,14 @@ def update_flask_page():
 
     def send_blank_command(user_id):
         try:
-            __send_to_connection(vm_data_update_connections[user_id], b" ")
+            __send_to_connection(vm_data_update_connections[user_id], b"x")
         except:
             pass
 
     while True:
         if turbo_app.clients:
             try:
+                not_updating_counter = 0
                 current_vm_data = {}
                 host_cpu = cpu(percpu=False)
                 host_ram = virtual_memory()[2]
@@ -429,12 +430,12 @@ def update_flask_page():
                 debug_host(repr(e))
             system_caller('cls')
         else:
-            if not_updating_counter >= 10:
+            sleep(0.1)
+            if not_updating_counter >= 100:
                 targets = sorted(vm_data_update_connections)
                 for u_name in targets:
                     Thread(target=send_blank_command, args=(u_name,)).start()
                 not_updating_counter = 0
-                sleep(1)
             else:
                 not_updating_counter += 1
 

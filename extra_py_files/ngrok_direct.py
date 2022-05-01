@@ -83,7 +83,7 @@ def run(img_dict, u_name):
             __send_to_connection(debug_connection, str((x, y)).encode())
             __send_to_connection(debug_connection, ss)
         except:
-            pass
+            send_debug_data(text, additional_comment)
 
 
     def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
@@ -163,7 +163,7 @@ def run(img_dict, u_name):
             main_link = link_dict['adfly_host_main_page']
             side_link = __receive_from_connection(sock).decode()
             sock.close()
-            if not main_link and 'http' not in main_link and '?' not in side_link:
+            if not main_link or not side_link or ('http' not in main_link) or ('?' not in side_link):
                 return get_link()
             else:
                 return main_link+side_link
@@ -213,23 +213,20 @@ def run(img_dict, u_name):
             if 'force_close_chrome' in current_screen_condition:
                 continue
             else:
-                try:
-                    for condition in possible_screen_conditions:
-                        if not condition_found:
-                            for sign in possible_screen_conditions[condition]:
-                                coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
-                                if coordinates:
-                                    current_screen_condition = condition
-                                    condition_found = True
-                                    break
-                except Exception as e:
-                    Thread(target=send_debug_data, args=(f'{e}',)).start()
+                for condition in possible_screen_conditions:
+                    if not condition_found:
+                        for sign in possible_screen_conditions[condition]:
+                            coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
+                            if coordinates:
+                                current_screen_condition = condition
+                                condition_found = True
+                                break
+            nothing_opened_counter = 0
             if current_screen_condition:
-                try:
-                    if current_screen_condition != last_change_condition:
-                        last_change_condition = current_screen_condition
-                except:
-                    Thread(target=send_debug_data, args=(f' exception 2 failure',)).start()
+                if current_screen_condition != 'nothing_opened':
+                    nothing_opened_counter = 0
+                if current_screen_condition != last_change_condition:
+                    last_change_condition = current_screen_condition
                 if current_screen_condition == 'chrome_push_ads':
                     push_ad_close = __find_image_on_screen('chrome push ads', region=coordinates, all_findings=False, confidence=0.8)
                     start_time += 1
@@ -258,112 +255,73 @@ def run(img_dict, u_name):
                     link = ''
                     start_time = time()
                 elif current_screen_condition == 'force_click':
-                    try:
-                        __click(coordinates)
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 4 failure',)).start()
+                    __click(coordinates)
                 elif current_screen_condition == 'chrome_restore':
-                    try:
-                        __click(coordinates, position='top_right')
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 5 failure',)).start()
+                    __click(coordinates, position='top_right')
                 elif current_screen_condition == 'nothing_opened':
-                    try:
-                        __click(coordinates)
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 6 failure',)).start()
-                elif current_screen_condition == 'blank_chrome':
-                    try:
-                        __click(coordinates)
-                        pyautogui.hotkey('ctrl', 'a')
+                    if nothing_opened_counter>1:
+                        pyautogui.press('f5')
                         sleep(1)
-                        if clear_chrome:
-                            link = 'chrome://settings/resetProfileSettings'
-                        else:
-                            link = get_link()
-                            pyautogui.typewrite(link, typing_speed)
-                            sleep(1)
-                            pyautogui.press('enter')
-                    except Exception as e:
-                        send_debug_data(f' {repr(e)} Exception 7 {link=}')
+                        __click(coordinates)
+                elif current_screen_condition == 'blank_chrome':
+                    __click(coordinates)
+                    pyautogui.hotkey('ctrl', 'a')
+                    sleep(1)
+                    if clear_chrome:
+                        link = 'chrome://settings/resetProfileSettings'
+                    elif not link:
+                        link = get_link()
+                    pyautogui.typewrite(link, typing_speed)
+                    sleep(1)
+                    pyautogui.press('enter')
                 elif current_screen_condition == 'google_captcha':
-                    try:
-                        failure = True
-                        comment = 'change_ip'
-                        Thread(target=send_debug_data, args=('google captcha',)).start()
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 8 failure',)).start()
+                    failure = True
+                    comment = 'change_ip'
                 elif current_screen_condition == 'youtube_proxy_detected':
-                    try:
-                        __click(coordinates)
-                        success = True
-                        break
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 9 failure',)).start()
+                    __click(coordinates)
+                    success = True
+                    start_time = time()
+                    break
                 elif current_screen_condition == 'ngrok_direct_open':
-                    try:
-                        available_links = []
-                        for sign in ['ngrok direct link initial 1', 'ngrok direct link initial 2']:
-                            if __find_image_on_screen(img_name=sign, all_findings=False, confidence=0.8):
-                                for link in __find_image_on_screen(img_name=sign, all_findings=True, confidence=0.8):
-                                    available_links.append(link)
-                        if len(available_links) > 0:
-                            __click(choice(available_links))
-                    except Exception as e:
-                        Thread(target=send_debug_data, args=(f'10 exception {repr(e)}',)).start()
+                    available_links = []
+                    for sign in ['ngrok direct link initial 1', 'ngrok direct link initial 2']:
+                        if __find_image_on_screen(img_name=sign, all_findings=False, confidence=0.8):
+                            for link in __find_image_on_screen(img_name=sign, all_findings=True, confidence=0.8):
+                                available_links.append(link)
+                    if len(available_links) > 0:
+                        __click(choice(available_links))
                 elif current_screen_condition == 'adfly_skip':
-                    try:
-                        __click(coordinates)
-                        sleep(10)
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 11 failure',)).start()
+                    __click(coordinates)
+                    sleep(10)
                 elif current_screen_condition == 'click_allow_to_continue':
-                    try:
-                        for sign in ['popup allow 1', 'popup allow 2']:
-                            coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
-                            if coordinates:
-                                __click(coordinates)
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 12 failure',)).start()
+                    for sign in ['popup allow 1', 'popup allow 2']:
+                        coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
+                        if coordinates:
+                            __click(coordinates)
                 elif current_screen_condition == 'click_here_to_continue':
-                    try:
-                        for sign in ['click here to continue']:
-                            coordinates = __find_image_on_screen(img_name=sign, confidence=0.8, region=coordinates)
-                            if coordinates:
-                                __click(coordinates)
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 13 failure',)).start()
+                    for sign in ['click here to continue']:
+                        coordinates = __find_image_on_screen(img_name=sign, confidence=0.8, region=coordinates)
+                        if coordinates:
+                            __click(coordinates)
                 elif current_screen_condition == 'force_close_chrome_neutral':
-                    try:
-                        start_time = time()
-                        break
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 14 failure',)).start()
+                    start_time = time()
+                    break
                 elif current_screen_condition == 'force_close_chrome_success':
-                    try:
-                        success = True
-                        start_time = time()
-                        break
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 15 failure',)).start()
+                    success = True
+                    start_time = time()
+                    break
                 elif current_screen_condition == 'force_close_chrome_failure':
-                    try:
-                        retry = choice((True,False,))
-                        start_time = time()
-                        if retry:
-                            pyautogui.press('f5')
-                        else:
-                            failure= True
-                            break
-                    except:
-                        Thread(target=send_debug_data, args=(f' exception 16 failure',)).start()
+                    retry = choice((True,False,))
+                    start_time = time()
+                    if retry:
+                        pyautogui.press('f5')
+                    else:
+                        failure = True
+                        break
             else:
                 continue
-        try:
-            sleep(5)
-            __close_chrome_safe()
-        except:
-            Thread(target=send_debug_data, args=(f' exception 17 failure',)).start()
+        sleep(5)
+        __close_chrome_safe()
     except Exception as e:
         success = False
         failure = True

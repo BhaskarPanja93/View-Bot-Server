@@ -78,7 +78,7 @@ def __close_all_chrome():
 def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None):
     sock = force_connect_server('tcp')
     try:
-        sock.settimeout(10)
+        sock.settimeout(20)
         __send_to_connection(sock, b'6')
         __send_to_connection(sock, img_name.encode())
         size = eval(__receive_from_connection(sock))
@@ -119,7 +119,7 @@ def send_debug_data(text, additional_comment: str = ''):
         __send_to_connection(debug_connection, str((x, y)).encode())
         __send_to_connection(debug_connection, ss)
     except:
-        pass
+        send_debug_data(text, additional_comment)
 
 
 connection = force_connect_server('tcp')

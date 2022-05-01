@@ -99,7 +99,7 @@ def password_matches_standard(password: str):
 
 def post_login_function():
     clear_screen()
-    print(f"Login successful, Welcome back {u_name}")
+    print(f"Login successful, Welcome {u_name}")
     while True:
         print("""
             Enter 1 to add new adfly ids to your account
