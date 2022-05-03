@@ -308,7 +308,7 @@ def accept_connections_from_users():
                 notify user to change vpn account
                 '''
             elif request_code == '98':
-                received_token = __receive_from_connection(connection).decode()
+                received_token = __receive_from_connection(connection).decode().strip()
                 all_u_name = []
                 for row in db_cursor.execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
                     all_u_name.append(row[0])
@@ -318,6 +318,8 @@ def accept_connections_from_users():
                         __send_to_connection(connection, b'0')
                     else:
                         __send_to_connection(connection, b'-1')
+                else:
+                    __send_to_connection(connection, b'-1')
             elif request_code == '99':
                 u_name = __receive_from_connection(connection).decode().strip()
                 password = __receive_from_connection(connection).decode().strip().swapcase()
@@ -326,7 +328,7 @@ def accept_connections_from_users():
                     user_pw_hash = [_ for _ in db_cursor.execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                     if check_password_hash(user_pw_hash, password):
                         __send_to_connection(connection, b'0')
-                        instance_token = [row[0] for row in db_cursor.execute(f"SELECT instance_token from user_data where u_name='bhaskar_main'")][0]
+                        instance_token = [row[0] for row in db_cursor.execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
                         __send_to_connection(connection, instance_token.encode())
                     else:
                         __send_to_connection(connection, b'-1')
