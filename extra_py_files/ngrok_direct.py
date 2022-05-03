@@ -1,7 +1,7 @@
 BUFFER_SIZE, host_port, host_ip, start_time  = '','','', ''
 
 
-def run(img_dict, u_name):
+def run(img_dict, instance_token):
 
     from os import remove
     remove('instance.py')
@@ -17,17 +17,16 @@ def run(img_dict, u_name):
     from os import system as system_caller
 
 
-    def force_connect_server(type_of_connection):
+    def force_connect_server():
         global host_ip, host_port
-        if type_of_connection == 'tcp':
-            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        else:
-            connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connection.settimeout(10)
         while True:
             try:
                 connection.connect((host_ip, host_port))
                 break
             except:
+                sleep(2)
                 from requests import get
                 text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
                 link_dict = eval(text)
@@ -77,7 +76,7 @@ def run(img_dict, u_name):
             print(f'{text}-{additional_comment}'.encode())
             ss = ImageGrab.grab().tobytes()
             x, y = pyautogui.size()
-            debug_connection = force_connect_server('tcp')
+            debug_connection = force_connect_server()
             __send_to_connection(debug_connection, b'3')
             __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
             __send_to_connection(debug_connection, str((x, y)).encode())
@@ -87,7 +86,7 @@ def run(img_dict, u_name):
 
 
     def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
-        sock = force_connect_server('tcp')
+        sock = force_connect_server()
         try:
             sock.settimeout(10)
             if os_type == 'Linux':
@@ -132,6 +131,11 @@ def run(img_dict, u_name):
                 x = x + x_thick
                 pyautogui.moveTo(x, y, mouse_movement_speed)
                 pyautogui.click(x, y)
+            elif position == 'bottom_right':
+                x = x + x_thick
+                y = y + y_thick
+                pyautogui.moveTo(x, y, mouse_movement_speed)
+                pyautogui.click(x, y)
 
 
     def __restart_host_machine(duration=5):
@@ -146,30 +150,43 @@ def run(img_dict, u_name):
         start_time = time()
         while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 300:
-                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 300',)).start()
+            if int(time() - start_time) >= 500:
+                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 500',)).start()
                 __restart_host_machine()
                 break
 
 
     def get_link():
-        try:
-            sock = force_connect_server('tcp')
-            __send_to_connection(sock, b'4')
-            __send_to_connection(sock, u_name.encode())
+        def fetch_main_link():
+            sleep(2)
             from requests import get
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
             link_dict = eval(text)
             main_link = link_dict['adfly_host_main_page']
+            return main_link
+
+        def fetch_side_link():
+            sock = force_connect_server()
+            __send_to_connection(sock, b'4')
+            __send_to_connection(sock, instance_token)
             side_link = __receive_from_connection(sock).decode()
-            sock.close()
-            if not main_link or not side_link or ('http' not in main_link) or ('?' not in side_link):
-                return get_link()
-            else:
-                return main_link+side_link
-        except Exception as e:
-            Thread(target=send_debug_data, args=(f'get link exception {e}',)).start()
-            return get_link()
+            return side_link
+
+        while True:
+            try:
+                side_link = fetch_side_link()
+                if '?' in side_link:
+                    break
+            except:
+                pass
+        while True:
+            try:
+                main_link = fetch_main_link()
+                if 'http' in main_link:
+                    break
+            except:
+                pass
+        return str(main_link+side_link)
 
 
     pyautogui.FAILSAFE = False
@@ -193,6 +210,7 @@ def run(img_dict, u_name):
             'google_captcha': ['google captcha'],
             'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
+            'click_bottom_right_to_continue': ['click ok to continue', 'wants to send notifications'],
             'adfly_skip': ['adfly skip'],
             'click_allow_to_continue': ['click allow to continue'],
             'force_close_chrome_success': ['yt logo 1', 'yt logo 2'],
@@ -202,17 +220,15 @@ def run(img_dict, u_name):
             'force_close_chrome_failure': ['cookies not enabled', 'site cant be reached'],
             'force_click': ['adfly continue'],
             'chrome_restore': ['chrome restore 1'],
-            'force_restart_system': [],
             'nothing_opened': ['chrome icon'],
             'chrome_push_ads': ['chrome push ads region']
         }
+        nothing_opened_counter = 1
         while not success and not failure:
             coordinates = [0, 0, 0, 0]
             sleep(5)
             condition_found = False
-            if 'force_close_chrome' in current_screen_condition:
-                continue
-            else:
+            if 'force_close_chrome' not in current_screen_condition:
                 for condition in possible_screen_conditions:
                     if not condition_found:
                         for sign in possible_screen_conditions[condition]:
@@ -221,10 +237,7 @@ def run(img_dict, u_name):
                                 current_screen_condition = condition
                                 condition_found = True
                                 break
-            nothing_opened_counter = 0
             if current_screen_condition:
-                if current_screen_condition != 'nothing_opened':
-                    nothing_opened_counter = 0
                 if current_screen_condition != last_change_condition:
                     last_change_condition = current_screen_condition
                 if current_screen_condition == 'chrome_push_ads':
@@ -254,18 +267,22 @@ def run(img_dict, u_name):
                     __close_chrome_safe()
                     link = ''
                     start_time = time()
+                elif current_screen_condition == 'click_bottom_right_to_continue':
+                    __click(coordinates, position='bottom_right')
                 elif current_screen_condition == 'force_click':
                     __click(coordinates)
                 elif current_screen_condition == 'chrome_restore':
                     __click(coordinates, position='top_right')
                 elif current_screen_condition == 'nothing_opened':
-                    if nothing_opened_counter>1:
+                    if nothing_opened_counter>=1:
                         pyautogui.press('f5')
                         sleep(1)
                         __click(coordinates)
+                        nothing_opened_counter = 0
+                    else:
+                        nothing_opened_counter += 1
                 elif current_screen_condition == 'blank_chrome':
                     __click(coordinates)
-                    pyautogui.hotkey('ctrl', 'a')
                     sleep(1)
                     if clear_chrome:
                         link = 'chrome://settings/resetProfileSettings'
@@ -286,8 +303,8 @@ def run(img_dict, u_name):
                     available_links = []
                     for sign in ['ngrok direct link initial 1', 'ngrok direct link initial 2']:
                         if __find_image_on_screen(img_name=sign, all_findings=False, confidence=0.8):
-                            for link in __find_image_on_screen(img_name=sign, all_findings=True, confidence=0.8):
-                                available_links.append(link)
+                            for link_coords in __find_image_on_screen(img_name=sign, all_findings=True, confidence=0.8):
+                                available_links.append(link_coords)
                     if len(available_links) > 0:
                         __click(choice(available_links))
                 elif current_screen_condition == 'adfly_skip':
@@ -311,13 +328,10 @@ def run(img_dict, u_name):
                     start_time = time()
                     break
                 elif current_screen_condition == 'force_close_chrome_failure':
-                    retry = choice((True,False,))
-                    start_time = time()
-                    if retry:
-                        pyautogui.press('f5')
-                    else:
-                        failure = True
-                        break
+                    if sign == 'site cant be reached':
+                        pyautogui.hotkey('browserback')
+                    failure = True
+                    break
             else:
                 continue
         sleep(5)
@@ -326,5 +340,5 @@ def run(img_dict, u_name):
         success = False
         failure = True
         comment = ''
-        Thread(target=send_debug_data, args=(sign, f' instance outer exception {repr(e)} failure',)).start()
+        Thread(target=send_debug_data, args=(sign, f' instance outer exception {link=} {repr(e)=} failure',)).start()
     return ['ngrok_direct', int(success), comment, img_dict]

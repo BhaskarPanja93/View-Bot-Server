@@ -2,6 +2,7 @@ from time import ctime, sleep
 import socket
 
 user_connection = main_html_page_url = website_url = ''
+host_ip = '127.0.0.1'
 USER_CONNECTION_PORT = 59999
 HOST_MAIN_WEB_PORT = 60000
 
@@ -34,7 +35,7 @@ def debug_host(text: str):
 
 def github_link_updater(key, new_data):
     try:
-        connection = force_connect_server('127.0.0.1', 50010)
+        connection = force_connect_server(host_ip, 50010)
         dict_to_send = {key: new_data}
         __send_to_connection(connection, str(dict_to_send).encode())
     except Exception as e:

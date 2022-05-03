@@ -1,45 +1,21 @@
+from time import sleep
 from os import system as system_caller
-try:
-    user_data = eval(open('self_data', 'r').read())
-    u_name = user_data['u_name']
-except:
-    user_data = {}
-    u_name = input('enter username: ').strip()
-    system_caller('cls')
-    user_data['u_name'] = u_name
-    open('self_data', 'w').write(str(user_data))
-
+import socket
 
 BUFFER_SIZE = 1024*100
 host_ip, host_port = str, int
-import pip
-pip.main(['install', 'pillow'])
-pip.main(['install', 'ping3'])
-pip.main(['install', 'pyautogui'])
-pip.main(['install', 'opencv_python'])
-pip.main(['install', 'psutil'])
-pip.main(['install', 'requests'])
-del pip
-import socket
-from platform import system
-import pyautogui
-from PIL import Image, ImageGrab
-pyautogui.FAILSAFE = False
-system_caller('cls')
-os_type = system()
 
 
-def force_connect_server(type_of_connection):
+def force_connect_server():
     global host_ip, host_port
-    if type_of_connection == 'tcp':
-        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    else:
-        connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    connection.settimeout(10)
     while True:
         try:
             connection.connect((host_ip, host_port))
             break
         except:
+            sleep(2)
             from requests import get
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
             link_dict = eval(text)
@@ -67,72 +43,41 @@ def __receive_from_connection(connection):
     return data_bytes
 
 
-def __shutdown_host_machine(duration=5):
-    system_caller(f'shutdown -s -f -t {duration}')
-
-
-def __close_all_chrome():
-    system_caller('taskkill /F /IM "chrome.exe" /T')
-
-
-def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None):
-    sock = force_connect_server('tcp')
+while True:
     try:
-        sock.settimeout(20)
-        __send_to_connection(sock, b'6')
-        __send_to_connection(sock, img_name.encode())
-        size = eval(__receive_from_connection(sock))
-        img_data = __receive_from_connection(sock)
-        try:
-            img_data = Image.frombytes(mode="RGBA", size=size, data=img_data, decoder_name='raw')
-        except:
-            img_data = Image.frombytes(mode="RGB", size=size, data=img_data, decoder_name='raw')
-        if all_findings:
-            return pyautogui.locateAllOnScreen(img_data, confidence=confidence, region=region)
+        connection = force_connect_server()
+        __send_to_connection(connection, b'0')
+        main_data = __receive_from_connection(connection)
+        connection.close()
+        if open('final_main.py', 'rb').read() != main_data:
+            with open('final_main.py', 'wb') as main_file:
+                main_file.write(main_data)
+                updated = True
+                system_caller('final_main.py')
         else:
-            return pyautogui.locateOnScreen(img_data, confidence=confidence, region=region)
+            updated = False
+            break
     except:
-        return __find_image_on_screen(img_name, all_findings, confidence, region)
+        pass
 
 
-def __click(location, position='center'):
-    x, y, x_thick, y_thick = location
-    if position == 'center':
-        x = x + (x_thick // 2)
-        y = y + (y_thick // 2)
-        pyautogui.moveTo(x, y)
-        pyautogui.click(x, y)
-    elif position == 'top_right':
-        x = x + x_thick
-        pyautogui.moveTo(x, y)
-        pyautogui.click(x, y)
-
-
-def send_debug_data(text, additional_comment: str = ''):
-    try:
-        print(f'{text}-{additional_comment}'.encode())
-        ss = ImageGrab.grab().tobytes()
-        x, y = pyautogui.size()
-        debug_connection = force_connect_server('tcp')
-        __send_to_connection(debug_connection, b'3')
-        __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
-        __send_to_connection(debug_connection, str((x, y)).encode())
-        __send_to_connection(debug_connection, ss)
-    except:
-        send_debug_data(text, additional_comment)
-
-
-connection = force_connect_server('tcp')
-__send_to_connection(connection, b'0')
-main_data = __receive_from_connection(connection)
-if open('final_main.py', 'rb').read() != main_data:
-    with open('final_main.py', 'wb') as main_file:
-        main_file.write(main_data)
-    system_caller('final_main.py')
-else:
-    connection = force_connect_server('tcp')
-    __send_to_connection(connection, b'1')
-    with open('runner.py', 'wb') as runner_file:
-        runner_file.write(__receive_from_connection(connection))
+if not updated:
+    while True:
+        try:
+            instance_token = open("C:/adfly_user_data", 'rb').read().strip()
+            if instance_token:
+                break
+        except:
+            sleep(5)
+    while True:
+        try:
+            connection = force_connect_server()
+            __send_to_connection(connection, b'1')
+            runner_data = __receive_from_connection(connection)
+            with open('runner.py', 'wb') as runner_file:
+                runner_file.write(runner_data)
+            break
+        except:
+            pass
     import runner
-    runner.run(user_data)
+    runner.run(instance_token)

@@ -1,12 +1,11 @@
 last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, host_ip, host_port, BUFFER_SIZE = '','','','','','','','','','','','',''
 available_instances = []
 
-def run(user_data):
+def run(instance_token):
     from os import remove
     remove('runner.py')
 
     global last_ip, current_ip, genuine_ip, success, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE
-
     comment, current_ip, last_ip = str, int, str
     img_dict = {}
     BUFFER_SIZE = 1024 * 100
@@ -31,11 +30,13 @@ def run(user_data):
     def force_connect_server():
         global host_ip, host_port
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connection.settimeout(10)
         while True:
             try:
                 connection.connect((host_ip, host_port))
                 break
             except:
+                sleep(2)
                 from requests import get
                 text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
                 link_dict = eval(text)
@@ -73,7 +74,7 @@ def run(user_data):
                 sleep(1)
                 counter += 1
                 if counter >= 120:
-                    Thread(target=send_debug_data, args=('connection_missing_restart  counter >= 1000',)).start()
+                    Thread(target=send_debug_data, args=('connection_missing_restart  counter >= 120',)).start()
                     __restart_host_machine()
                     input()
 
@@ -165,7 +166,7 @@ def run(user_data):
                 instance_file.write(__receive_from_connection(instance_connection))
                 instance_file.close()
             import instance
-            instance_name, s, comment, img_dict = instance.run(img_dict=img_dict, u_name=u_name)
+            instance_name, s, comment, img_dict = instance.run(img_dict=img_dict, instance_token=instance_token)
             success += s
             if instance_name not in available_instances:
                 available_instances.append(instance_name)
@@ -209,8 +210,7 @@ def run(user_data):
             else:
                 last_ip = current_ip
                 connection_enabled = False
-                system_caller('windscribe-cli firewall off')
-                #__disconnect_all_vpn()
+                __disconnect_all_vpn()
                 __connect_vpn()
                 connection_enabled = True
                 required = False
@@ -234,7 +234,7 @@ def run(user_data):
         try:
             send_data_connection = force_connect_server()
             __send_to_connection(send_data_connection, b'100')
-            __send_to_connection(send_data_connection, u_name.encode())
+            __send_to_connection(send_data_connection, instance_token)
             send_data_connection.settimeout(20)
             while True:
                     received_data = __receive_from_connection(send_data_connection).decode()
@@ -248,7 +248,6 @@ def run(user_data):
         except:
             send_data()
 
-    u_name = user_data['u_name']
     __disconnect_all_vpn()
     sleep(3)
     while not genuine_ip:
