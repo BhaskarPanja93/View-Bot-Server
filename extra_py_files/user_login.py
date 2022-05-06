@@ -146,7 +146,7 @@ def post_login_function():
                     break
                 old_ids = __receive_from_connection(login_connection).decode()
                 print(f"Your previously added ID are: {old_ids.replace(' ', ', ')}")
-                _id = input("Enter a single ID you want to add to your account or type x to return to previous page: ").strip()
+                _id = input("Enter a single ID you want to remove from your account or type x to return to previous page: ").strip()
                 if _id.lower() == 'x':
                     __send_to_connection(login_connection, b'x')
                     clear_screen()

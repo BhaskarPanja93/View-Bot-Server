@@ -2,6 +2,14 @@ from time import sleep
 from os import system as system_caller
 import socket
 
+import pip
+pip.main(['install','pyautogui'])
+pip.main(['install','opencv_python'])
+pip.main(['install','psutil'])
+pip.main(['install','ping3'])
+pip.main(['install','pillow'])
+pip.main(['install','requests'])
+del pip
 BUFFER_SIZE = 1024*100
 host_ip, host_port = str, int
 

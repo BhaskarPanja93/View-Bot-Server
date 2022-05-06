@@ -65,8 +65,8 @@ def ngrok_host_main_page():
         #ngrok.kill()
         ngrok.set_auth_token("288KImUNY3LWKmEPFNNUmDCk2OV_3LQiUwwthDHkmQ2Eo8NAx")
         conf.get_default().region = 'in'
-        tunnel = ngrok.connect(HOST_MAIN_WEB_PORT, bind_tls=True)
-        main_html_page_url = tunnel.public_url
+        tunnel = ngrok.connect(HOST_MAIN_WEB_PORT, proto='tcp')
+        main_html_page_url = tunnel.public_url.replace('tcp://','http://')
         print(f"{main_html_page_url=}")
         github_link_updater('adfly_host_main_page', main_html_page_url)
     except Exception as e:

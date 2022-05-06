@@ -136,6 +136,11 @@ def run(img_dict, instance_token):
                 y = y + y_thick
                 pyautogui.moveTo(x, y, mouse_movement_speed)
                 pyautogui.click(x, y)
+            elif position == 'bottom_center':
+                x = x + x_thick // 2
+                y = y + y_thick
+                pyautogui.moveTo(x, y, mouse_movement_speed)
+                pyautogui.click(x, y)
 
 
     def __restart_host_machine(duration=5):
@@ -210,7 +215,8 @@ def run(img_dict, instance_token):
             'google_captcha': ['google captcha'],
             'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
-            'click_bottom_right_to_continue': ['click ok to continue', 'wants to send notifications'],
+            'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2'],
+            'force_click_bottom_center': ['click ok to continue 2'],
             'adfly_skip': ['adfly skip'],
             'click_allow_to_continue': ['click allow to continue'],
             'force_close_chrome_success': ['yt logo 1', 'yt logo 2'],
@@ -226,7 +232,6 @@ def run(img_dict, instance_token):
         nothing_opened_counter = 1
         while not success and not failure:
             coordinates = [0, 0, 0, 0]
-            sleep(5)
             condition_found = False
             if 'force_close_chrome' not in current_screen_condition:
                 for condition in possible_screen_conditions:
@@ -267,8 +272,10 @@ def run(img_dict, instance_token):
                     __close_chrome_safe()
                     link = ''
                     start_time = time()
-                elif current_screen_condition == 'click_bottom_right_to_continue':
+                elif current_screen_condition == 'force_click_bottom_right':
                     __click(coordinates, position='bottom_right')
+                elif current_screen_condition == 'force_click_bottom_center':
+                    __click(coordinates, position='bottom_center')
                 elif current_screen_condition == 'force_click':
                     __click(coordinates)
                 elif current_screen_condition == 'chrome_restore':

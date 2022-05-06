@@ -202,7 +202,6 @@ def accept_connections_from_users():
     windows_img_files = {}
     text_files = {}
     """
-        -2:'ping using connection.send()',
         -1:'ping using __send_to_connection()',
          0:'main_file_check',
          1:'runner_file_check',
@@ -236,12 +235,7 @@ def accept_connections_from_users():
         if not request_code:
             return
         try:
-            if request_code == '-2':
-                try:
-                    connection.send(b'x')
-                except:
-                    pass
-            elif request_code == '-1':
+            if request_code == '-1':
                 __send_to_connection(connection, b'x')
             elif request_code == '0':
                 if ('final_main.py' not in python_files) or (path.getmtime(getcwd()+'/extra_py_files/final_main.py') != python_files['final_main.py']['version']):
@@ -501,7 +495,6 @@ def update_flask_page():
                 not_updating_counter = 0
             else:
                 not_updating_counter += 1
-
 
 
 app = Flask(__name__, template_folder=getcwd().replace('\\','/')+'/templates/') ### might cause issue later (template not found)
