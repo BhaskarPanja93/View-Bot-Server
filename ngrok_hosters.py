@@ -1,11 +1,20 @@
 from time import ctime, sleep
 import socket
 
-user_connection = main_html_page_url = website_url = ''
-host_ip = '127.0.0.1'
-USER_CONNECTION_PORT = 59999
-HOST_MAIN_WEB_PORT = 60000
+main_html_page_url = ''
+user_connection_list = []
 
+host_ip = '127.0.0.1'
+OLD_USER_CONNECTION_PORT = 59999
+HOST_MAIN_WEB_PORT = 60000
+USER_CONNECTION_PORT_MAP = {
+    59998:'28oH7jQPeXTDGWXs8oyIhb5KxUY_385T8rqtT1q1r2LAGYbb'
+}
+"""
+    59997:'28oHDeNqYqv9yv4ohcj5ky7RtXU_7eY3GNVFzZPpbJyNm2yzq',
+    59996:'28oHShvU9VUXOCY6aQWDpVNi8pG_3nU1hBpDQPMTqPxyrEtaK',
+    59995:'28oHkoKDASJjfSf0syqJdxdaHr7_37w7EA9CMpmc33qr4Qgbi'
+"""
 
 def force_connect_server(host_ip, host_port):
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -20,11 +29,19 @@ def force_connect_server(host_ip, host_port):
 
 def __send_to_connection(connection, data_bytes: bytes):
     data_byte_length = len(data_bytes)
-    connection.send(str(data_byte_length).encode())
-    if connection.recv(1) == b'-':
-        connection.send(data_bytes)
-    if connection.recv(1) == b'-':
-        return
+    connection.send(f'{data_byte_length}'.zfill(8).encode())
+    connection.send(data_bytes)
+
+
+def __receive_from_connection(connection):
+    length = b''
+    while len(length) != 8:
+        length+=connection.recv(8-len(length))
+    length = int(length)
+    data_bytes = b''
+    while len(data_bytes) != length:
+        data_bytes += connection.recv(length-len(data_bytes))
+    return data_bytes
 
 
 def debug_host(text: str):
@@ -42,20 +59,37 @@ def github_link_updater(key, new_data):
         print(repr(e))
 
 
-def ngrok_user_connection():
-    global user_connection
+def ngrok_old_user_connection():
+    global user_connection_list
     try:
         from pyngrok import ngrok, conf
         #ngrok.kill()
         ngrok.set_auth_token("288KOY8xGAkFkWr6eItG7dDo3tA_88aMpELciECYEa4xUS3MQ")
         conf.get_default().region = 'in'
-        tunnel = ngrok.connect(USER_CONNECTION_PORT, proto='tcp')
+        tunnel = ngrok.connect(OLD_USER_CONNECTION_PORT, proto='tcp')
         user_connection = tunnel.public_url.replace('tcp://','')
-        print(f"{user_connection=}")
-        github_link_updater('adfly_user_tcp_connection', user_connection)
+        print(f"old_{user_connection=}")
+        github_link_updater('adfly_user_tcp_connection', str(user_connection))
     except Exception as e:
         debug_host(repr(e))
-        ngrok_host_main_page()
+        ngrok_old_user_connection()
+
+
+def ngrok_user_connection(port):
+    global user_connection_list
+    try:
+        from pyngrok import ngrok, conf
+        #ngrok.kill()
+        ngrok.set_auth_token(USER_CONNECTION_PORT_MAP[port])
+        conf.get_default().region = 'in'
+        tunnel = ngrok.connect(port, proto='tcp')
+        user_connection = tunnel.public_url.replace('tcp://','')
+        print(f"{user_connection=}")
+        user_connection_list.append(user_connection)
+    except Exception as e:
+        debug_host(repr(e))
+        ngrok_user_connection(port)
+
 
 
 def ngrok_host_main_page():
@@ -73,9 +107,11 @@ def ngrok_host_main_page():
         debug_host(repr(e))
         ngrok_host_main_page()
 
-
-ngrok_user_connection()
+for port in USER_CONNECTION_PORT_MAP:
+    ngrok_user_connection(port)
+github_link_updater('adfly_user_tcp_connection_list', user_connection_list)
 ngrok_host_main_page()
+ngrok_old_user_connection()
 
 
 while True:

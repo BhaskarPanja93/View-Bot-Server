@@ -13,9 +13,8 @@ def run(img_dict, instance_token):
     from random import choice, randrange
     from threading import Thread
     from platform import system
-    from PIL import Image, ImageGrab
+    from PIL import Image
     from os import system as system_caller
-
 
     def force_connect_server():
         global host_ip, host_port
@@ -28,29 +27,27 @@ def run(img_dict, instance_token):
             except:
                 sleep(2)
                 from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
                 link_dict = eval(text)
-                host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
+                user_connection_list = link_dict['adfly_user_tcp_connection_list']
+                host_ip, host_port = choice(user_connection_list).split(':')
                 host_port = int(host_port)
         return connection
 
-
     def __send_to_connection(connection, data_bytes: bytes):
         data_byte_length = len(data_bytes)
-        connection.send(str(data_byte_length).encode())
-        if connection.recv(1) == b'-':
-            connection.send(data_bytes)
-        if connection.recv(1) == b'-':
-            return
+        connection.send(f'{data_byte_length}'.zfill(8).encode())
+        connection.send(data_bytes)
 
 
     def __receive_from_connection(connection):
-        length = int(connection.recv(BUFFER_SIZE))
-        connection.send(b'-')
+        length = b''
+        while len(length) != 8:
+            length += connection.recv(8 - len(length))
+        length = int(length)
         data_bytes = b''
         while len(data_bytes) != length:
-            data_bytes += connection.recv(BUFFER_SIZE)
-        connection.send(b'-')
+            data_bytes += connection.recv(length - len(data_bytes))
         return data_bytes
 
 
@@ -70,29 +67,23 @@ def run(img_dict, instance_token):
                     __click(coordinates)
                     break
 
-
-    def send_debug_data(text, additional_comment: str = ''):
-        try:
-            print(f'{text}-{additional_comment}'.encode())
-            ss = ImageGrab.grab().tobytes()
-            x, y = pyautogui.size()
-            debug_connection = force_connect_server()
-            __send_to_connection(debug_connection, b'3')
-            __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
-            __send_to_connection(debug_connection, str((x, y)).encode())
-            __send_to_connection(debug_connection, ss)
-        except:
-            send_debug_data(text, additional_comment)
+    def send_debug_data(text, additional_comment: str = '', trial=0):
+        trial += 1
+        if trial < 3:
+            try:
+                print(f'{text}-{additional_comment}'.encode())
+                debug_connection = force_connect_server()
+                __send_to_connection(debug_connection, b'3')
+                __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
+            except:
+                send_debug_data(text, additional_comment, trial)
 
 
     def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
         sock = force_connect_server()
         try:
             sock.settimeout(10)
-            if os_type == 'Linux':
-                __send_to_connection(sock, b'5')
-            elif os_type == 'Windows':
-                __send_to_connection(sock, b'6')
+            __send_to_connection(sock, b'6')
             __send_to_connection(sock, img_name.encode())
             if img_name in img_dict and 'version' in img_dict[img_name]:
                 __send_to_connection(sock, img_dict[img_name]['version'])
@@ -155,8 +146,8 @@ def run(img_dict, instance_token):
         start_time = time()
         while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 500:
-                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 500',)).start()
+            if int(time() - start_time) >= 800:
+                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 800',)).start()
                 __restart_host_machine()
                 break
 

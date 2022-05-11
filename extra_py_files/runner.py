@@ -14,9 +14,6 @@ def run(instance_token):
     available_instances = ['ngrok_direct']
     connection_enabled = True
     total_instances = ['ngrok_direct']
-
-    from PIL import ImageGrab
-    from pyautogui import size
     from ping3 import ping
     from psutil import cpu_percent as cpu
     from psutil import virtual_memory
@@ -38,29 +35,26 @@ def run(instance_token):
             except:
                 sleep(2)
                 from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
                 link_dict = eval(text)
-                host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
+                user_connection_list = link_dict['adfly_user_tcp_connection_list']
+                host_ip, host_port = choice(user_connection_list).split(':')
                 host_port = int(host_port)
         return connection
 
-
     def __send_to_connection(connection, data_bytes: bytes):
         data_byte_length = len(data_bytes)
-        connection.send(str(data_byte_length).encode())
-        if connection.recv(1) == b'-':
-            connection.send(data_bytes)
-        if connection.recv(1) == b'-':
-            return
-
+        connection.send(f'{data_byte_length}'.zfill(8).encode())
+        connection.send(data_bytes)
 
     def __receive_from_connection(connection):
-        length = int(connection.recv(BUFFER_SIZE))
-        connection.send(b'-')
+        length = b''
+        while len(length) != 8:
+            length += connection.recv(8 - len(length))
+        length = int(length)
         data_bytes = b''
         while len(data_bytes) != length:
-            data_bytes += connection.recv(BUFFER_SIZE)
-        connection.send(b'-')
+            data_bytes += connection.recv(length - len(data_bytes))
         return data_bytes
 
 
@@ -73,25 +67,21 @@ def run(instance_token):
             else:
                 sleep(1)
                 counter += 1
-                if counter >= 120:
-                    Thread(target=send_debug_data, args=('connection_missing_restart  counter >= 120',)).start()
+                if counter >= 180:
+                    Thread(target=send_debug_data, args=('connection_missing_restart  counter >= 180',)).start()
                     __restart_host_machine()
                     input()
 
-
-    def send_debug_data(text, additional_comment: str = ''):
-        try:
-            print(f'{text}-{additional_comment}'.encode())
-            ss = ImageGrab.grab().tobytes()
-            x, y = size()
-            debug_connection = force_connect_server()
-            __send_to_connection(debug_connection, b'3')
-            __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
-            __send_to_connection(debug_connection, str((x, y)).encode())
-            __send_to_connection(debug_connection, ss)
-        except:
-            send_debug_data(text, additional_comment)
-
+    def send_debug_data(text, additional_comment: str = '', trial=0):
+        trial += 1
+        if trial < 3:
+            try:
+                print(f'{text}-{additional_comment}'.encode())
+                debug_connection = force_connect_server()
+                __send_to_connection(debug_connection, b'3')
+                __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
+            except:
+                send_debug_data(text, additional_comment, trial)
 
     def __restart_host_machine(duration=5):
         system_caller(f'shutdown -r -f -t {duration}')
@@ -111,7 +101,7 @@ def run(instance_token):
         system_caller('windscribe-cli disconnect')
 
 
-    def __get_global_ip(trial = 1):
+    def __get_global_ip(trial = 0):
         if trial >= 3:
             return ''
         try:
@@ -124,33 +114,8 @@ def run(instance_token):
                     popen('curl https://whatismyipaddress.com/').read().split("Your IP</span>: ")[-1].split("</span>")[0]
                 except:
                     try:
-                        tokens = {'bhaskarpanja91': '1c2b2492f5a877',
-                                  'bhaskarpanja93': '1f7618d92d4e2a',
-                                  'bhaskarpanja94': 'cd9ab345f3808f',
-                                  'bhaskarphilippines': '0a7ccd07fc681e',
-                                  'abhixitdwivedi': 'ab1ebf3eadd073',
-                                  'mrbhindiyt': '9962cf0bb58406',
-                                  'townthreeone': '80680bd2126db9',
-                                  'townthreetwo': '320f04c218efc6',
-                                  'townthreethree': 'c09284712fb9bf',
-                                  'townthreefour': 'b6b15de8d6b57d',
-                                  'townthreefive': 'd485675cb2fa9b',
-                                  'townthreesix': 'cf1d7004288741',
-                                  'townthreeseven': '226b5f51917215',
-                                  'townthreeeight': '8490ecefbd6cd3',
-                                  'townthreenine': '49455ef8931ebc',
-                                  'townthreeten': 'b6fbe34547c0b3',
-                                  'townthreeeleven': '9e39df3ddc5496',
-                                  'townthreetwelve': 'c17e8bbfc9452d',
-                                  'umarsumaiya1106': '965f9effaccc57',
-                                  'bebqueenhere': '4848f4807a3adb',
-                                  'ranajitbagti': '771e5d76de0edd',
-                                  'ranajitbagti91': '3c1d90e97b0d57',
-                                  'mitalipanja91': '72fad79fdbfbea',
-                                  'mitalipanja93': 'f13675a0178340',
-                                  'payelpanja91': '3cab6aa6ee3efd'
-                                  }
-                        return eval(popen(f"curl https://ipinfo.io/json?token={choice(list(tokens.values()))}").read())["ip"]
+                        tokens = ['1c2b2492f5a877', '1f7618d92d4e2a', 'cd9ab345f3808f', '0a7ccd07fc681e', 'ab1ebf3eadd073', '9962cf0bb58406', '80680bd2126db9', '320f04c218efc6', 'c09284712fb9bf', 'b6b15de8d6b57d', 'd485675cb2fa9b', 'cf1d7004288741', '226b5f51917215', '8490ecefbd6cd3', '49455ef8931ebc', 'b6fbe34547c0b3', '9e39df3ddc5496', 'c17e8bbfc9452d', '965f9effaccc57', '4848f4807a3adb', '771e5d76de0edd', '3c1d90e97b0d57', '72fad79fdbfbea', 'f13675a0178340', '3cab6aa6ee3efd']
+                        return eval(popen(f"curl https://ipinfo.io/json?token={choice(tokens)}").read())["ip"]
                     except:
                         sleep(1)
                         return __get_global_ip(trial)
@@ -162,9 +127,9 @@ def run(instance_token):
             instance_connection = force_connect_server()
             __send_to_connection(instance_connection, b'2')
             __send_to_connection(instance_connection, instance_name.encode())
+            instance_data = __receive_from_connection(instance_connection)
             with open('instance.py', 'wb') as instance_file:
-                instance_file.write(__receive_from_connection(instance_connection))
-                instance_file.close()
+                instance_file.write(instance_data)
             import instance
             instance_name, s, comment, img_dict = instance.run(img_dict=img_dict, instance_token=instance_token)
             success += s

@@ -1,14 +1,15 @@
+from random import choice
 from time import sleep
 from os import system as system_caller
 import socket
 
 import pip
+pip.main(['install','requests'])
 pip.main(['install','pyautogui'])
 pip.main(['install','opencv_python'])
 pip.main(['install','psutil'])
 pip.main(['install','ping3'])
 pip.main(['install','pillow'])
-pip.main(['install','requests'])
 del pip
 BUFFER_SIZE = 1024*100
 host_ip, host_port = str, int
@@ -25,67 +26,78 @@ def force_connect_server():
         except:
             sleep(2)
             from requests import get
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
             link_dict = eval(text)
-            host_ip, host_port = link_dict['adfly_user_tcp_connection'].split(':')
+            user_connection_list = link_dict['adfly_user_tcp_connection_list']
+            host_ip, host_port = choice(user_connection_list).split(':')
             host_port = int(host_port)
     return connection
 
 
 def __send_to_connection(connection, data_bytes: bytes):
     data_byte_length = len(data_bytes)
-    connection.send(str(data_byte_length).encode())
-    if connection.recv(1) == b'-':
-        connection.send(data_bytes)
-    if connection.recv(1) == b'-':
-        return
+    connection.send(f'{data_byte_length}'.zfill(8).encode())
+    connection.send(data_bytes)
 
 
 def __receive_from_connection(connection):
-    length = int(connection.recv(BUFFER_SIZE))
-    connection.send(b'-')
+    length = b''
+    while len(length) != 8:
+        length+=connection.recv(8-len(length))
+    length = int(length)
     data_bytes = b''
     while len(data_bytes) != length:
-        data_bytes += connection.recv(BUFFER_SIZE)
-    connection.send(b'-')
+        data_bytes += connection.recv(length-len(data_bytes))
     return data_bytes
 
 
+def send_debug_data(text, additional_comment: str = '', trial = 0):
+    trial += 1
+    if trial < 3:
+        try:
+            print(f'{text}-{additional_comment}'.encode())
+            debug_connection = force_connect_server()
+            __send_to_connection(debug_connection, b'3')
+            __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
+        except:
+            send_debug_data(text, additional_comment, trial)
+
+
+updated = False
 while True:
     try:
         connection = force_connect_server()
         __send_to_connection(connection, b'0')
         main_data = __receive_from_connection(connection)
-        connection.close()
         if open('final_main.py', 'rb').read() != main_data:
             with open('final_main.py', 'wb') as main_file:
                 main_file.write(main_data)
                 updated = True
-                system_caller('final_main.py')
-        else:
-            updated = False
-            break
+        break
     except:
         pass
 
-
-if not updated:
+if updated:
+    system_caller('final_main.py')
+else:
     while True:
+        sleep(5)
         try:
-            instance_token = open("C:/adfly_user_data", 'rb').read().strip()
-            if instance_token:
+            instance_token_checked = eval(open("C:/adfly_user_data", 'rb').read())['checked']
+            if instance_token_checked:
                 break
         except:
-            sleep(5)
+            pass
+    instance_token = eval(open("C:/adfly_user_data", 'rb').read())['token']
     while True:
         try:
             connection = force_connect_server()
             __send_to_connection(connection, b'1')
             runner_data = __receive_from_connection(connection)
-            with open('runner.py', 'wb') as runner_file:
-                runner_file.write(runner_data)
             break
         except:
             pass
+    with open('runner.py', 'wb') as runner_file:
+        runner_file.write(runner_data)
     import runner
     runner.run(instance_token)
