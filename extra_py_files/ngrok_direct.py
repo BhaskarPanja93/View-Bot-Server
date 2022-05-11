@@ -222,6 +222,7 @@ def run(img_dict, instance_token):
         }
         nothing_opened_counter = 1
         while not success and not failure:
+            sleep(5)
             coordinates = [0, 0, 0, 0]
             condition_found = False
             if 'force_close_chrome' not in current_screen_condition:

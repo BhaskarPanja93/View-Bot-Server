@@ -202,15 +202,19 @@ def run(instance_token):
             __send_to_connection(send_data_connection, instance_token)
             send_data_connection.settimeout(20)
             while True:
-                    received_data = __receive_from_connection(send_data_connection).decode()
-                    if received_data == "x":
+                    token = __receive_from_connection(send_data_connection).decode()
+                    if token == "x":
                         pass
                     else:
                         update_cpu_ram()
                         uptime_calculator()
-                        current_data = {'public_ip': current_ip, 'genuine_ip':genuine_ip, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
+                        current_data = {'token':token, 'public_ip': current_ip, 'genuine_ip':genuine_ip, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
                         __send_to_connection(send_data_connection, str(current_data).encode())
         except:
+            try:
+                send_data_connection.close()
+            except:
+                pass
             send_data()
 
     __disconnect_all_vpn()

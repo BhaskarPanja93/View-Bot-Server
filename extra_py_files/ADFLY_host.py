@@ -459,14 +459,18 @@ def update_flask_page():
 
     def receive_data(u_name):
         try:
-            start_time = time()
-            __send_to_connection(vm_data_update_connections[u_name], b'stat')
-            data = __receive_from_connection(vm_data_update_connections[u_name])
-            response_time = time() - start_time
-            info = eval(data)
-            info['local_ip'] = u_name
-            info['response_time'] = int(response_time*100)
-            current_vm_data[u_name] = info
+            token = generate_random_string(5, 10)
+            __send_to_connection(vm_data_update_connections[u_name], token.encode())
+            for _ in range(3):
+                start_time = time()
+                data = __receive_from_connection(vm_data_update_connections[u_name])
+                response_time = time() - start_time
+                info = eval(data)
+                if info['token'] == token:
+                    info['local_ip'] = u_name
+                    info['response_time'] = int(response_time * 100)
+                    current_vm_data[u_name] = info
+                    break
         except:
             Thread(target=check_and_remove_active_user, args=(u_name,)).start()
 
