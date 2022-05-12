@@ -28,8 +28,8 @@ read_only_location = '../read only'
 
 BUFFER_SIZE = 1024 * 100
 OLD_USER_CONNECTION_PORT = 59999
-USER_CONNECTION_PORT_LIST = list(range(59998,59999))
-HOST_MAIN_WEB_PORT_LIST = list(range(60000,60001))
+HOST_MAIN_WEB_PORT_LIST = list(range(60000, 60000+1))
+USER_CONNECTION_PORT_LIST = list(range(59995, 59998+1))
 
 last_one_click_start_data = last_vm_activity = debug_data = ''
 old_current_vm_data = []
@@ -433,11 +433,10 @@ def accept_connections_from_users(port):
 
 
 def update_flask_page():
-    not_updating_counter = 0
     while not turbo_app:
         pass
     global last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, last_one_click_start_data
-
+    last_data_sent = time()
     def check_and_remove_active_user(u_name):
         if u_name in vm_data_update_connections:
             connection = vm_data_update_connections[u_name]
@@ -483,7 +482,6 @@ def update_flask_page():
     while True:
         if turbo_app.clients:
             try:
-                not_updating_counter = 0
                 current_vm_data = {}
                 host_cpu = cpu(percpu=False)
                 host_ram = virtual_memory()[2]
@@ -491,9 +489,10 @@ def update_flask_page():
                 for vm_local_ip in targets:
                     Thread(target=receive_data, args=(vm_local_ip,)).start()
                 s_time = time()
+                sleep(1)
                 while time()-s_time < 2 and len(current_vm_data) < len(targets):
-                    pass
-                current_vm_activity = f"{len(current_vm_data)} VMs Working <br>{len(turbo_app.clients)} person watching this page right now</br>"
+                    sleep(0.1)
+                current_vm_activity = f"{len(turbo_app.clients)} person watching this page right now<br> {len(current_vm_data)}/{len(targets)} VMs responded<br>"
                 if current_vm_activity != last_vm_activity:
                     turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'))
                     last_vm_activity = current_vm_activity
@@ -572,16 +571,13 @@ def update_flask_page():
             except Exception as e:
                 debug_host(repr(e))
             system_caller('cls')
-            sleep(1)
         else:
             sleep(0.1)
-            if not_updating_counter >= 100:
+            if time()- last_data_sent >= 10:
                 targets = sorted(vm_data_update_connections)
                 for u_name in targets:
                     Thread(target=send_blank_command, args=(u_name,)).start()
-                not_updating_counter = 0
-            else:
-                not_updating_counter += 1
+                last_data_sent = time()
 
 
 app = Flask(__name__, template_folder=getcwd().replace('\\', '/') + '/templates/')

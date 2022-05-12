@@ -156,9 +156,9 @@ def run(img_dict, instance_token):
         def fetch_main_link():
             sleep(2)
             from requests import get
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
             link_dict = eval(text)
-            main_link = link_dict['adfly_host_main_page']
+            main_link = choice(link_dict['host_page_list'])
             return main_link
 
         def fetch_side_link():
