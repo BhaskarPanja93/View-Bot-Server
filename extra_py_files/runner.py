@@ -57,7 +57,9 @@ def run(instance_token):
             data_bytes += connection.recv(length - len(data_bytes))
         if data_bytes == b'restart':
             __restart_host_machine()
-        return data_bytes
+            input()
+        else:
+            return data_bytes
 
 
     def restart_if_connection_missing():

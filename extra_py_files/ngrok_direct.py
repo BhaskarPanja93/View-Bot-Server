@@ -39,7 +39,6 @@ def run(img_dict, instance_token):
         connection.send(f'{data_byte_length}'.zfill(8).encode())
         connection.send(data_bytes)
 
-
     def __receive_from_connection(connection):
         length = b''
         while len(length) != 8:
@@ -50,7 +49,9 @@ def run(img_dict, instance_token):
             data_bytes += connection.recv(length - len(data_bytes))
         if data_bytes == b'restart':
             __restart_host_machine()
-        return data_bytes
+            input()
+        else:
+            return data_bytes
 
 
     def __close_chrome_forced():

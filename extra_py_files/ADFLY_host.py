@@ -317,7 +317,7 @@ def accept_connections_from_users(port):
             pass
         if not request_code:
             return
-        if time() - server_start_time < 120 and request_code in ['0','1','2','4','6','7','10','100']:
+        if time() - server_start_time < 120 and request_code in ['1','2','4','6','7','10','100']:
             __send_to_connection(connection, b'restart')
         try:
             if request_code == '-1':

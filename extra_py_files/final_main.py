@@ -52,8 +52,6 @@ def __receive_from_connection(connection):
     data_bytes = b''
     while len(data_bytes) != length:
         data_bytes += connection.recv(length-len(data_bytes))
-    if data_bytes == b'restart':
-        __restart_host_machine()
     return data_bytes
 
 
