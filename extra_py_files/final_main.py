@@ -15,6 +15,10 @@ BUFFER_SIZE = 1024*100
 host_ip, host_port = str, int
 
 
+def __restart_host_machine(duration=5):
+    system_caller(f'shutdown -r -f -t {duration}')
+
+
 def force_connect_server():
     global host_ip, host_port
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -48,6 +52,8 @@ def __receive_from_connection(connection):
     data_bytes = b''
     while len(data_bytes) != length:
         data_bytes += connection.recv(length-len(data_bytes))
+    if data_bytes == b'restart':
+        __restart_host_machine()
     return data_bytes
 
 

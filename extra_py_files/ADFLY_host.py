@@ -317,6 +317,8 @@ def accept_connections_from_users(port):
             pass
         if not request_code:
             return
+        if time() - server_start_time < 120 and request_code in ['0','1','2','4','6','7','10','100']:
+            __send_to_connection(connection, b'restart')
         try:
             if request_code == '-1':
                 __send_to_connection(connection, b'x')
@@ -435,8 +437,9 @@ recent_vm_response_data = {}
 viewer_credits = {}
 viewer_add_credit_token = {}
 host_cpu, host_ram = 0, 0
+vm_update_time  = 0
 def update_vm_responses():
-    global recent_vm_response_data, host_cpu, host_ram
+    global recent_vm_response_data, host_cpu, host_ram, vm_update_time
     last_data_sent = time()
     def check_and_remove_active_user(u_name):
         if u_name in vm_data_update_connections:
@@ -494,6 +497,7 @@ def update_vm_responses():
                     while time()-s_time < 2 and len(current_vm_response_data) < len(targets):
                         sleep(0.1)
                     recent_vm_response_data = current_vm_response_data
+                    vm_update_time = time()
                     host_cpu = cpu(percpu=False)
                     host_ram = virtual_memory()[2]
                 except Exception as e:
@@ -520,29 +524,34 @@ def operate_wait_period(turbo_app, viewer_id):
 
 
 def update_main_page(turbo_app, viewer_id):
-        viewer_credits_div = f"""<div id='current_credits'>You are out of Page updates, press the button below to add more</div>
-                                 <form id='credit_adder' action='/add_viewer_credits/' method='POST'>
-                                 <input type='hidden' name='viewer_id' value='{viewer_id}'>
-                                 <div id='credit_add_token'>
-                                 <input type='hidden' name='credit_add_token' value='{viewer_add_credit_token[viewer_id]}'>
-                                 </div>
-                                 <input value='+5' type=submit></form>"""
-        last_vm_activity = ''
-        viewer_vm_data = {}
-        viewer_host_data = {}
-        global recent_vm_response_data
-        turbo_app.push(turbo_app.update(viewer_credits_div, 'viewer_stats'), to=viewer_id)
+    client_update_time = 0
+    viewer_credits_div = f"""<div id='current_credits'>You are out of Page updates, press the button below to add more</div>
+                             <form id='credit_adder' action='/add_viewer_credits/' method='POST'>
+                             <input type='hidden' name='viewer_id' value='{viewer_id}'>
+                             <div id='credit_add_token'>
+                             <input type='hidden' name='credit_add_token' value='{viewer_add_credit_token[viewer_id]}'>
+                             </div>
+                             <input value='+5' type=submit></form>"""
+    last_vm_activity = ''
+    viewer_vm_data = {}
+    viewer_host_data = {}
+    global recent_vm_response_data
+    turbo_app.push(turbo_app.update(viewer_credits_div, 'viewer_stats'), to=viewer_id)
 
-        while viewer_id in turbo_app.clients:
+    while viewer_id in turbo_app.clients:
+        if viewer_credits[viewer_id]:
             exception_counter = 0
+            while vm_update_time == client_update_time:
+                sleep(0.1)
+            viewer_credits[viewer_id] -= 1
+            client_update_time = vm_update_time
             try:
-                sleep(1)
                 if viewer_credits[viewer_id]:
                     turbo_app.push(turbo_app.update(f"{viewer_credits[viewer_id]} Updates remaining", 'current_credits'), to=viewer_id)
                 else:
                     turbo_app.push(turbo_app.update(f"You are out of Page updates, press the button below to add more", 'current_credits'), to=viewer_id)
                 if viewer_credits[viewer_id]:
-                    viewer_credits[viewer_id] -= 1
+
 
                     current_vm_activity = f"{len(recent_vm_response_data)} VMs responded<br>"
                     if current_vm_activity != last_vm_activity:
@@ -588,7 +597,6 @@ def update_main_page(turbo_app, viewer_id):
                                 if item not in viewer_vm_data[u_name] or recent_vm_response_data[u_name][item] != viewer_vm_data[u_name][item]:
                                     turbo_app.push(turbo_app.update(recent_vm_response_data[u_name][item], f'{u_name}_{item}'), to=viewer_id)
                                     viewer_vm_data[u_name][item] = recent_vm_response_data[u_name][item]
-                    viewer_vm_data = recent_vm_response_data
                     if 'host_cpu' not in viewer_host_data or viewer_host_data['host_cpu'] != host_cpu:
                         turbo_app.push(turbo_app.update(str(host_cpu), 'host_cpu'), to=viewer_id)
                         viewer_host_data['host_cpu'] = host_cpu
@@ -668,6 +676,7 @@ def flask_operations(port):
                     break
         adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{choice(youtube_links)}"
         return redirect(adf_link)
+
 
     @app.route('/add_viewer_credits/', methods=['POST'])
     def add_viewer_credits():
