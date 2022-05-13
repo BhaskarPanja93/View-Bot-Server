@@ -626,10 +626,10 @@ def flask_operations(port):
         return render_template('wait_period.html')
 
 
-    @app.route('/update_server_from_github/', methods=['POST'])
+    @app.route('/update_server_from_github/', methods=['GET'])
     def update_server_from_github():
-        print(request.form)
-        return ''
+        system_caller('git pull')
+        return 'Updated'
 
 
     @app.route('/user_load_links', methods=['GET'])
