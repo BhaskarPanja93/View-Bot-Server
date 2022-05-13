@@ -431,11 +431,12 @@ def accept_connections_from_users(port):
     for _ in range(100):
         Thread(target=acceptor).start()
 
-
-def update_flask_page():
-    while not turbo_app:
-        pass
-    global last_vm_data, last_host_data, last_vm_activity, old_current_vm_data, last_one_click_start_data
+recent_vm_response_data = {}
+viewer_credits = {}
+viewer_add_credit_token = {}
+host_cpu, host_ram = 0, 0
+def update_vm_responses():
+    global recent_vm_response_data, host_cpu, host_ram
     last_data_sent = time()
     def check_and_remove_active_user(u_name):
         if u_name in vm_data_update_connections:
@@ -468,7 +469,7 @@ def update_flask_page():
                 if info['token'] == token:
                     info['local_ip'] = u_name
                     info['response_time'] = int(response_time * 100)
-                    current_vm_data[u_name] = info
+                    current_vm_response_data[u_name] = info
                     break
         except:
             Thread(target=check_and_remove_active_user, args=(u_name,)).start()
@@ -480,110 +481,136 @@ def update_flask_page():
             pass
 
     while True:
-        if turbo_app.clients:
+        for turbo_app in all_turbo_apps:
+            if turbo_app.clients:
+                try:
+                    current_vm_response_data = {}
+                    targets = sorted(vm_data_update_connections)
+                    for vm_local_ip in targets:
+                        Thread(target=receive_data, args=(vm_local_ip,)).start()
+                    last_data_sent = time()
+                    s_time = time()
+                    sleep(1)
+                    while time()-s_time < 2 and len(current_vm_response_data) < len(targets):
+                        sleep(0.1)
+                    recent_vm_response_data = current_vm_response_data
+                    host_cpu = cpu(percpu=False)
+                    host_ram = virtual_memory()[2]
+                except Exception as e:
+                    debug_host(repr(e))
+                system_caller('cls')
+            else:
+                sleep(0.1)
+                if time()- last_data_sent >= 10:
+                    targets = sorted(vm_data_update_connections)
+                    for u_name in targets:
+                        Thread(target=send_blank_command, args=(u_name,)).start()
+                    last_data_sent = time()
+
+
+def operate_wait_period(turbo_app, viewer_id):
+    for wait_timer in range(3, 0, -1):
+        try:
+            sleep(1)
+            turbo_app.push(turbo_app.update(f"Page loading in {wait_timer} seconds", 'main_div'), to=viewer_id)
+        except:
+            pass
+    turbo_app.push(turbo_app.update(open(getcwd()+'/templates/vm_stat.html').read(), 'main_div'), to=viewer_id)
+    update_main_page(turbo_app, viewer_id)
+
+
+def update_main_page(turbo_app, viewer_id):
+        viewer_credits_div = f"""<div id='current_credits'>You are out of Page updates, press the button below to add more</div>
+                                 <form id='credit_adder' action='/add_viewer_credits/' method='POST'>
+                                 <input type='hidden' name='viewer_id' value='{viewer_id}'>
+                                 <div id='credit_add_token'>
+                                 <input type='hidden' name='credit_add_token' value='{viewer_add_credit_token[viewer_id]}'>
+                                 </div>
+                                 <input value='+5' type=submit></form>"""
+        last_vm_activity = ''
+        viewer_vm_data = {}
+        viewer_host_data = {}
+        global recent_vm_response_data
+        turbo_app.push(turbo_app.update(viewer_credits_div, 'viewer_stats'), to=viewer_id)
+
+        while viewer_id in turbo_app.clients:
+            exception_counter = 0
             try:
-                current_vm_data = {}
-                host_cpu = cpu(percpu=False)
-                host_ram = virtual_memory()[2]
-                targets = sorted(vm_data_update_connections)
-                for vm_local_ip in targets:
-                    Thread(target=receive_data, args=(vm_local_ip,)).start()
-                s_time = time()
                 sleep(1)
-                while time()-s_time < 2 and len(current_vm_data) < len(targets):
-                    sleep(0.1)
-                current_vm_activity = f"{len(turbo_app.clients)} person watching this page right now<br> {len(current_vm_data)}/{len(targets)} VMs responded<br>"
-                if current_vm_activity != last_vm_activity:
-                    turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'))
-                    last_vm_activity = current_vm_activity
-                if sorted(current_vm_data) != sorted(old_current_vm_data):
-                    individual_vms = ''
-                    for u_name in sorted(current_vm_data):
-                        actual_u_name = u_name.split('_-_')[0]
-                        individual_vms += f'''<tr>
-                                <td>{actual_u_name}</td>
-                                <td><div id="{u_name}_public_ip"></div></td>
-                                <td><div id="{u_name}_genuine_ip"></div></td>
-                                <td><div id="{u_name}_uptime"></div></td>
-                                <td><div id="{u_name}_success"></div></td>
-                                <td><div id="{u_name}_cpu"></div></td>
-                                <td><div id="{u_name}_ram"></div></td>
-                                <td><div id="{u_name}_response_time"></div></td>
-                                </tr>
-                                '''
-                    table_vm_data = f'''<table>
+                if viewer_credits[viewer_id]:
+                    turbo_app.push(turbo_app.update(f"{viewer_credits[viewer_id]} Updates remaining", 'current_credits'), to=viewer_id)
+                else:
+                    turbo_app.push(turbo_app.update(f"You are out of Page updates, press the button below to add more", 'current_credits'), to=viewer_id)
+                if viewer_credits[viewer_id]:
+                    viewer_credits[viewer_id] -= 1
+
+                    current_vm_activity = f"{len(recent_vm_response_data)} VMs responded<br>"
+                    if current_vm_activity != last_vm_activity:
+                        turbo_app.push(turbo_app.update(current_vm_activity, 'vm_activities'), to=viewer_id)
+                        last_vm_activity = current_vm_activity
+
+                    if sorted(recent_vm_response_data) != sorted(viewer_vm_data):
+                        individual_vms = ''
+                        for u_name in sorted(recent_vm_response_data):
+                            actual_u_name = u_name.split('_-_')[0]
+                            individual_vms += f'''
                             <tr>
-                            <th>User ID</th>
-                            <th>Public IP</th>
-                            <th>Genuine IP</th>
-                            <th>Uptime</th>
-                            <th>Success</th>
-                            <th>CPU(%)</th>
-                            <th>RAM(%)</th>
-                            <th>Response Time (ms)</th>
-                            </tr>
-                            {individual_vms}
-                            </table>'''
-                    turbo_app.push(turbo_app.update(table_vm_data, 'vm_data'))
-                    last_vm_data = {}
-                    last_host_data = {}
-                    last_vm_activity = {}
-                    old_current_vm_data = current_vm_data
-                for u_name in sorted(current_vm_data):
-                    if u_name not in last_vm_data or last_vm_data[u_name] == {}:
-                        last_vm_data[u_name] = {}
-                    for item in ['public_ip', 'genuine_ip', 'uptime', 'success', 'cpu', 'ram', 'response_time']:
-                        if item in current_vm_data[u_name]:
-                            if item not in last_vm_data[u_name] or current_vm_data[u_name][item] != last_vm_data[u_name][item]:
-                                turbo_app.push(turbo_app.update(current_vm_data[u_name][item], f'{u_name}_{item}'))
-                                last_vm_data[u_name][item] = current_vm_data[u_name][item]
-                    if 'working_cond' in current_vm_data[u_name]:
-                        if 'working_cond' not in last_vm_data[u_name] or (current_vm_data[u_name]['working_cond'] == 'Working' and last_vm_data[u_name]['working_cond'] != 'Working'):
-                            last_vm_data[u_name]['working_cond'] = 'Working'
-                            options = f"""<form method="POST" action="/auto_action/">
-                            <select name="{u_name}" onchange="this.form.submit()">
-                            '<option value="Pause">Stopped</option>'
-                            '<option value="Resume" selected>Working</option>'
-                            </select>
-                            </form
-                            """
-                            turbo_app.push(turbo_app.update(options, f'{u_name}_working_cond'))
-                            last_vm_data[u_name]['working_cond'] = current_vm_data[u_name]['working_cond']
-                        elif 'working_cond' not in last_vm_data[u_name] or (
-                                current_vm_data[u_name]['working_cond'] == 'Stopped' and last_vm_data[u_name]['working_cond'] != 'Stopped'):
-                            last_vm_data[u_name]['working_cond'] = 'Stopped'
-                            options = f"""<form method="POST" action="/auto_action/">
-                            <select name="{u_name}" onchange="this.form.submit()">
-                            '<option value="Resume">Working</option>'
-                            '<option value="Pause" selected>Stopped</option>'
-                            </select>
-                            </form>
-                            """
-                            turbo_app.push(turbo_app.update(options, f'{u_name}_working_cond'))
-                            last_vm_data[u_name]['working_cond'] = current_vm_data[u_name]['working_cond']
-                if 'host_cpu' not in last_host_data or last_host_data['host_cpu'] != host_cpu:
-                    turbo_app.push(turbo_app.update(str(host_cpu), 'host_cpu'))
-                    last_host_data['host_cpu'] = host_cpu
-                if 'host_ram' not in last_host_data or last_host_data['host_ram'] != host_ram:
-                    turbo_app.push(turbo_app.update(str(host_ram), 'host_ram'))
-                    last_host_data['host_ram'] = host_ram
-                turbo_app.push(turbo_app.update(debug_data, 'debug_data'))
-            except Exception as e:
-                debug_host(repr(e))
-            system_caller('cls')
-        else:
-            sleep(0.1)
-            if time()- last_data_sent >= 10:
-                targets = sorted(vm_data_update_connections)
-                for u_name in targets:
-                    Thread(target=send_blank_command, args=(u_name,)).start()
-                last_data_sent = time()
+                            <td>{actual_u_name}</td>
+                            <td><div id="{u_name}_public_ip"></div></td>
+                            <td><div id="{u_name}_genuine_ip"></div></td>
+                            <td><div id="{u_name}_uptime"></div></td>
+                            <td><div id="{u_name}_success"></div></td>
+                            <td><div id="{u_name}_cpu"></div></td>
+                            <td><div id="{u_name}_ram"></div></td>
+                            <td><div id="{u_name}_response_time"></div></td>
+                            </tr>'''
+                        vm_table = f'''
+                        <table>
+                        <tr>
+                        <th>User ID</th>
+                        <th>Public IP</th>
+                        <th>Genuine IP</th>
+                        <th>Uptime</th>
+                        <th>Success</th>
+                        <th>CPU(%)</th>
+                        <th>RAM(%)</th>
+                        <th>Response Time (ms)</th>
+                        </tr>
+                        {individual_vms}
+                        </table>'''
+                        turbo_app.push(turbo_app.update(vm_table, 'vm_data'), to=viewer_id)
+
+                    for u_name in sorted(recent_vm_response_data):
+                        if u_name not in viewer_vm_data or viewer_vm_data[u_name] == {}:
+                            viewer_vm_data[u_name] = {}
+                        for item in ['public_ip', 'genuine_ip', 'uptime', 'success', 'cpu', 'ram', 'response_time']:
+                            if item in recent_vm_response_data[u_name]:
+                                if item not in viewer_vm_data[u_name] or recent_vm_response_data[u_name][item] != viewer_vm_data[u_name][item]:
+                                    turbo_app.push(turbo_app.update(recent_vm_response_data[u_name][item], f'{u_name}_{item}'), to=viewer_id)
+                                    viewer_vm_data[u_name][item] = recent_vm_response_data[u_name][item]
+                    viewer_vm_data = recent_vm_response_data
+                    if 'host_cpu' not in viewer_host_data or viewer_host_data['host_cpu'] != host_cpu:
+                        turbo_app.push(turbo_app.update(str(host_cpu), 'host_cpu'), to=viewer_id)
+                        viewer_host_data['host_cpu'] = host_cpu
+                    if 'host_ram' not in viewer_host_data or viewer_host_data['host_ram'] != host_ram:
+                        turbo_app.push(turbo_app.update(str(host_ram), 'host_ram'), to=viewer_id)
+                        viewer_host_data['host_ram'] = host_ram
+                    turbo_app.push(turbo_app.update(debug_data, 'debug_data'), to=viewer_id)
+            except:
+                exception_counter += 1
+                if exception_counter > 5:
+                    del viewer_credits[viewer_id]
+                    del viewer_add_credit_token[viewer_id]
+                    break
 
 
-app = Flask(__name__, template_folder=getcwd().replace('\\', '/') + '/templates/')
-turbo_app = Turbo(app)
-
+all_turbo_apps = []
 def flask_operations(port):
+    app = Flask(__name__, template_folder=getcwd().replace('\\', '/') + '/templates/')
+    turbo_app = Turbo(app)
+    all_turbo_apps.append(turbo_app)
+
+
     def return_adfly_link_page(u_name):
         data = ''
         for para_length in range(randrange(400, 1000)):
@@ -594,26 +621,24 @@ def flask_operations(port):
         return html_data
 
 
+    @turbo_app.user_id
+    def get_user_id():
+        viewer_id = generate_random_string(10,50)
+        viewer_credits[viewer_id] = 0
+        viewer_add_credit_token[viewer_id] = generate_random_string(10,20)
+        Thread(target=operate_wait_period, args=(turbo_app, viewer_id,)).start()
+        return viewer_id
+
+
     @app.route('/')
-    @app.route('/auto_action/', methods=['GET'])
     def root_url():
-        global old_current_vm_data, last_vm_activity, last_host_data, last_one_click_start_data, last_vm_data
-        last_vm_data = {}
-        last_vm_activity = ''
-        last_one_click_start_data = ''
-        old_current_vm_data = []
-        last_host_data = {}
-        return render_template('vm_stat.html')
+        return render_template('wait_period.html')
 
 
-    @app.route('/auto_action/', methods=['POST'])
-    def auto_action():
-        action = target = ''
-        for target in request.form.to_dict():
-            action = request.form.to_dict()[target]
-        if target == "pull_code_github" or action == "pull_code_github":
-            Thread(target=system_caller, args=('git pull',)).start()
-        return redirect('/')
+    @app.route('/update_server_from_github/', methods=['POST'])
+    def update_server_from_github():
+        print(request.form)
+        return ''
 
 
     @app.route('/user_load_links', methods=['GET'])
@@ -644,11 +669,20 @@ def flask_operations(port):
         adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{choice(youtube_links)}"
         return redirect(adf_link)
 
+    @app.route('/add_viewer_credits/', methods=['POST'])
+    def add_viewer_credits():
+        viewer_id = request.form.get('viewer_id')
+        token = request.form.get('credit_add_token')
+        if viewer_id in viewer_add_credit_token and token == viewer_add_credit_token[viewer_id]:
+            viewer_credits[viewer_id] += 5
+            viewer_add_credit_token[viewer_id] = generate_random_string(10, 20)
+            turbo_app.push(turbo_app.update(f"<input type='hidden' name='credit_add_token'' value='{viewer_add_credit_token[viewer_id]}'>", 'credit_add_token'), to=viewer_id)
+        return ''
     app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False, threaded=True)
 
 Thread(target=old_accept_connections_from_users).start()
 
-Thread(target=update_flask_page).start()
+Thread(target=update_vm_responses).start()
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=flask_operations, args=(port,)).start()
 for port in USER_CONNECTION_PORT_LIST:

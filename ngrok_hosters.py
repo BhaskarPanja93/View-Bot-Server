@@ -172,13 +172,12 @@ def variable_connection_checker(variable_name):
 
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=ngrok_host_page, args=(port,)).start()
-    sleep(1)
+    sleep(1.5)
 for port in USER_CONNECTION_PORT_LIST:
     Thread(target=ngrok_user_connection, args=(port,)).start()
-    sleep(1)
+    sleep(1.5)
 Thread(target=ngrok_old_user_connection).start()
 
-Thread(target=list_connection_checker, args=(user_connection_list,)).start()
-
+#Thread(target=list_connection_checker, args=(user_connection_list,)).start()
 #Thread(target=list_connection_checker, args=(host_page_list,)).start()
 #Thread(target=variable_connection_checker, args=(old_user_connection,)).start()
