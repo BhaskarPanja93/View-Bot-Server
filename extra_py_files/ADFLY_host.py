@@ -628,6 +628,7 @@ def flask_operations(port):
 
     @app.route('/update_server_from_github/', methods=['GET'])
     def update_server_from_github():
+        system_caller('git stash')
         system_caller('git pull')
         return 'Updated'
 
