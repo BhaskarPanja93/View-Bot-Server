@@ -244,13 +244,13 @@ def run(img_dict, instance_token):
             'google_captcha': ['google captcha'],
             'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
-            'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2', 'wants to send notifications 3'],
+            'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2', 'wants to send notifications 3', 'wants to send notifications 4'],
             'force_click_bottom_center': ['click ok to continue 2'],
             'adfly_skip': ['adfly skip'],
             'click_allow_to_continue': ['click allow to continue'],
             'force_close_chrome_success': ['yt logo 1', 'yt logo 2'],
             'youtube_proxy_detected': ['before you continue to youtube en'],
-            'click_here_to_continue': ['click here to continue region'],
+            'click_here_to_continue': ['click here to continue'],
             'force_close_chrome_neutral': ['ngrok wrong link', 'ngrok service unavailable'],
             'force_close_chrome_failure': ['cookies not enabled', 'site cant be reached'],
             'force_click': ['adfly continue'],
@@ -358,10 +358,7 @@ def run(img_dict, instance_token):
                         if coordinates:
                             __click(coordinates)
                 elif current_screen_condition == 'click_here_to_continue':
-                    for sign in ['click here to continue']:
-                        coordinates = __find_image_on_screen(img_name=sign, confidence=0.8, region=coordinates)
-                        if coordinates:
-                            __click(coordinates)
+                    __click(coordinates)
                 elif current_screen_condition == 'force_close_chrome_neutral':
                     start_time = time()
                     break
