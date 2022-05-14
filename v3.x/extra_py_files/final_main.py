@@ -1,6 +1,5 @@
-host_ip, host_port = '192.168.1.2', 65500
+host_ip, host_port = '192.168.1.2', 65499
 
-from random import choice
 from time import sleep
 from os import system as system_caller
 import socket
@@ -16,11 +15,6 @@ del pip
 BUFFER_SIZE = 1024*100
 
 
-
-def __restart_host_machine(duration=5):
-    system_caller(f'shutdown -r -f -t {duration}')
-
-
 def force_connect_server():
     global host_ip, host_port
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -30,13 +24,7 @@ def force_connect_server():
             connection.connect((host_ip, host_port))
             break
         except:
-            sleep(2)
-            from requests import get
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
-            link_dict = eval(text)
-            user_connection_list = link_dict['adfly_user_tcp_connection_list']
-            host_ip, host_port = choice(user_connection_list).split(':')
-            host_port = int(host_port)
+            pass
     return connection
 
 
@@ -82,7 +70,6 @@ while True:
         break
     except:
         pass
-
 if updated:
     system_caller('final_main.py')
 else:

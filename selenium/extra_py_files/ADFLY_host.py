@@ -25,7 +25,7 @@ server_start_time = time()
 my_u_name = 'bhaskar'
 reserved_u_names_words = ['invalid', 'bhaskar', '-_-', '_-_']
 
-read_only_location = '../read only'
+'../../read only'
 images_location = '../req_imgs'
 common_py_files_location = '../common_py_files'
 

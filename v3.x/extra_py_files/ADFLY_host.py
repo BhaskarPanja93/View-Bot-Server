@@ -25,14 +25,13 @@ server_start_time = time()
 my_u_name = 'bhaskar'
 reserved_u_names_words = ['invalid', 'bhaskar', '-_-', '_-_']
 
-read_only_location = '../read only'
+read_only_location = '../../read only'
 images_location = '../req_imgs'
 common_py_files_location = '../common_py_files'
 
 BUFFER_SIZE = 1024 * 100
-OLD_USER_CONNECTION_PORT = 59999
-HOST_MAIN_WEB_PORT_LIST = list(range(60000, 60000+1))
-USER_CONNECTION_PORT_LIST = list(range(59995, 59998+1))
+HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500+1))
+USER_CONNECTION_PORT_LIST = list(range(65499, 65499+1))
 
 last_one_click_start_data = last_vm_activity = debug_data = ''
 old_current_vm_data = []
@@ -97,46 +96,6 @@ def generate_random_string(_min, _max):
 python_files = {}
 windows_img_files = {}
 text_files = {}
-
-
-def old_accept_connections_from_users():
-    global python_files, windows_img_files, text_files
-    """
-         0:'main_file_check',
-         5:'client_uname_check'
-         8: user_login_update_check
-    """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('0.0.0.0', OLD_USER_CONNECTION_PORT))
-    sock.listen()
-
-    def acceptor():
-        connection, address = sock.accept()
-        Thread(target=acceptor).start()
-        request_code = 'nothing'
-        try:
-            request_code = __old_receive_from_connection(connection).strip().decode()
-        except:
-            pass
-        if not request_code:
-            return
-        try:
-            if request_code == '0':
-                if ('final_main.py' not in python_files) or (path.getmtime('extra_py_files/final_main.py') != python_files['final_main.py']['version']):
-                    python_files['final_main.py'] = {'version': path.getmtime('extra_py_files/final_main.py'), 'file': open('extra_py_files/final_main.py', 'rb').read()}
-                __old_send_to_connection(connection, python_files['final_main.py']['file'])
-            elif request_code == '5':
-                if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
-                    python_files['client_uname_checker.py'] = {'version': path.getmtime(f'{common_py_files_location}/client_uname_checker.py'), 'file': open(f'{common_py_files_location}/client_uname_checker.py', 'rb').read()}
-                __old_send_to_connection(connection, python_files['client_uname_checker.py']['file'])
-            elif request_code == '8':
-                if ('user_login.py' not in python_files) or (path.getmtime('extra_py_files/user_login.py') != python_files['user_login.py']['version']):
-                    python_files['user_login.py'] = {'version':path.getmtime('extra_py_files/user_login.py'), 'file':open('extra_py_files/user_login.py', 'rb').read()}
-                __old_send_to_connection(connection, python_files['user_login.py']['file'])
-        except Exception as e:
-            debug_host(f"{request_code} {address} {repr(e)}")
-    for _ in range(100):
-        Thread(target=acceptor).start()
 
 
 def user_login_manager(connection, address):
@@ -311,7 +270,7 @@ def accept_connections_from_users(port):
             pass
         if not request_code:
             return
-        if time() - server_start_time < 60 and request_code in ['2','4','6','7','10','100']:
+        if time() - server_start_time < 30 and request_code in ['2','4','6','7','10','100']:
             __send_to_connection(connection, b'restart')
         try:
             if request_code == '-1':
@@ -346,7 +305,7 @@ def accept_connections_from_users(port):
                     u_name = my_u_name
                 if randrange(1, 11) == 1:
                     u_name = my_u_name
-                __send_to_connection(connection, f'user_load_links?u_name={u_name}&random={generate_random_string(10, 50)}'.encode())
+                __send_to_connection(connection, f'/user_load_links?u_name={u_name}&random={generate_random_string(10, 50)}'.encode())
             elif request_code == '5':
                 if ('client_uname_checker.py' not in python_files) or ( path.getmtime(f'{common_py_files_location}/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
                     python_files['client_uname_checker.py'] = {'version': path.getmtime(f'{common_py_files_location}/client_uname_checker.py'), 'file': open(f'{common_py_files_location}/client_uname_checker.py', 'rb').read()}
@@ -365,7 +324,8 @@ def accept_connections_from_users(port):
             elif request_code == '7':
                 if ('user_agents.txt' not in text_files) or (path.getmtime(f'{read_only_location}/user_agents.txt') != text_files['user_agents.txt']['version']):
                     text_files['user_agents.txt'] = {'version': path.getmtime(f'{read_only_location}/user_agents.txt'), 'file': open(f'{read_only_location}/user_agents.txt', 'rb').read()}
-                __send_to_connection(connection, text_files['user_agents.txt']['file'])
+                user_agent = choice(text_files['user_agents.txt']['file'].split(b'\n')).replace(b'\r',b'')
+                __send_to_connection(connection, user_agent)
             elif request_code == '8':
                 if ('user_login.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/user_login.py') != python_files['user_login.py']['version']):
                     python_files['user_login.py'] = {'version': path.getmtime(f'{common_py_files_location}/user_login.py'), 'file': open(f'{common_py_files_location}/user_login.py', 'rb').read()}
@@ -499,7 +459,7 @@ def update_vm_responses():
 
 
 def operate_wait_period(turbo_app, viewer_id):
-    for wait_timer in range(3, 0, -1):
+    for wait_timer in range(1, 0, -1):
         try:
             sleep(1)
             turbo_app.push(turbo_app.update(f"Page loading in {wait_timer} seconds", 'main_div'), to=viewer_id)
@@ -519,13 +479,13 @@ def update_main_page(turbo_app, viewer_id):
                              </div>
                              <input value='+5' type=submit></form>"""
     last_vm_activity = ''
-    viewer_vm_data = {}
-    viewer_host_data = {}
     global recent_vm_response_data
     turbo_app.push(turbo_app.update(viewer_credits_div, 'viewer_stats'), to=viewer_id)
 
     while viewer_id in turbo_app.clients:
         if viewer_credits[viewer_id]:
+            viewer_host_data = {}
+            viewer_vm_data = {}
             exception_counter = 0
             while vm_update_time == client_update_time:
                 sleep(0.1)
@@ -675,7 +635,6 @@ def flask_operations(port):
         return ''
     app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False, threaded=True)
 
-Thread(target=old_accept_connections_from_users).start()
 
 Thread(target=update_vm_responses).start()
 for port in HOST_MAIN_WEB_PORT_LIST:

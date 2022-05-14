@@ -25,7 +25,7 @@ server_start_time = time()
 my_u_name = 'bhaskar'
 reserved_u_names_words = ['invalid', 'bhaskar', '-_-', '_-_']
 
-read_only_location = '../read only'
+read_only_location = '../../read only'
 images_location = '../req_imgs'
 common_py_files_location = '../common_py_files'
 
@@ -311,7 +311,7 @@ def accept_connections_from_users(port):
             pass
         if not request_code:
             return
-        if time() - server_start_time < 60 and request_code in ['2','4','6','7','10','100']:
+        if time() - server_start_time < 30 and request_code in ['2','4','6','7','10','100']:
             __send_to_connection(connection, b'restart')
         try:
             if request_code == '-1':
@@ -499,7 +499,7 @@ def update_vm_responses():
 
 
 def operate_wait_period(turbo_app, viewer_id):
-    for wait_timer in range(3, 0, -1):
+    for wait_timer in range(1, 0, -1):
         try:
             sleep(1)
             turbo_app.push(turbo_app.update(f"Page loading in {wait_timer} seconds", 'main_div'), to=viewer_id)
@@ -519,13 +519,13 @@ def update_main_page(turbo_app, viewer_id):
                              </div>
                              <input value='+5' type=submit></form>"""
     last_vm_activity = ''
-    viewer_vm_data = {}
-    viewer_host_data = {}
     global recent_vm_response_data
     turbo_app.push(turbo_app.update(viewer_credits_div, 'viewer_stats'), to=viewer_id)
 
     while viewer_id in turbo_app.clients:
         if viewer_credits[viewer_id]:
+            viewer_vm_data = {}
+            viewer_host_data = {}
             exception_counter = 0
             while vm_update_time == client_update_time:
                 sleep(0.1)

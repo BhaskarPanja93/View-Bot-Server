@@ -1,4 +1,4 @@
-host_ip, host_port = '192.168.1.2', 65500
+host_ip, host_port = '192.168.1.2', 65499
 last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE = '','','','','','','','','','',''
 available_instances = []
 
@@ -34,13 +34,7 @@ def run(instance_token):
                 connection.connect((host_ip, host_port))
                 break
             except:
-                sleep(2)
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
+                pass
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):
@@ -57,6 +51,7 @@ def run(instance_token):
         while len(data_bytes) != length:
             data_bytes += connection.recv(length - len(data_bytes))
         if data_bytes == b'restart':
+            print('server forced restart')
             __restart_host_machine()
             input()
         else:
@@ -226,11 +221,6 @@ def run(instance_token):
     sleep(3)
     while not genuine_ip:
         genuine_ip = __get_global_ip()
-    update_user_agents_connection = force_connect_server()
-    __send_to_connection(update_user_agents_connection, b'7')
-    user_agents_data = __receive_from_connection(update_user_agents_connection)
-    with open('user_agents.txt', 'wb') as file:
-        file.write(user_agents_data)
     start_time = time()
     Thread(target=restart_if_connection_missing).start()
     Thread(target=send_data).start()

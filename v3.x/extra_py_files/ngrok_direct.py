@@ -1,5 +1,5 @@
 BUFFER_SIZE, start_time  = '',''
-host_ip, host_port = '192.168.1.2', 65500
+host_ip, host_port = '192.168.1.2', 65499
 
 def run(img_dict, instance_token):
 
@@ -25,13 +25,7 @@ def run(img_dict, instance_token):
                 connection.connect((host_ip, host_port))
                 break
             except:
-                sleep(2)
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
+                pass
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):
@@ -48,6 +42,7 @@ def run(img_dict, instance_token):
         while len(data_bytes) != length:
             data_bytes += connection.recv(length - len(data_bytes))
         if data_bytes == b'restart':
+            print('server forced restart')
             __restart_host_machine()
             input()
         else:
@@ -167,28 +162,36 @@ def run(img_dict, instance_token):
         pyautogui.hotkey('ctrl','shift','i')
 
         for _ in range(5):
+            sleep(2)
             coordinates = __find_image_on_screen('network conditions', all_findings=False, confidence=0.8)
             if coordinates:
                 __click(coordinates)
                 break
 
         for _ in range(5):
-            coordinates = __find_image_on_screen('use browser agent', all_findings=False, confidence=0.8)
+            sleep(2)
+            coordinates = __find_image_on_screen('use browser default', all_findings=False, confidence=0.8)
             if coordinates:
                 __click(coordinates)
                 break
 
         for _ in range(5):
-            coordinates = __find_image_on_screen('user agent input', all_findings=False, confidence=0.8)
+            sleep(2)
+            coordinates = __find_image_on_screen('user agent input', all_findings=False, confidence=0.6)
             if coordinates:
                 __click(coordinates)
-                pyautogui.hotkey('ctrl','a')
+                sleep(1)
+                pyautogui.hotkey('ctrl', 'a')
+                sleep(1)
                 pyautogui.typewrite(user_agent, typing_speed)
+                sleep(1)
+                pyautogui.press('enter')
                 break
 
 
     def get_link():
         def fetch_main_link():
+            return f'http://{host_ip}:{65500}'
             sleep(2)
             from requests import get
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
@@ -241,7 +244,7 @@ def run(img_dict, instance_token):
             'google_captcha': ['google captcha'],
             'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
-            'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2'],
+            'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2', 'wants to send notifications 3'],
             'force_click_bottom_center': ['click ok to continue 2'],
             'adfly_skip': ['adfly skip'],
             'click_allow_to_continue': ['click allow to continue'],
@@ -317,6 +320,10 @@ def run(img_dict, instance_token):
                         nothing_opened_counter += 1
                 elif current_screen_condition == 'blank_chrome':
                     change_user_agent()
+                    for item in ['search box 1', 'search box 2', 'search box 3', 'search box 4']:
+                        coordinates = __find_image_on_screen(item, all_findings=False, confidence=0.8)
+                        if coordinates:
+                            break
                     __click(coordinates)
                     sleep(1)
                     if clear_chrome:
