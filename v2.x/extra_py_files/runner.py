@@ -1,4 +1,5 @@
-last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, host_ip, host_port, BUFFER_SIZE = '','','','','','','','','','','','',''
+last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE = '','','','','','','','','','',''
+host_ip, host_port = '192.168.1.2', 59998
 available_instances = []
 
 def run(instance_token):
@@ -33,13 +34,18 @@ def run(instance_token):
                 connection.connect((host_ip, host_port))
                 break
             except:
-                sleep(2)
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
+                host_ip, host_port = '10.10.77.118', 59998
+                try:
+                    connection.connect((host_ip, host_port))
+                    break
+                except:
+                    sleep(2)
+                    from requests import get
+                    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
+                    link_dict = eval(text)
+                    user_connection_list = link_dict['adfly_user_tcp_connection_list']
+                    host_ip, host_port = choice(user_connection_list).split(':')
+                    host_port = int(host_port)
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):

@@ -1,5 +1,5 @@
-BUFFER_SIZE, host_port, host_ip, start_time  = '','','', ''
-
+BUFFER_SIZE, start_time  = '',''
+host_ip, host_port = '192.168.1.2', 59998
 
 def run(img_dict, instance_token):
 
@@ -25,13 +25,18 @@ def run(img_dict, instance_token):
                 connection.connect((host_ip, host_port))
                 break
             except:
-                sleep(2)
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
+                host_ip, host_port = '10.10.77.118', 59998
+                try:
+                    connection.connect((host_ip, host_port))
+                    break
+                except:
+                    sleep(2)
+                    from requests import get
+                    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
+                    link_dict = eval(text)
+                    user_connection_list = link_dict['adfly_user_tcp_connection_list']
+                    host_ip, host_port = choice(user_connection_list).split(':')
+                    host_port = int(host_port)
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):

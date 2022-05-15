@@ -5,9 +5,10 @@ from time import sleep
 from random import choice
 
 BUFFER_SIZE = 1024*100
-host_ip, host_port = '192.168.1.3', 59998
+host_ip, host_port = '192.168.1.2', 59998
 full_file_path = __file__.replace('\\','/')
 current_file_name = full_file_path.split('/')[-1].replace('.py','')
+
 
 def force_connect_server():
     global host_ip, host_port
@@ -18,13 +19,18 @@ def force_connect_server():
             connection.connect((host_ip, host_port))
             break
         except:
-            sleep(2)
-            from requests import get
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
-            link_dict = eval(text)
-            user_connection_list = link_dict['adfly_user_tcp_connection_list']
-            host_ip, host_port = choice(user_connection_list).split(':')
-            host_port = int(host_port)
+            host_ip, host_port = '10.10.77.118', 59998
+            try:
+                connection.connect((host_ip, host_port))
+                break
+            except:
+                sleep(2)
+                from requests import get
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
+                link_dict = eval(text)
+                user_connection_list = link_dict['adfly_user_tcp_connection_list']
+                host_ip, host_port = choice(user_connection_list).split(':')
+                host_port = int(host_port)
     return connection
 
 
