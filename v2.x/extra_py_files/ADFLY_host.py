@@ -1,6 +1,8 @@
 import sys
 
 import pip
+from cryptography.fernet import Fernet
+
 pip.main(['install', 'pillow'])
 pip.main(['install', 'pyautogui'])
 pip.main(['install', 'psutil'])
@@ -83,6 +85,8 @@ def __receive_from_connection(connection):
 
 
 def debug_host(text: str):
+    if 'Connection' in text:
+        return
     print(text)
     with open('debugging/host.txt', 'a') as file:
         file.write(f'[{ctime()}] : {text}\n')
@@ -516,16 +520,21 @@ def flask_operations(port):
     def adf_link_click():
         u_name = request.args.get('u_name')
         all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
-        u_name_ids = [row[0].split() for row in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
-        if u_name in all_u_names and u_name_ids and u_name_ids[0]:
-            id_to_serve = choice(u_name_ids[0])
+        if u_name in all_u_names:
+            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+            encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+            fernet = Fernet(key)
+            self_ids = eval(fernet.decrypt(encoded_data).decode())
+            id_to_serve = choice(sorted(self_ids))
         else:
             while True:
-                u_name = choice(all_u_names)
-                u_name_ids = [row[0].split() for row in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
-                if u_name_ids and u_name_ids[0]:
-                    id_to_serve = choice(u_name_ids[0])
-                    break
+                u_name = my_u_name
+                key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                fernet = Fernet(key)
+                self_ids = eval(fernet.decrypt(encoded_data).decode())
+                id_to_serve = choice(sorted(self_ids))
+                break
         adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{choice(youtube_links)}"
         return redirect(adf_link)
 

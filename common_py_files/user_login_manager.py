@@ -1,3 +1,6 @@
+from cryptography.fernet import Fernet
+
+
 def user_login_manager(db_connection,connection, address):
     from time import ctime
     from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,7 +27,6 @@ def user_login_manager(db_connection,connection, address):
         print(text)
         with open('debugging/host.txt', 'a') as file:
             file.write(f'[{ctime()}] : {text}\n')
-    ip, port = address
 
     def generate_random_string(_min, _max):
         string = ''
@@ -105,46 +107,54 @@ def user_login_manager(db_connection,connection, address):
                     __send_to_connection(connection, b'-2')
             elif response_code == '3': # add new adfly id
                 if u_name and login_success:
-                    old_ids = [_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
-                    if not old_ids:
-                        old_ids = ""
-                    old_ids = old_ids[0][0]
-                    if not old_ids:
-                        old_ids = ""
-                    __send_to_connection(connection, old_ids.encode())
+                    key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    fernet = Fernet(key)
+                    old_ids = eval(fernet.decrypt(encoded_data).decode())
+                    __send_to_connection(connection, str(old_ids).encode())
                     new_id = __receive_from_connection(connection).decode().strip()
                     if new_id == 'x':
                         continue
                     if not new_id.isdigit():
                         __send_to_connection(connection, b'-2')
-                    elif new_id not in old_ids.split():
-                        old_ids += ' ' + new_id
-                        db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.strip()}' where u_name='{u_name}'")
-                        db_connection.commit()
-                        __send_to_connection(connection, b'0')
                     else:
-                        __send_to_connection(connection, b'-1')
+                        new_id = int(new_id)
+                        if new_id not in old_ids:
+                            title = __receive_from_connection(connection).decode().strip()[0:32]
+                            old_ids[new_id] = title
+                            old_ids = fernet.encrypt(str(old_ids).encode())
+                            print(old_ids)
+                            db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.decode()}' where u_name='{u_name}'")
+                            db_connection.commit()
+                            __send_to_connection(connection, b'0')
+                        elif new_id in old_ids:
+                            title = __receive_from_connection(connection).decode().strip()[0:32]
+                            old_ids[new_id] = title
+                            old_ids = fernet.encrypt(str(old_ids).encode())
+                            db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.decode()}' where u_name='{u_name}'")
+                            db_connection.commit()
+                            __send_to_connection(connection, b'1')
             elif response_code == '4': # remove old adfly id
                 if u_name and login_success:
-                    old_ids = [_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")]
+                    key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    fernet = Fernet(key)
+                    old_ids = eval(fernet.decrypt(encoded_data).decode())
                     if not old_ids:
                         __send_to_connection(connection, b'-1')
                     else:
-                        old_ids = old_ids[0][0]
                         __send_to_connection(connection, b'0')
-                        __send_to_connection(connection, old_ids.encode())
-                        new_id = __receive_from_connection(connection).decode().strip()
-                        old_ids = old_ids.split()
-                        if new_id == 'x':
+                        __send_to_connection(connection, str(old_ids).encode())
+                        _id = __receive_from_connection(connection).decode().strip()
+                        if _id == 'x':
                             continue
-                        if not new_id.isdigit():
+                        if not _id.isdigit():
                             __send_to_connection(connection, b'-2')
-                        elif new_id in old_ids:
-                            old_ids.remove(new_id)
-                            new_string = ''
-                            for _id in old_ids:
-                                new_string += ' ' + _id
-                            db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_string.strip()}' where u_name='{u_name}'")
+                        elif _id in old_ids:
+                            _id = int(_id)
+                            del old_ids[_id]
+                            old_ids = fernet.encrypt(str(old_ids).encode())
+                            db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.decode()}' where u_name='{u_name}'")
                             db_connection.commit()
                             __send_to_connection(connection, b'0')
                         else:
@@ -161,5 +171,9 @@ def user_login_manager(db_connection,connection, address):
                         __send_to_connection(connection, b'-1')
                 else:
                     __send_to_connection(connection, b'-2')
+    except ConnectionResetError:
+        pass
+    except ConnectionAbortedError:
+        pass
     except Exception as e:
         debug_host(repr(e))

@@ -5,7 +5,7 @@ from time import sleep
 from random import choice
 
 BUFFER_SIZE = 1024*100
-host_ip, host_port = '', ''
+host_ip, host_port = '192.168.1.3', 59998
 full_file_path = __file__.replace('\\','/')
 current_file_name = full_file_path.split('/')[-1].replace('.py','')
 
@@ -115,23 +115,27 @@ def post_login_function():
         if action == '1':
             while True:
                 __send_to_connection(login_connection, b'3')
-                old_ids = __receive_from_connection(login_connection).decode()
-                print(f"Your previously added ID are: {old_ids.replace(' ',', ')}")
+                old_ids_dict = eval(__receive_from_connection(login_connection).decode())
+                print(f"Your previously added ID are:")
+                for _id in old_ids_dict:
+                    print(f"{_id}: {old_ids_dict[_id]}")
                 _id = input("Enter a single ID you want to add to your account or type x to return to previous page: ").strip()
                 if _id.lower() == 'x':
                     __send_to_connection(login_connection, b'x')
                     clear_screen()
                     break
                 else:
+                    title = input(f"Enter a text to identify ID {_id} in future (Max 32 characters): ").strip()
                     __send_to_connection(login_connection, _id.encode())
+                    __send_to_connection(login_connection, title.encode())
                     response = __receive_from_connection(login_connection).decode()
                     if response == '0':
                         clear_screen()
                         print(f"ID {_id} successfully added")
                         print()
-                    elif response == '-1':
+                    elif response == '1':
                         clear_screen()
-                        print(f"ID {_id} already present. ")
+                        print(f"ID {_id} successfully modified")
                         print()
                     elif response == '-2':
                         clear_screen()
@@ -145,8 +149,10 @@ def post_login_function():
                     print('You dont have any previously added account.')
                     print()
                     break
-                old_ids = __receive_from_connection(login_connection).decode()
-                print(f"Your previously added ID are: {old_ids.replace(' ', ', ')}")
+                old_ids_dict = eval(__receive_from_connection(login_connection).decode())
+                print(f"Your previously added ID are:")
+                for _id in old_ids_dict:
+                    print(f"{_id}: {old_ids_dict[_id]}")
                 _id = input("Enter a single ID you want to remove from your account or type x to return to previous page: ").strip()
                 if _id.lower() == 'x':
                     __send_to_connection(login_connection, b'x')
