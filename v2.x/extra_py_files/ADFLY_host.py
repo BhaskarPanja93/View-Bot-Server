@@ -127,8 +127,8 @@ def old_accept_connections_from_users():
             return
         try:
             if request_code == '0':
-                if ('final_main.py' not in python_files) or (path.getmtime('extra_py_files/final_main.py') != python_files['final_main.py']['version']):
-                    python_files['final_main.py'] = {'version': path.getmtime('extra_py_files/final_main.py'), 'file': open('extra_py_files/final_main.py', 'rb').read()}
+                if ('final_main.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/final_main.py') != python_files['final_main.py']['version']):
+                    python_files['final_main.py'] = {'version': path.getmtime(f'{common_py_files_location}/final_main.py'), 'file': open(f'{common_py_files_location}/final_main.py', 'rb').read()}
                 __old_send_to_connection(connection, python_files['final_main.py']['file'])
             elif request_code == '5':
                 if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
@@ -185,8 +185,8 @@ def accept_connections_from_users(port):
             if request_code == '-1':
                 __send_to_connection(connection, b'x')
             elif request_code == '0':
-                if ('final_main.py' not in python_files) or (path.getmtime('extra_py_files/final_main.py') != python_files['final_main.py']['version']):
-                    python_files['final_main.py'] = {'version': path.getmtime('extra_py_files/final_main.py'), 'file': open('extra_py_files/final_main.py', 'rb').read()}
+                if ('final_main.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/final_main.py') != python_files['final_main.py']['version']):
+                    python_files['final_main.py'] = {'version': path.getmtime(f'{common_py_files_location}/final_main.py'), 'file': open(f'{common_py_files_location}/final_main.py', 'rb').read()}
                 __send_to_connection(connection, python_files['final_main.py']['file'])
             elif request_code == '1':
                 if ('runner.py' not in python_files) or (path.getmtime('extra_py_files/runner.py') != python_files['runner.py']['version']):
@@ -479,7 +479,7 @@ def flask_operations(port):
         data = ''
         for para_length in range(randrange(400, 1000)):
             data += choice(paragraph_lines) + '.'
-            if randrange(0, 10) % 5 == 0:
+            if randrange(0, 5) == 1:
                 data += f"<a href='/adf_link_click?u_name={u_name}&random={generate_random_string(10,50)}'> CLICK HERE </a>"
         html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
         return html_data

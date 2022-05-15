@@ -1,5 +1,6 @@
 from random import choice
-from time import sleep
+from threading import Thread
+from time import sleep, time
 from os import system as system_caller
 import socket
 
@@ -71,7 +72,15 @@ def send_debug_data(text, additional_comment: str = '', trial = 0):
         except:
             send_debug_data(text, additional_comment, trial)
 
+def __restart_if_frozen():
+    s_time = time()
+    while not finished_execution:
+        sleep(1)
+        if time() - s_time > 60:
+            __restart_host_machine()
 
+
+Thread(target=__restart_if_frozen).start()
 updated = False
 while True:
     try:
@@ -87,6 +96,7 @@ while True:
         pass
 
 if updated:
+    finished_execution = True
     system_caller('final_main.py')
 else:
     while True:
@@ -109,4 +119,5 @@ else:
     with open('runner.py', 'wb') as runner_file:
         runner_file.write(runner_data)
     import runner
+    finished_execution = True
     runner.run(instance_token)

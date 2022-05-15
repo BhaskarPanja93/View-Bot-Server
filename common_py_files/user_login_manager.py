@@ -97,7 +97,11 @@ def user_login_manager(db_connection,connection, address):
                     password = __receive_from_connection(connection).decode().strip().swapcase()
                     if password_matches_standard(password):
                         user_pw_hash = generate_password_hash(password, salt_length=1000)
-                        db_connection.cursor().execute(f"INSERT into user_data (u_name, user_pw_hash, instance_token) values ('{u_name}', '{user_pw_hash}', '{generate_random_string(1000,5000)}')")
+                        self_ids = {}
+                        key = Fernet.generate_key()
+                        fernet = Fernet(key)
+                        self_ids = fernet.encrypt(str(self_ids).encode())
+                        db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{user_pw_hash}', '{generate_random_string(1000,5000)}')")
                         db_connection.commit()
                         __send_to_connection(connection, b'0')
                         login_success = True
@@ -123,7 +127,6 @@ def user_login_manager(db_connection,connection, address):
                             title = __receive_from_connection(connection).decode().strip()[0:32]
                             old_ids[new_id] = title
                             old_ids = fernet.encrypt(str(old_ids).encode())
-                            print(old_ids)
                             db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.decode()}' where u_name='{u_name}'")
                             db_connection.commit()
                             __send_to_connection(connection, b'0')
