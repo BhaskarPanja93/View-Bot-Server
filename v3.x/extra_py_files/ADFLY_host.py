@@ -318,7 +318,6 @@ def update_vm_responses():
                     host_ram = virtual_memory()[2]
                 except Exception as e:
                     debug_host(repr(e))
-                system_caller('cls')
             else:
                 sleep(0.1)
                 if time()- last_data_sent >= 10:

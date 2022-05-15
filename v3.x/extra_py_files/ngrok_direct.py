@@ -241,6 +241,8 @@ def run(img_dict, instance_token):
         possible_screen_conditions = {
             'clear_chrome_cookies': ['reset settings'],
             'enable_extensions': ['enable extensions'],
+            'enable_popups': ['sites can send popups'],
+            'allow_ads':['sites can show ads'],
             'google_captcha': ['google captcha'],
             'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
@@ -299,6 +301,16 @@ def run(img_dict, instance_token):
                         else:
                             finish_counter += 1
                             pyautogui.scroll(-500)
+                    __close_chrome_safe()
+                    link = 'chrome://settings/content/popups'
+                    start_time = time()
+                elif current_screen_condition == 'enable_popups':
+                    __click(coordinates)
+                    __close_chrome_safe()
+                    link = 'chrome://settings/content/ads'
+                    start_time = time()
+                elif current_screen_condition == 'allow_ads':
+                    __click(coordinates)
                     __close_chrome_safe()
                     link = ''
                     start_time = time()
