@@ -47,25 +47,6 @@ for _ in range(youtube_links.count('')):
     youtube_links.remove('')
 
 
-def __old_send_to_connection(connection, data_bytes: bytes):
-    data_byte_length = len(data_bytes)
-    connection.send(str(data_byte_length).encode())
-    if connection.recv(1) == b'-':
-        connection.send(data_bytes)
-    if connection.recv(1) == b'-':
-        return
-
-
-def __old_receive_from_connection(connection):
-    length = int(connection.recv(BUFFER_SIZE))
-    connection.send(b'-')
-    data_bytes = b''
-    while len(data_bytes) != length:
-        data_bytes += connection.recv(BUFFER_SIZE)
-    connection.send(b'-')
-    return data_bytes
-
-
 def __send_to_connection(connection, data_bytes: bytes):
     data_byte_length = len(data_bytes)
     connection.send(f'{data_byte_length}'.zfill(8).encode())
@@ -144,9 +125,9 @@ def accept_connections_from_users(port):
             if request_code == '-1':
                 __send_to_connection(connection, b'x')
             elif request_code == '0':
-                if ('final_main.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/final_main.py') != python_files['final_main.py']['version']):
-                    python_files['final_main.py'] = {'version': path.getmtime(f'{common_py_files_location}/final_main.py'), 'file': open(f'{common_py_files_location}/final_main.py', 'rb').read()}
-                __send_to_connection(connection, python_files['final_main.py']['file'])
+                    if ('final_main.py' not in python_files) or (path.getmtime('extra_py_files/final_main.py') != python_files['final_main.py']['version']):
+                        python_files['final_main.py'] = {'version': path.getmtime('extra_py_files/final_main.py'), 'file': open('extra_py_files/final_main.py', 'rb').read()}
+                    __send_to_connection(connection, python_files['final_main.py']['file'])
             elif request_code == '1':
                 if ('runner.py' not in python_files) or (path.getmtime('extra_py_files/runner.py') != python_files['runner.py']['version']):
                     python_files['runner.py'] = {'version': path.getmtime('extra_py_files/runner.py'), 'file': open('extra_py_files/runner.py', 'rb').read()}

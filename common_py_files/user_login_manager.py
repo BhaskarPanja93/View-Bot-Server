@@ -101,7 +101,7 @@ def user_login_manager(db_connection,connection, address):
                         key = Fernet.generate_key()
                         fernet = Fernet(key)
                         self_ids = fernet.encrypt(str(self_ids).encode())
-                        db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{user_pw_hash}', '{generate_random_string(1000,5000)}')")
+                        db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, user_pw_hash, instance_token) values ('{u_name}', '{self_ids.decode()}', '{key.decode()}', '{user_pw_hash}', '{generate_random_string(1000,5000)}')")
                         db_connection.commit()
                         __send_to_connection(connection, b'0')
                         login_success = True
@@ -151,17 +151,24 @@ def user_login_manager(db_connection,connection, address):
                         _id = __receive_from_connection(connection).decode().strip()
                         if _id == 'x':
                             continue
-                        if not _id.isdigit():
-                            __send_to_connection(connection, b'-2')
-                        elif _id in old_ids:
+                        elif _id.isdigit():
                             _id = int(_id)
-                            del old_ids[_id]
+                            if _id in old_ids:
+                                del old_ids[_id]
+                                old_ids = fernet.encrypt(str(old_ids).encode())
+                                db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.decode()}' where u_name='{u_name}'")
+                                db_connection.commit()
+                                __send_to_connection(connection, b'0')
+                            else:
+                                __send_to_connection(connection, b'-1')
+                        elif _id == 'all':
+                            old_ids = {}
                             old_ids = fernet.encrypt(str(old_ids).encode())
                             db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{old_ids.decode()}' where u_name='{u_name}'")
                             db_connection.commit()
                             __send_to_connection(connection, b'0')
                         else:
-                            __send_to_connection(connection, b'-1')
+                            __send_to_connection(connection, b'-2')
             elif response_code == '5': # change password
                 if u_name and login_success:
                     __send_to_connection(connection, b'0')

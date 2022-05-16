@@ -13,7 +13,7 @@ pip.main(['install','ping3'])
 pip.main(['install','pillow'])
 del pip
 BUFFER_SIZE = 1024*100
-host_ip, host_port = '192.168.1.2', 59998
+host_ip, host_port = '192.168.1.2', 65499
 
 
 def __restart_host_machine(duration=5):
@@ -79,7 +79,7 @@ def __restart_if_frozen():
         if time() - s_time > 60:
             __restart_host_machine()
 
-
+finished_execution = False
 Thread(target=__restart_if_frozen).start()
 updated = False
 while True:
@@ -96,9 +96,11 @@ while True:
         pass
 
 if updated:
+    print('updated from server')
     finished_execution = True
     system_caller('final_main.py')
 else:
+    print('no new updates')
     while True:
         sleep(5)
         try:

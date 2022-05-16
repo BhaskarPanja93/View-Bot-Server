@@ -5,7 +5,6 @@ available_instances = []
 def run(instance_token):
     from os import remove
     remove('runner.py')
-
     global last_ip, current_ip, genuine_ip, success, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE
     comment, current_ip, last_ip = str, int, str
     img_dict = {}

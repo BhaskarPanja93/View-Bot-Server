@@ -6,7 +6,6 @@ def run(img_dict, instance_token):
     from os import remove
     remove('instance.py')
     global BUFFER_SIZE, start_time
-
     import socket
     from time import time, sleep
     import pyautogui
@@ -385,7 +384,7 @@ def run(img_dict, instance_token):
                     break
             else:
                 continue
-        sleep(5)
+        sleep(10)
         __close_chrome_safe()
     except Exception as e:
         success = False

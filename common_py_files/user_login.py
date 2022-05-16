@@ -13,7 +13,6 @@ current_file_name = full_file_path.split('/')[-1].replace('.py','')
 def force_connect_server():
     global host_ip, host_port
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connection.settimeout(10)
     while True:
         try:
             connection.connect((host_ip, host_port))
@@ -122,10 +121,10 @@ def post_login_function():
             while True:
                 __send_to_connection(login_connection, b'3')
                 old_ids_dict = eval(__receive_from_connection(login_connection).decode())
-                print(f"Your previously added ID are:")
+                print(f"\nYour previously added ID are:")
                 for _id in old_ids_dict:
                     print(f"{_id}: {old_ids_dict[_id]}")
-                _id = input("Enter a single ID you want to add to your account or type x to return to previous page: ").strip()
+                _id = input("\nEnter ID you want to add to your account or \nType x to return to previous page: ").strip()
                 if _id.lower() == 'x':
                     __send_to_connection(login_connection, b'x')
                     clear_screen()
@@ -156,10 +155,10 @@ def post_login_function():
                     print()
                     break
                 old_ids_dict = eval(__receive_from_connection(login_connection).decode())
-                print(f"Your previously added ID are:")
+                print(f"\nYour previously added ID are:")
                 for _id in old_ids_dict:
                     print(f"{_id}: {old_ids_dict[_id]}")
-                _id = input("Enter a single ID you want to remove from your account or type x to return to previous page: ").strip()
+                _id = input("\nEnter ID you want to remove from your account or \nType x to return to previous page or\nType all to remove all IDs: ").strip()
                 if _id.lower() == 'x':
                     __send_to_connection(login_connection, b'x')
                     clear_screen()
