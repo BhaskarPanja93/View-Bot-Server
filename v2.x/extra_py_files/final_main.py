@@ -21,26 +21,35 @@ def __restart_host_machine(duration=5):
 
 
 def force_connect_server():
-    global host_ip, host_port
-    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connection.settimeout(10)
     while True:
+        host_ip, host_port = '192.168.1.2', 59998
         try:
+            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            connection.settimeout(5)
             connection.connect((host_ip, host_port))
             break
         except:
             host_ip, host_port = '10.10.77.118', 59998
             try:
+                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                connection.settimeout(5)
                 connection.connect((host_ip, host_port))
                 break
             except:
-                sleep(2)
                 from requests import get
                 text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
                 link_dict = eval(text)
                 user_connection_list = link_dict['adfly_user_tcp_connection_list']
                 host_ip, host_port = choice(user_connection_list).split(':')
                 host_port = int(host_port)
+                try:
+                    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    connection.settimeout(5)
+                    connection.connect((host_ip, host_port))
+                    break
+                except:
+                    pass
+    connection.settimeout(15)
     return connection
 
 

@@ -26,14 +26,15 @@ def run(instance_token):
 
     def force_connect_server():
         global host_ip, host_port
-        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        connection.settimeout(10)
         while True:
             try:
+                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                connection.settimeout(5)
                 connection.connect((host_ip, host_port))
                 break
             except:
                 pass
+        connection.settimeout(15)
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):

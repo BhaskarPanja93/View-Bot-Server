@@ -1,8 +1,9 @@
 import socket
 from os import system as system_caller
 from platform import system
-from time import sleep
 from random import choice
+import pip
+pip.main(['install','requests'])
 
 BUFFER_SIZE = 1024*100
 host_ip, host_port = '192.168.1.2', 59998
@@ -11,25 +12,35 @@ current_file_name = full_file_path.split('/')[-1].replace('.py','')
 
 
 def force_connect_server():
-    global host_ip, host_port
-    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
+        host_ip, host_port = '192.168.1.2', 59998
         try:
+            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            connection.settimeout(5)
             connection.connect((host_ip, host_port))
             break
         except:
             host_ip, host_port = '10.10.77.118', 59998
             try:
+                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                connection.settimeout(5)
                 connection.connect((host_ip, host_port))
                 break
             except:
-                sleep(2)
                 from requests import get
                 text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
                 link_dict = eval(text)
                 user_connection_list = link_dict['adfly_user_tcp_connection_list']
                 host_ip, host_port = choice(user_connection_list).split(':')
                 host_port = int(host_port)
+                try:
+                    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    connection.settimeout(5)
+                    connection.connect((host_ip, host_port))
+                    break
+                except:
+                    pass
+    connection.settimeout(15)
     return connection
 
 
@@ -56,35 +67,6 @@ def clear_screen():
         system_caller('cls')
     else:
         system_caller('clear')
-
-
-self_update_connection = force_connect_server()
-__send_to_connection(self_update_connection, b'8')
-user_login_data = __receive_from_connection(self_update_connection)
-if open(full_file_path, 'rb').read() != user_login_data:
-    with open(full_file_path, 'wb') as user_login_file:
-        user_login_file.write(user_login_data)
-        print('Successfully updated from server.')
-        from importlib import import_module
-        import_module(current_file_name)
-
-
-login_connection = force_connect_server()
-__send_to_connection(login_connection, b'9')
-print("""Enter 0 to Login
-Enter 1 to Create a new account 
-""")
-while True:
-    choice = input('>> ')
-    if choice in ['0','1']:
-        clear_screen()
-        break
-
-u_name = None
-login_possible = False
-signup_possible = False
-login_success = False
-
 
 def password_matches_standard(password: str):
     has_1_number = False
@@ -206,6 +188,35 @@ def post_login_function():
                 clear_screen()
                 print('Password doesnt meet our standards. Password change failed ')
                 print()
+
+
+self_update_connection = force_connect_server()
+__send_to_connection(self_update_connection, b'8')
+user_login_data = __receive_from_connection(self_update_connection)
+if open(full_file_path, 'rb').read() != user_login_data:
+    with open(full_file_path, 'wb') as user_login_file:
+        user_login_file.write(user_login_data)
+        print('Successfully updated from server.')
+        from importlib import import_module
+        import_module(current_file_name)
+
+
+login_connection = force_connect_server()
+__send_to_connection(login_connection, b'9')
+print("""Enter 0 to Login
+Enter 1 to Create a new account 
+""")
+while True:
+    choice = input('>> ')
+    if choice in ['0','1']:
+        clear_screen()
+        break
+
+u_name = None
+login_possible = False
+signup_possible = False
+login_success = False
+
 
 while True:
     if choice == '0':
