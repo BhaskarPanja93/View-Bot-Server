@@ -1,16 +1,18 @@
 import sys
 
+import flask
 import pip
-from cryptography.fernet import Fernet
-
 pip.main(['install', 'pillow'])
 pip.main(['install', 'pyautogui'])
 pip.main(['install', 'psutil'])
 pip.main(['install', 'requests'])
 pip.main(['install', 'flask'])
 pip.main(['install', 'pyngrok'])
+pip.main(['install', 'cryptography'])
+pip.main(['install', 'turbo_flask'])
 del pip
 
+from cryptography.fernet import Fernet
 import sqlite3
 from PIL import Image
 from turbo_flask import Turbo
@@ -22,15 +24,21 @@ from threading import Thread
 from time import ctime, sleep, time
 from psutil import virtual_memory
 from psutil import cpu_percent as cpu
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, send_from_directory
 from werkzeug.security import check_password_hash
 
 server_start_time = time()
 
 my_u_name = 'bhaskar'
-read_only_location = '../../read only'
-images_location = '../req_imgs'
-common_py_files_location = '../common_py_files'
+
+parent, _ = path.split(path.split(getcwd())[0])
+read_only_location = path.join(parent, 'read only')
+
+parent, _ = path.split(getcwd())
+images_location = path.join(parent, 'req_imgs/Windows')
+
+parent, _ = path.split(getcwd())
+common_py_files_location = path.join(parent, 'common_py_files')
 
 BUFFER_SIZE = 1024 * 100
 OLD_USER_CONNECTION_PORT = 59999
@@ -43,9 +51,6 @@ vm_data_update_connections = last_vm_data = last_host_data = {}
 
 db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False)
 paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.')
-youtube_links = open(f'{read_only_location}/youtube links.txt', 'r').read().split('\n')
-for _ in range(youtube_links.count('')):
-    youtube_links.remove('')
 
 
 def __old_send_to_connection(connection, data_bytes: bytes):
@@ -222,8 +227,8 @@ def accept_connections_from_users(port):
             elif request_code == '6':
                 img_name = __receive_from_connection(connection).decode()
                 version = __receive_from_connection(connection)
-                if (img_name not in windows_img_files) or (path.getmtime(f'{images_location}/Windows/{img_name}.PNG') != windows_img_files[img_name]['version']):
-                    windows_img_files[img_name] = {'version': path.getmtime(f'{images_location}/Windows/{img_name}.PNG'), 'file': Image.open(f'{images_location}/Windows/{img_name}.PNG')}
+                if (img_name not in windows_img_files) or (path.getmtime(f'{images_location}/{img_name}.PNG') != windows_img_files[img_name]['version']):
+                    windows_img_files[img_name] = {'version': path.getmtime(f'{images_location}/{img_name}.PNG'), 'file': Image.open(f'{images_location}/{img_name}.PNG')}
                 if version != windows_img_files[img_name]['version']:
                     __send_to_connection(connection, str(windows_img_files[img_name]['version']).encode())
                     __send_to_connection(connection, str(windows_img_files[img_name]['file'].size).encode())
@@ -499,6 +504,11 @@ def flask_operations(port):
         return render_template('wait_period.html')
 
 
+    @app.route('/youtube_img')
+    def youtube_img():
+        return send_from_directory(directory=images_location, path='yt logo 2.PNG')
+
+
     @app.route('/update_server_from_github/', methods=['GET'])
     def update_server_from_github():
         system_caller('git stash')
@@ -534,7 +544,7 @@ def flask_operations(port):
                 self_ids = eval(fernet.decrypt(encoded_data).decode())
                 id_to_serve = choice(sorted(self_ids))
                 break
-        adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{choice(youtube_links)}"
+        adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{request.root_url}youtube_img?random={generate_random_string(5,10)}"
         return redirect(adf_link)
 
 

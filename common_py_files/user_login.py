@@ -6,7 +6,6 @@ import pip
 pip.main(['install','requests'])
 
 BUFFER_SIZE = 1024*100
-host_ip, host_port = '192.168.1.2', 59998
 full_file_path = __file__.replace('\\','/')
 current_file_name = full_file_path.split('/')[-1].replace('.py','')
 

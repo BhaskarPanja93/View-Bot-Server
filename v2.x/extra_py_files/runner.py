@@ -1,5 +1,4 @@
 last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE = '','','','','','','','','','',''
-host_ip, host_port = '192.168.1.2', 59998
 available_instances = []
 
 def run(instance_token):

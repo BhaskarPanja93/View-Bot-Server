@@ -1,5 +1,4 @@
 BUFFER_SIZE, start_time  = '',''
-host_ip, host_port = '192.168.1.2', 59998
 
 def run(img_dict, instance_token):
 

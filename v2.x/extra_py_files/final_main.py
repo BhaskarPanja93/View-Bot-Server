@@ -13,7 +13,6 @@ pip.main(['install','ping3'])
 pip.main(['install','pillow'])
 del pip
 BUFFER_SIZE = 1024*100
-host_ip, host_port = '192.168.1.2', 59998
 
 
 def __restart_host_machine(duration=5):
@@ -81,13 +80,35 @@ def send_debug_data(text, additional_comment: str = '', trial = 0):
         except:
             send_debug_data(text, additional_comment, trial)
 
+
 def __restart_if_frozen():
     s_time = time()
     while not finished_execution:
         sleep(1)
-        if time() - s_time > 60:
+        if time() - s_time > 120:
             __restart_host_machine()
 
+
+def __clean_temps_directory():
+    import os
+    import shutil
+    folder = 'C:/Users/' + os.getlogin() + '/AppData/Local/Temp'
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        _no = file_path.find('\\')
+        _name = file_path[_no + 1:]
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+
+            elif os.path.isdir(file_path):
+                if file_path.__contains__('chocolatey'):  continue
+                shutil.rmtree(file_path)
+        except:
+            pass
+
+
+__clean_temps_directory()
 finished_execution = False
 Thread(target=__restart_if_frozen).start()
 updated = False
