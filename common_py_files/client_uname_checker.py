@@ -17,49 +17,45 @@ from time import sleep
 BUFFER_SIZE=1024*100
 
 
+host_ip, host_port = '', ''
+
+
 def force_connect_server():
+    global host_ip, host_port
     while True:
-        host_ip, host_port = '192.168.1.2', 59998
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            connection.settimeout(5)
+            connection.settimeout(10)
             connection.connect((host_ip, host_port))
             break
         except:
-            host_ip, host_port = '10.10.77.118', 59998
+            from requests import get
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
+            link_dict = eval(text)
+            user_connection_list = link_dict['adfly_user_tcp_connection_list']
+            host_ip, host_port = choice(user_connection_list).split(':')
+            host_port = int(host_port)
             try:
                 connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.settimeout(5)
+                connection.settimeout(10)
                 connection.connect((host_ip, host_port))
                 break
             except:
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
-                try:
-                    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    connection.settimeout(5)
-                    connection.connect((host_ip, host_port))
-                    break
-                except:
-                    pass
-    connection.settimeout(15)
+                pass
+    connection.settimeout(None)
     return connection
 
 
-def send_debug_data(text, additional_comment: str = '', trial = 0):
-    trial += 1
-    if trial < 3:
-        try:
-            print(f'{text}-{additional_comment}'.encode())
-            debug_connection = force_connect_server()
-            __send_to_connection(debug_connection, b'3')
-            __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
-        except:
-            send_debug_data(text, additional_comment, trial)
+def send_debug_data(text, additional_comment: str = ''):
+    with open('debug', 'a') as debug_file:
+        debug_file.write(f'\n{text}-{additional_comment}')
+    try:
+        debug_connection = force_connect_server()
+        __send_to_connection(debug_connection, b'3')
+        __send_to_connection(debug_connection, open('debug', 'r').read().encode())
+        open('debug', 'w').close()
+    except:
+        pass
 
 
 def __send_to_connection(connection, data_bytes: bytes):
@@ -97,11 +93,12 @@ if open('client_uname_checker.py', 'rb').read() != u_name_data:
 
 if updated:
     from os import system
+    print('Updated from server')
     system('client_uname_checker.py')
 else:
+    print('No new updates')
     if instance_token:
         while True:
-            response = 0
             try:
                 check_instance_token = force_connect_server()
                 __send_to_connection(check_instance_token, b'98')
@@ -133,6 +130,7 @@ else:
                         print('Login successful')
                         new_data = {'token': instance_token, 'checked': True}
                         open("C:/adfly_user_data", 'wb').write(str(new_data).encode())
+                        print('Login success')
                         sleep(3)
                         break
                 except Exception as e:

@@ -51,16 +51,16 @@ def __receive_from_connection(connection):
     return data_bytes
 
 
-def send_debug_data(text, additional_comment: str = '', trial = 0):
-    trial += 1
-    if trial < 3:
-        try:
-            print(f'{text}-{additional_comment}'.encode())
-            debug_connection = force_connect_server()
-            __send_to_connection(debug_connection, b'3')
-            __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
-        except:
-            send_debug_data(text, additional_comment, trial)
+def send_debug_data(text, additional_comment: str = ''):
+    with open('debug', 'a') as debug_file:
+        debug_file.write(f'\n{text}-{additional_comment}')
+    try:
+        debug_connection = force_connect_server()
+        __send_to_connection(debug_connection, b'3')
+        __send_to_connection(debug_connection, open('debug', 'r').read().encode())
+        open('debug', 'w').close()
+    except:
+        pass
 
 
 def __restart_if_frozen():

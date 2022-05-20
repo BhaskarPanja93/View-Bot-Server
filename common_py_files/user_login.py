@@ -10,36 +10,33 @@ full_file_path = __file__.replace('\\','/')
 current_file_name = full_file_path.split('/')[-1].replace('.py','')
 
 
+host_ip, host_port = '', ''
+
+
 def force_connect_server():
+    global host_ip, host_port
     while True:
-        host_ip, host_port = '192.168.1.2', 59998
+        print(host_ip, host_port)
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            connection.settimeout(5)
+            connection.settimeout(10)
             connection.connect((host_ip, host_port))
             break
         except:
-            host_ip, host_port = '10.10.77.118', 59998
+            from requests import get
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
+            link_dict = eval(text)
+            user_connection_list = link_dict['adfly_user_tcp_connection_list']
+            host_ip, host_port = choice(user_connection_list).split(':')
+            host_port = int(host_port)
             try:
                 connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.settimeout(5)
+                connection.settimeout(10)
                 connection.connect((host_ip, host_port))
                 break
             except:
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
-                try:
-                    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    connection.settimeout(5)
-                    connection.connect((host_ip, host_port))
-                    break
-                except:
-                    pass
-    connection.settimeout(15)
+                pass
+    connection.settimeout(None)
     return connection
 
 
@@ -188,7 +185,7 @@ def post_login_function():
                 print('Password doesnt meet our standards. Password change failed ')
                 print()
 
-
+clear_screen()
 self_update_connection = force_connect_server()
 __send_to_connection(self_update_connection, b'8')
 user_login_data = __receive_from_connection(self_update_connection)

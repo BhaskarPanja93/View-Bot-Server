@@ -18,37 +18,33 @@ BUFFER_SIZE = 1024*100
 def __restart_host_machine(duration=5):
     system_caller(f'shutdown -r -f -t {duration}')
 
+host_ip, host_port = '', ''
+
 
 def force_connect_server():
+    global host_ip, host_port
     while True:
-        host_ip, host_port = '192.168.1.2', 59998
+        print(host_ip, host_port)
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            connection.settimeout(5)
+            connection.settimeout(10)
             connection.connect((host_ip, host_port))
             break
         except:
-            host_ip, host_port = '10.10.77.118', 59998
+            from requests import get
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
+            link_dict = eval(text)
+            user_connection_list = link_dict['adfly_user_tcp_connection_list']
+            host_ip, host_port = choice(user_connection_list).split(':')
+            host_port = int(host_port)
             try:
                 connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.settimeout(5)
+                connection.settimeout(10)
                 connection.connect((host_ip, host_port))
                 break
             except:
-                from requests import get
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
-                link_dict = eval(text)
-                user_connection_list = link_dict['adfly_user_tcp_connection_list']
-                host_ip, host_port = choice(user_connection_list).split(':')
-                host_port = int(host_port)
-                try:
-                    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    connection.settimeout(5)
-                    connection.connect((host_ip, host_port))
-                    break
-                except:
-                    pass
-    connection.settimeout(15)
+                pass
+    connection.settimeout(None)
     return connection
 
 
@@ -69,16 +65,16 @@ def __receive_from_connection(connection):
     return data_bytes
 
 
-def send_debug_data(text, additional_comment: str = '', trial = 0):
-    trial += 1
-    if trial < 3:
-        try:
-            print(f'{text}-{additional_comment}'.encode())
-            debug_connection = force_connect_server()
-            __send_to_connection(debug_connection, b'3')
-            __send_to_connection(debug_connection, f'{text}-{additional_comment}'.encode())
-        except:
-            send_debug_data(text, additional_comment, trial)
+def send_debug_data(text, additional_comment: str = ''):
+    with open('debug', 'a') as debug_file:
+        debug_file.write(f'\n{text}-{additional_comment}')
+    try:
+        debug_connection = force_connect_server()
+        __send_to_connection(debug_connection, b'3')
+        __send_to_connection(debug_connection, open('debug', 'r').read().encode())
+        open('debug', 'w').close()
+    except:
+        pass
 
 
 def __restart_if_frozen():
@@ -89,26 +85,6 @@ def __restart_if_frozen():
             __restart_host_machine()
 
 
-def __clean_temps_directory():
-    import os
-    import shutil
-    folder = 'C:/Users/' + os.getlogin() + '/AppData/Local/Temp'
-    for the_file in os.listdir(folder):
-        file_path = os.path.join(folder, the_file)
-        _no = file_path.find('\\')
-        _name = file_path[_no + 1:]
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-
-            elif os.path.isdir(file_path):
-                if file_path.__contains__('chocolatey'):  continue
-                shutil.rmtree(file_path)
-        except:
-            pass
-
-
-__clean_temps_directory()
 finished_execution = False
 Thread(target=__restart_if_frozen).start()
 updated = False

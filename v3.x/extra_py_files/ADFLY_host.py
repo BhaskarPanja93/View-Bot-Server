@@ -1,5 +1,5 @@
 import sys
-
+sys.path.append('../common_py_files')
 import pip
 pip.main(['install', 'pillow'])
 pip.main(['install', 'pyautogui'])
@@ -145,9 +145,8 @@ def accept_connections_from_users(port):
                 __send_to_connection(connection, python_files[f'{instance}.py']['file'])
             elif request_code == '3':
                 text = __receive_from_connection(connection).decode()
-                _id = randrange(1, 1000000)
                 f = open(f'debugging/texts.txt', 'a')
-                f.write(f'[{_id}] : [{ctime()}] : {text}\n')
+                f.write(f'{text}')
                 f.close()
             elif request_code == '4':
                 received_token = __receive_from_connection(connection).decode()
@@ -184,7 +183,6 @@ def accept_connections_from_users(port):
                     python_files['user_login.py'] = {'version': path.getmtime(f'{common_py_files_location}/user_login.py'), 'file': open(f'{common_py_files_location}/user_login.py', 'rb').read()}
                 __send_to_connection(connection, python_files['user_login.py']['file'])
             elif request_code == '9':
-                sys.path.append('../common_py_files')
                 from user_login_manager import user_login_manager
                 Thread(target=user_login_manager, args=(db_connection, connection, address,)).start()
             elif request_code == '10':
