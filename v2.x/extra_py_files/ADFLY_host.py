@@ -486,6 +486,39 @@ def flask_operations(port):
         html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
         return html_data
 
+    """
+             0:'main_file_check',
+             1:'runner_file_check',
+             2:'instance_file_check',
+             5:'client_uname_check_updater'
+             8: user_login_update_check
+        """
+
+    def return_py_file(file_id, extra=''):
+        if file_id == '0':
+            if ('final_main.py' not in python_files) or (path.getmtime('extra_py_files/final_main.py') != python_files['final_main.py']['version']):
+                python_files['final_main.py'] = {'version': path.getmtime('extra_py_files/final_main.py'), 'file': open('extra_py_files/final_main.py', 'rb').read()}
+            return python_files['final_main.py']['file']
+        elif file_id == '1':
+            if ('runner.py' not in python_files) or (path.getmtime('extra_py_files/runner.py') != python_files['runner.py']['version']):
+                python_files['runner.py'] = {'version': path.getmtime('extra_py_files/runner.py'), 'file': open('extra_py_files/runner.py', 'rb').read()}
+            return python_files['runner.py']['file']
+        elif file_id == '2':
+            instance = extra
+            if f'{instance}.py' not in python_files or (path.getmtime(f'extra_py_files/{instance}.py') != python_files[f'{instance}.py']['version']):
+                python_files[f'{instance}.py'] = {'version': path.getmtime(f'extra_py_files/{instance}.py'), 'file': open(f'extra_py_files/{instance}.py', 'rb').read()}
+                python_files[f'{instance}.py']['version'] = path.getmtime(f'extra_py_files/{instance}.py')
+                python_files[f'{instance}.py']['file'] = open(f'extra_py_files/{instance}.py', 'rb').read()
+            return python_files[f'{instance}.py']['file']
+        elif file_id == '5':
+            if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
+                python_files['client_uname_checker.py'] = {'version': path.getmtime(f'{common_py_files_location}/client_uname_checker.py'), 'file': open(f'{common_py_files_location}/client_uname_checker.py', 'rb').read()}
+            return python_files['client_uname_checker.py']['file']
+        elif file_id == '8':
+            if ('user_login.py' not in python_files) or (path.getmtime(f'{common_py_files_location}/user_login.py') != python_files['user_login.py']['version']):
+                python_files['user_login.py'] = {'version': path.getmtime(f'{common_py_files_location}/user_login.py'), 'file': open(f'{common_py_files_location}/user_login.py', 'rb').read()}
+            return python_files['user_login.py']['file']
+
 
     @turbo_app.user_id
     def get_user_id():
@@ -504,6 +537,18 @@ def flask_operations(port):
     @app.route('/youtube_img')
     def youtube_img():
         return send_from_directory(directory=images_location, path='yt logo 2.PNG')
+
+
+    @app.route('/py_files', methods=["GET"])
+    def py_files():
+        file_code = request.args.get("file_code")
+        received_token = request.args.get("token")
+        extra = request.args.get("extra")
+        all_u_name = []
+        for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
+            all_u_name.append(row[0])
+        if all_u_name and all_u_name[0]:
+            return return_py_file(file_code, extra)
 
 
     @app.route('/update_server_from_github/', methods=['GET'])

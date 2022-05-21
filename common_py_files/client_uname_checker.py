@@ -116,7 +116,7 @@ else:
         elif response == '-1':
             print("User password changed, Re-login:")
             while True:
-                response = 0
+                response = -100
                 user_name = input('enter username: ')
                 password = input('enter password: ')
                 try:
@@ -141,7 +141,7 @@ else:
                     print('Too many wrong tries, try again later.')
     elif not instance_token:
         while True:
-            response = 0
+            response = -100
             user_name = input('enter username: ')
             password = input('enter password: ')
             try:

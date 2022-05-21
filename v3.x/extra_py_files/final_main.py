@@ -1,4 +1,3 @@
-from random import choice
 from threading import Thread
 from time import sleep, time
 from os import system as system_caller
@@ -132,6 +131,6 @@ else:
             pass
     with open('runner.py', 'wb') as runner_file:
         runner_file.write(runner_data)
-    import runner
     finished_execution = True
+    import runner
     runner.run(instance_token)

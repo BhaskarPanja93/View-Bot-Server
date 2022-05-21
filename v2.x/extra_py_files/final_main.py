@@ -124,6 +124,6 @@ else:
             pass
     with open('runner.py', 'wb') as runner_file:
         runner_file.write(runner_data)
-    import runner
     finished_execution = True
+    import runner
     runner.run(instance_token)
