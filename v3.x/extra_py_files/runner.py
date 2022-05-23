@@ -26,12 +26,14 @@ def run(instance_token):
             from psutil import cpu_percent as cpu
             from psutil import virtual_memory
             from requests import get
+            from getmac import get_mac_address
             break
         except:
             import pip
             pip.main(['install', 'psutil'])
             pip.main(['install', 'requests'])
             pip.main(['install', 'ping3'])
+            pip.main(['install', 'getmac'])
             del pip
 
     def force_connect_server():
@@ -211,7 +213,7 @@ def run(instance_token):
             __send_to_connection(send_data_connection, b'100')
             __send_to_connection(send_data_connection, instance_token)
             send_data_connection.settimeout(20)
-            pc_name = socket.gethostname()
+            mac_addr = get_mac_address()
             while True:
                     token = __receive_from_connection(send_data_connection).decode()
                     if token == "x":
@@ -219,7 +221,7 @@ def run(instance_token):
                     else:
                         update_cpu_ram()
                         uptime_calculator()
-                        current_data = {'token':token, 'public_ip': current_ip if current_ip != genuine_ip else pc_name, 'pc_name':pc_name, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
+                        current_data = {'token':token, 'public_ip': current_ip if current_ip != genuine_ip else mac_addr, 'mac_addr': mac_addr, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
                         __send_to_connection(send_data_connection, str(current_data).encode())
         except:
             try:

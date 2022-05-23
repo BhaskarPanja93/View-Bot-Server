@@ -369,7 +369,7 @@ def update_main_page(turbo_app, viewer_id):
                             <tr>
                             <td>{actual_u_name}</td>
                             <td><div id="{u_name}_public_ip"></div></td>
-                            <td><div id="{u_name}_pc_name"></div></td>
+                            <td><div id="{u_name}mac_addr"></div></td>
                             <td><div id="{u_name}_uptime"></div></td>
                             <td><div id="{u_name}_success"></div></td>
                             <td><div id="{u_name}_cpu"></div></td>
@@ -395,7 +395,7 @@ def update_main_page(turbo_app, viewer_id):
                     for u_name in sorted(recent_vm_response_data):
                         if u_name not in viewer_vm_data or viewer_vm_data[u_name] == {}:
                             viewer_vm_data[u_name] = {}
-                        for item in ['public_ip', 'pc_name', 'uptime', 'success', 'cpu', 'ram', 'response_time']:
+                        for item in ['public_ip', 'mac_addr', 'uptime', 'success', 'cpu', 'ram', 'response_time']:
                             if item in recent_vm_response_data[u_name]:
                                 if item not in viewer_vm_data[u_name] or recent_vm_response_data[u_name][item] != viewer_vm_data[u_name][item]:
                                     turbo_app.push(turbo_app.update(recent_vm_response_data[u_name][item], f'{u_name}_{item}'), to=viewer_id)
