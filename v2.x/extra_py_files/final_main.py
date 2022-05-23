@@ -1,37 +1,39 @@
+host_ip, host_port = '10.10.77.118', 59998
+
+
 from random import choice
 from threading import Thread
 from time import sleep, time
 from os import system as system_caller
 import socket
 
-import pip
-pip.main(['install','requests'])
-pip.main(['install','pyautogui'])
-pip.main(['install','opencv_python'])
-pip.main(['install','psutil'])
-pip.main(['install','ping3'])
-pip.main(['install','pillow'])
-del pip
-BUFFER_SIZE = 1024*100
-
+while True:
+    try:
+        from ping3 import ping
+        from requests import get
+        break
+    except:
+        import pip
+        pip.main(['install', 'requests'])
+        pip.main(['install', 'ping3'])
+        del pip
 
 def __restart_host_machine(duration=5):
     system_caller(f'shutdown -r -f -t {duration}')
-
-host_ip, host_port = '', ''
 
 
 def force_connect_server():
     global host_ip, host_port
     while True:
-        print(host_ip, host_port)
+        if type(ping('8.8.8.8')) == float:
+            break
+    while True:
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connection.settimeout(10)
             connection.connect((host_ip, host_port))
             break
         except:
-            from requests import get
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
             link_dict = eval(text)
             user_connection_list = link_dict['adfly_user_tcp_connection_list']

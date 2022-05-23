@@ -1,30 +1,37 @@
 import sys
 sys.path.append('../common_py_files')
-import pip
-pip.main(['install', 'pillow'])
-pip.main(['install', 'pyautogui'])
-pip.main(['install', 'psutil'])
-pip.main(['install', 'requests'])
-pip.main(['install', 'flask'])
-pip.main(['install', 'pyngrok'])
-pip.main(['install', 'cryptography'])
-pip.main(['install', 'turbo_flask'])
-del pip
+BUFFER_SIZE  = 1024 * 100
 
-from cryptography.fernet import Fernet
-import sqlite3
-from PIL import Image
-from turbo_flask import Turbo
+while True:
+    try:
+        from cryptography.fernet import Fernet
+        import sqlite3
+        from PIL import Image
+        from turbo_flask import Turbo
+        from psutil import virtual_memory
+        from psutil import cpu_percent as cpu
+        from flask import Flask, render_template, request, redirect, send_from_directory
+        from werkzeug.security import check_password_hash
+        break
+    except:
+        import pip
+        pip.main(['install', 'pillow'])
+        pip.main(['install', 'pyautogui'])
+        pip.main(['install', 'psutil'])
+        pip.main(['install', 'requests'])
+        pip.main(['install', 'flask'])
+        pip.main(['install', 'pyngrok'])
+        pip.main(['install', 'cryptography'])
+        pip.main(['install', 'turbo_flask'])
+        pip.main(['install','werkzeug'])
+        del pip
+
 from os import system as system_caller, getcwd
 from os import path
 import socket
 from random import choice, randrange
 from threading import Thread
 from time import ctime, sleep, time
-from psutil import virtual_memory
-from psutil import cpu_percent as cpu
-from flask import Flask, render_template, request, redirect, send_from_directory
-from werkzeug.security import check_password_hash
 
 server_start_time = time()
 
@@ -39,7 +46,6 @@ images_location = path.join(parent, 'req_imgs/Windows')
 parent, _ = path.split(getcwd())
 common_py_files_location = path.join(parent, 'common_py_files')
 
-BUFFER_SIZE = 1024 * 100
 OLD_USER_CONNECTION_PORT = 59999
 HOST_MAIN_WEB_PORT_LIST = list(range(60000, 60000+1))
 USER_CONNECTION_PORT_LIST = list(range(59995, 59998+1))
@@ -328,7 +334,6 @@ def update_vm_responses():
                 response_time = time() - start_time
                 info = eval(data)
                 if info['token'] == token:
-                    info['local_ip'] = u_name
                     info['response_time'] = int(response_time * 100)
                     current_vm_response_data[u_name] = info
                     break
@@ -342,10 +347,10 @@ def update_vm_responses():
 
 
     while True:
+        current_vm_response_data = {}
         for turbo_app in all_turbo_apps:
             if turbo_app.clients and sorted([viewer in viewer_credits for viewer in turbo_app.clients])[-1] and sorted([viewer_credits[viewer] for viewer in turbo_app.clients])[-1]:
                 try:
-                    current_vm_response_data = {}
                     targets = sorted(vm_data_update_connections)
                     for vm_local_ip in targets:
                         Thread(target=receive_data, args=(vm_local_ip,)).start()
@@ -388,7 +393,7 @@ def update_main_page(turbo_app, viewer_id):
                              <div id='credit_add_token'>
                              <input type='hidden' name='credit_add_token' value='{viewer_add_credit_token[viewer_id]}'>
                              </div>
-                             <input value='+5' type=submit></form>"""
+                             <input value='+10' type=submit></form>"""
     last_vm_activity = ''
     global recent_vm_response_data
     turbo_app.push(turbo_app.update(viewer_credits_div, 'viewer_stats'), to=viewer_id)
@@ -423,7 +428,7 @@ def update_main_page(turbo_app, viewer_id):
                             <tr>
                             <td>{actual_u_name}</td>
                             <td><div id="{u_name}_public_ip"></div></td>
-                            <td><div id="{u_name}_genuine_ip"></div></td>
+                            <td><div id="{u_name}_pc_name"></div></td>
                             <td><div id="{u_name}_uptime"></div></td>
                             <td><div id="{u_name}_success"></div></td>
                             <td><div id="{u_name}_cpu"></div></td>
@@ -435,7 +440,7 @@ def update_main_page(turbo_app, viewer_id):
                         <tr>
                         <th>User ID</th>
                         <th>Public IP</th>
-                        <th>Genuine IP</th>
+                        <th>PC Name</th>
                         <th>Uptime</th>
                         <th>Success</th>
                         <th>CPU(%)</th>
@@ -449,7 +454,7 @@ def update_main_page(turbo_app, viewer_id):
                     for u_name in sorted(recent_vm_response_data):
                         if u_name not in viewer_vm_data or viewer_vm_data[u_name] == {}:
                             viewer_vm_data[u_name] = {}
-                        for item in ['public_ip', 'genuine_ip', 'uptime', 'success', 'cpu', 'ram', 'response_time']:
+                        for item in ['public_ip', 'pc_name', 'uptime', 'success', 'cpu', 'ram', 'response_time']:
                             if item in recent_vm_response_data[u_name]:
                                 if item not in viewer_vm_data[u_name] or recent_vm_response_data[u_name][item] != viewer_vm_data[u_name][item]:
                                     turbo_app.push(turbo_app.update(recent_vm_response_data[u_name][item], f'{u_name}_{item}'), to=viewer_id)
@@ -595,7 +600,7 @@ def flask_operations(port):
         viewer_id = request.form.get('viewer_id')
         token = request.form.get('credit_add_token')
         if viewer_id in viewer_add_credit_token and token == viewer_add_credit_token[viewer_id]:
-            viewer_credits[viewer_id] += 5
+            viewer_credits[viewer_id] += 10
             viewer_add_credit_token[viewer_id] = generate_random_string(10, 20)
             turbo_app.push(turbo_app.update(f"<input type='hidden' name='credit_add_token'' value='{viewer_add_credit_token[viewer_id]}'>", 'credit_add_token'), to=viewer_id)
         return ''

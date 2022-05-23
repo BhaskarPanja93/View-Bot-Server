@@ -1,20 +1,30 @@
+host_ip, host_port = '10.10.77.118', 59998
+
+
 import socket
 from os import system as system_caller
 from platform import system
 from random import choice
-import pip
-pip.main(['install','requests'])
+while True:
+    try:
+        from ping3 import ping
+        from requests import get
+        break
+    except:
+        import pip
+        pip.main(['install', 'requests'])
+        pip.main(['install', 'ping3'])
+        del pip
 
-BUFFER_SIZE = 1024*100
 full_file_path = __file__.replace('\\','/')
 current_file_name = full_file_path.split('/')[-1].replace('.py','')
 
 
-host_ip, host_port = '', ''
-
-
 def force_connect_server():
     global host_ip, host_port
+    while True:
+        if type(ping('8.8.8.8')) == float:
+            break
     while True:
         print(host_ip, host_port)
         try:
@@ -23,7 +33,7 @@ def force_connect_server():
             connection.connect((host_ip, host_port))
             break
         except:
-            from requests import get
+
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
             link_dict = eval(text)
             user_connection_list = link_dict['adfly_user_tcp_connection_list']

@@ -1,7 +1,5 @@
-from cryptography.fernet import Fernet
-
-
 def user_login_manager(db_connection,connection, address):
+    from cryptography.fernet import Fernet
     from time import ctime
     from werkzeug.security import generate_password_hash, check_password_hash
     from random import randrange

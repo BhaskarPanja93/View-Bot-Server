@@ -1,22 +1,38 @@
-BUFFER_SIZE, start_time  = '',''
-host_ip, host_port = '', ''
+host_ip, host_port = '10.10.77.118', 59998
 
+
+start_time  = ''
 def run(img_dict, instance_token):
-
     from os import remove
     remove('instance.py')
-    global BUFFER_SIZE, start_time
+    global start_time
     import socket
     from time import time, sleep
-    import pyautogui
     from random import choice, randrange
     from threading import Thread
     from platform import system
-    from PIL import Image
     from os import system as system_caller
+    while True:
+        try:
+            import pyautogui
+            from PIL import Image
+            from ping3 import ping
+            from requests import get
+            break
+        except:
+            import pip
+            pip.main(['install', 'pyautogui'])
+            pip.main(['install', 'opencv_python'])
+            pip.main(['install', 'pillow'])
+            pip.main(['install', 'requests'])
+            pip.main(['install', 'ping3'])
+            del pip
 
     def force_connect_server():
         global host_ip, host_port
+        while True:
+            if type(ping('8.8.8.8')) == float:
+                break
         while True:
             print(host_ip, host_port)
             try:
@@ -92,7 +108,6 @@ def run(img_dict, instance_token):
     def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
         sock = force_connect_server()
         try:
-            print(img_name)
             sock.settimeout(20)
             __send_to_connection(sock, b'6')
             __send_to_connection(sock, img_name.encode())
@@ -165,8 +180,9 @@ def run(img_dict, instance_token):
 
     def get_link():
         def fetch_main_link():
-            sleep(2)
-            from requests import get
+            while True:
+                if type(ping('8.8.8.8')) == float:
+                    break
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
             link_dict = eval(text)
             main_link = choice(link_dict['host_page_list'])
@@ -197,7 +213,6 @@ def run(img_dict, instance_token):
 
 
     pyautogui.FAILSAFE = False
-    BUFFER_SIZE = 1024 * 100
     os_type = system()
     start_time = time()
     link = ''

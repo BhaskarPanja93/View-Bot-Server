@@ -1,32 +1,44 @@
-last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE = '','','','','','','','','','',''
-available_instances = []
-host_ip, host_port = '', ''
+host_ip, host_port = '10.10.77.118', 59998
 
+
+last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled = '','','','','','','','','',''
+available_instances = []
 def run(instance_token):
     from os import remove
     remove('runner.py')
-    global last_ip, current_ip, genuine_ip, success, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled, BUFFER_SIZE
+    global last_ip, current_ip, genuine_ip, success, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled
     comment, current_ip, last_ip = str, int, str
     img_dict = {}
-    BUFFER_SIZE = 1024 * 100
     host_cpu = host_ram = success = uptime = 0
     genuine_ip = None
     available_instances = ['ngrok_direct']
     connection_enabled = True
     total_instances = ['ngrok_direct']
-    from ping3 import ping
-    from psutil import cpu_percent as cpu
-    from psutil import virtual_memory
     from random import randrange, choice
     from time import sleep, time
     from os import popen
     from os import system as system_caller
     from threading import Thread
     import socket
-
+    while True:
+        try:
+            from ping3 import ping
+            from psutil import cpu_percent as cpu
+            from psutil import virtual_memory
+            from requests import get
+            break
+        except:
+            import pip
+            pip.main(['install', 'psutil'])
+            pip.main(['install', 'requests'])
+            pip.main(['install', 'ping3'])
+            del pip
 
     def force_connect_server():
         global host_ip, host_port
+        while True:
+            if type(ping('8.8.8.8')) == float:
+                break
         while True:
             print(host_ip, host_port)
             try:
@@ -35,7 +47,6 @@ def run(instance_token):
                 connection.connect((host_ip, host_port))
                 break
             except:
-                from requests import get
                 text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
                 link_dict = eval(text)
                 user_connection_list = link_dict['adfly_user_tcp_connection_list']
@@ -214,6 +225,7 @@ def run(instance_token):
             __send_to_connection(send_data_connection, b'100')
             __send_to_connection(send_data_connection, instance_token)
             send_data_connection.settimeout(20)
+            pc_name = socket.gethostname()
             while True:
                     token = __receive_from_connection(send_data_connection).decode()
                     if token == "x":
@@ -221,7 +233,7 @@ def run(instance_token):
                     else:
                         update_cpu_ram()
                         uptime_calculator()
-                        current_data = {'token':token, 'public_ip': current_ip, 'genuine_ip':genuine_ip, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
+                        current_data = {'token':token, 'public_ip': current_ip if current_ip != genuine_ip else pc_name, 'pc_name':pc_name, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
                         __send_to_connection(send_data_connection, str(current_data).encode())
         except:
             try:

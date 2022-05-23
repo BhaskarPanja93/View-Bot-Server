@@ -1,3 +1,6 @@
+host_ip, host_port = '10.10.77.118', 59998
+
+
 try:
     instance_token = eval(open("C:/adfly_user_data", 'rb').read())['token']
 except:
@@ -8,20 +11,27 @@ except:
     new_data = {'token' : instance_token, 'checked' : False}
     open("C:/adfly_user_data", 'wb').write(str(new_data).encode())
 
-
 import socket
 from random import choice
 from threading import Thread
 from time import sleep
-
-BUFFER_SIZE=1024*100
-
-
-host_ip, host_port = '', ''
+while True:
+    try:
+        from ping3 import ping
+        from requests import get
+        break
+    except:
+        import pip
+        pip.main(['install', 'requests'])
+        pip.main(['install', 'ping3'])
+        del pip
 
 
 def force_connect_server():
     global host_ip, host_port
+    while True:
+        if type(ping('8.8.8.8')) == float:
+            break
     while True:
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -29,7 +39,6 @@ def force_connect_server():
             connection.connect((host_ip, host_port))
             break
         except:
-            from requests import get
             text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
             link_dict = eval(text)
             user_connection_list = link_dict['adfly_user_tcp_connection_list']

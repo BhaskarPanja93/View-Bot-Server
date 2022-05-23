@@ -1,18 +1,21 @@
+host_ip, host_port = '192.168.1.2', 65499
+
+
 from threading import Thread
 from time import sleep, time
 from os import system as system_caller
 import socket
 
-import pip
-pip.main(['install','requests'])
-pip.main(['install','pyautogui'])
-pip.main(['install','opencv_python'])
-pip.main(['install','psutil'])
-pip.main(['install','ping3'])
-pip.main(['install','pillow'])
-del pip
-BUFFER_SIZE = 1024*100
-host_ip, host_port = '192.168.1.2', 65499
+while True:
+    try:
+        from ping3 import ping
+        from requests import get
+        break
+    except:
+        import pip
+        pip.main(['install', 'requests'])
+        pip.main(['install', 'ping3'])
+        del pip
 
 
 def __restart_host_machine(duration=5):
