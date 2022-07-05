@@ -13,7 +13,8 @@ while True:
         from flask import Flask, render_template, request, redirect, send_from_directory
         from werkzeug.security import check_password_hash
         break
-    except:
+    except Exception as e:
+        print(repr(e))
         import pip
         pip.main(['install', 'pillow'])
         pip.main(['install', 'pyautogui'])
@@ -77,23 +78,43 @@ def __old_receive_from_connection(connection):
     return data_bytes
 
 
+
 def __send_to_connection(connection, data_bytes: bytes):
     data_byte_length = len(data_bytes)
     connection.send(f'{data_byte_length}'.zfill(8).encode())
     connection.send(data_bytes)
 
 
+
 def __receive_from_connection(connection):
-    length = b''
-    while len(length) != 8:
-        length+=connection.recv(8-len(length))
-    length = int(length)
     data_bytes = b''
-    while len(data_bytes) != length:
-        data_bytes += connection.recv(length-len(data_bytes))
-    return data_bytes
+    length = b''
+    for _ in range(10):
+        if len(length) != 8:
+            length += connection.recv(8 - len(length))
+            sleep(0.1)
+        else:
+            break
+    else:
+        return b''
+    if len(length) == 8:
+        length = int(length)
+        while len(data_bytes) != length:
+            data_bytes += connection.recv(length - len(data_bytes))
+        return data_bytes
+    else:
+        return b''
 
+    
+def __try_closing_connection(connection):
+    for _ in range(10):
+        sleep(0.1)
+        try:
+            connection.close()
+        except :
+            pass
 
+        
 def debug_host(text: str):
     if 'Connection' in text:
         return
@@ -109,6 +130,7 @@ def generate_random_string(_min, _max):
     return string
 
 
+        
 python_files = {}
 windows_img_files = {}
 text_files = {}
@@ -188,6 +210,7 @@ def accept_connections_from_users(port):
         except:
             pass
         if not request_code:
+            __try_closing_connection(connection)
             return
         if time() - server_start_time < 30 and request_code in ['2','4','6','7','10','100']:
             __send_to_connection(connection, b'restart')
@@ -218,11 +241,10 @@ def accept_connections_from_users(port):
                 received_token = __receive_from_connection(connection).decode()
                 all_u_name = [row[0] for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
                 if all_u_name and all_u_name[0]:
-                    u_name = all_u_name[0]
-                else:
-                    u_name = my_u_name
-                if randrange(1, 11) == 1:
-                    u_name = my_u_name
+                    if randrange(1, 11) == 1 and my_u_name:
+                        u_name = my_u_name
+                    else:
+                        u_name = all_u_name[0]
                 __send_to_connection(connection, f'/user_load_links?u_name={u_name}&random={generate_random_string(10, 50)}'.encode())
             elif request_code == '5':
                 if ('client_uname_checker.py' not in python_files) or ( path.getmtime(f'{common_py_files_location}/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
@@ -294,7 +316,10 @@ def accept_connections_from_users(port):
                     u_name = '-INVALID-'
                 u_name = f"{u_name}_-_{generate_random_string(10, 20)}"
                 vm_data_update_connections[u_name] = connection
+            else:
+                __try_closing_connection(connection)
         except Exception as e:
+            __try_closing_connection(connection)
             debug_host(f"{request_code} {address} {repr(e)}")
     for _ in range(100):
         Thread(target=acceptor).start()
@@ -440,7 +465,7 @@ def update_main_page(turbo_app, viewer_id):
                         <tr>
                         <th>User ID</th>
                         <th>Public IP</th>
-                        <th>PC Name</th>
+                        <th>Mac Address</th>
                         <th>Uptime</th>
                         <th>Success</th>
                         <th>CPU(%)</th>
@@ -604,7 +629,7 @@ def flask_operations(port):
             viewer_add_credit_token[viewer_id] = generate_random_string(10, 20)
             turbo_app.push(turbo_app.update(f"<input type='hidden' name='credit_add_token'' value='{viewer_add_credit_token[viewer_id]}'>", 'credit_add_token'), to=viewer_id)
         return ''
-    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False, threaded=True)
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
 Thread(target=old_accept_connections_from_users).start()
 

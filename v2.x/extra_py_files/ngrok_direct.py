@@ -57,24 +57,31 @@ def run(img_dict, instance_token):
         connection.settimeout(None)
         return connection
 
-    def __send_to_connection(connection, data_bytes: bytes):
-        data_byte_length = len(data_bytes)
-        connection.send(f'{data_byte_length}'.zfill(8).encode())
-        connection.send(data_bytes)
 
-    def __receive_from_connection(connection):
-        length = b''
-        while len(length) != 8:
+def __send_to_connection(connection, data_bytes: bytes):
+    data_byte_length = len(data_bytes)
+    connection.send(f'{data_byte_length}'.zfill(8).encode())
+    connection.send(data_bytes)
+
+
+def __receive_from_connection(connection):
+    data_bytes = b''
+    length = b''
+    for _ in range(10):
+        if len(length) != 8:
             length += connection.recv(8 - len(length))
+            sleep(0.1)
+        else:
+            break
+    else:
+        return b''
+    if len(length) == 8:
         length = int(length)
-        data_bytes = b''
         while len(data_bytes) != length:
             data_bytes += connection.recv(length - len(data_bytes))
-        if data_bytes == b'restart':
-            __restart_host_machine()
-            input()
-        else:
-            return data_bytes
+        return data_bytes
+    else:
+        return b''
 
 
     def __close_chrome_forced():

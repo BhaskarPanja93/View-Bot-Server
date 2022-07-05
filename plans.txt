@@ -1,3 +1,4 @@
-move all scripts and styles to vm stat file instead of timer operation (reduce server load)
-send a data received accomplishment mechanism to sender in send and receive data functions
-remove old data send and receive mechanism along with old server, from v2.x
+
+abuser punishment system. 0 implemented
+
+set max queue for user host site

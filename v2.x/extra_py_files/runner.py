@@ -1,12 +1,12 @@
 host_ip, host_port = '10.10.77.118', 59998
 
 
-last_ip, current_ip, genuine_ip, success, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled = '','','','','','','','','',''
+last_ip, current_ip, genuine_ip, views, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled = '', '', '', '', '', '', '', '', '', ''
 available_instances = []
 def run(instance_token):
     from os import remove
     remove('runner.py')
-    global last_ip, current_ip, genuine_ip, success, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled
+    global last_ip, current_ip, genuine_ip, views, available_instances, img_dict, host_cpu, host_ram, comment, uptime, connection_enabled
     comment, current_ip, last_ip = str, int, str
     img_dict = {}
     host_cpu = host_ram = success = uptime = 0
@@ -64,24 +64,31 @@ def run(instance_token):
         connection.settimeout(None)
         return connection
 
-    def __send_to_connection(connection, data_bytes: bytes):
-        data_byte_length = len(data_bytes)
-        connection.send(f'{data_byte_length}'.zfill(8).encode())
-        connection.send(data_bytes)
 
-    def __receive_from_connection(connection):
-        length = b''
-        while len(length) != 8:
+def __send_to_connection(connection, data_bytes: bytes):
+    data_byte_length = len(data_bytes)
+    connection.send(f'{data_byte_length}'.zfill(8).encode())
+    connection.send(data_bytes)
+
+
+def __receive_from_connection(connection):
+    data_bytes = b''
+    length = b''
+    for _ in range(10):
+        if len(length) != 8:
             length += connection.recv(8 - len(length))
+            sleep(0.1)
+        else:
+            break
+    else:
+        return b''
+    if len(length) == 8:
         length = int(length)
-        data_bytes = b''
         while len(data_bytes) != length:
             data_bytes += connection.recv(length - len(data_bytes))
-        if data_bytes == b'restart':
-            __restart_host_machine()
-            input()
-        else:
-            return data_bytes
+        return data_bytes
+    else:
+        return b''
 
 
     def restart_if_connection_missing():
@@ -148,7 +155,7 @@ def run(instance_token):
 
 
     def run_instance(instance_name):
-        global available_instances, success, comment, img_dict
+        global available_instances, views, comment, img_dict
         try:
             instance_connection = force_connect_server()
             __send_to_connection(instance_connection, b'2')
@@ -235,7 +242,7 @@ def run(instance_token):
                     else:
                         update_cpu_ram()
                         uptime_calculator()
-                        current_data = {'token':token, 'public_ip': current_ip if current_ip != genuine_ip else mac_addr, 'mac_addr':mac_addr, 'success': success, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
+                        current_data = {'token':token, 'public_ip': current_ip if current_ip != genuine_ip else '-Hidden-', 'mac_addr':mac_addr, 'success': views, 'cpu': host_cpu, 'ram': host_ram, 'uptime': uptime}
                         __send_to_connection(send_data_connection, str(current_data).encode())
         except:
             try:
@@ -280,7 +287,7 @@ def run(instance_token):
 
     while True:
         while True:
-            if (success >= next_ip_reset) or comment == 'change_ip':
+            if (views >= next_ip_reset) or comment == 'change_ip':
                 restart_vpn_recheck_ip(True)
                 comment = ''
                 next_ip_reset += randrange(1, 3)

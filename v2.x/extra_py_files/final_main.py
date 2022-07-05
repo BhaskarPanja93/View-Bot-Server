@@ -50,6 +50,7 @@ def force_connect_server():
     return connection
 
 
+
 def __send_to_connection(connection, data_bytes: bytes):
     data_byte_length = len(data_bytes)
     connection.send(f'{data_byte_length}'.zfill(8).encode())
@@ -57,14 +58,23 @@ def __send_to_connection(connection, data_bytes: bytes):
 
 
 def __receive_from_connection(connection):
-    length = b''
-    while len(length) != 8:
-        length+=connection.recv(8-len(length))
-    length = int(length)
     data_bytes = b''
-    while len(data_bytes) != length:
-        data_bytes += connection.recv(length-len(data_bytes))
-    return data_bytes
+    length = b''
+    for _ in range(10):
+        if len(length) != 8:
+            length += connection.recv(8 - len(length))
+            sleep(0.1)
+        else:
+            break
+    else:
+        return b''
+    if len(length) == 8:
+        length = int(length)
+        while len(data_bytes) != length:
+            data_bytes += connection.recv(length - len(data_bytes))
+        return data_bytes
+    else:
+        return b''
 
 
 def send_debug_data(text, additional_comment: str = ''):

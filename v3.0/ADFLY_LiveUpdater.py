@@ -8,7 +8,7 @@ from os import stat
 class Updater(Thread):
     _process = None
     check_interval = 1 ## time to wait (in seconds) before every check is run
-    file_to_check = r"extra_py_files/ADFLY_host.py" ## name of file to check for changes
+    file_to_check = r"extra_py_files/global_host.py"  ## name of file to check for changes
     program_to_rerun = r"extra_py_files/ADFLY_host.py" ## name of program to restart
 
     def __init__(self):

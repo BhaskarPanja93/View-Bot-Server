@@ -1,8 +1,11 @@
-host_ip, host_port = '192.168.1.2', 65499
-
-
+global_host_address = ('10.10.77.118', 65499)
+global_host_page = 'http://10.10.77.118:65500'
+local_host_address = ()
+LOCAL_HOST_PORT = 59998
+local_network_adapters = []
+adfly_user_data_location = "C://adfly_user_data"
 start_time  = ''
-def run(img_dict, instance_token):
+def run(img_dict):
     from os import remove
     remove('instance.py')
     global start_time
@@ -12,54 +15,121 @@ def run(img_dict, instance_token):
     from threading import Thread
     from platform import system
     from os import system as system_caller
-    while True:
-        try:
-            import pyautogui
-            from PIL import Image
-            from ping3 import ping
-            from requests import get
-            break
-        except:
-            import pip
-            pip.main(['install', 'pyautogui'])
-            pip.main(['install', 'opencv_python'])
-            pip.main(['install', 'pillow'])
-            pip.main(['install', 'requests'])
-            pip.main(['install', 'ping3'])
-            del pip
+    from PIL import Image
+    import pyautogui
+    from ping3 import ping
+    from requests import get
 
-    def force_connect_server():
-        global host_ip, host_port
+    def verify_global_host_address():
+        global global_host_address, global_host_page
+        text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+        link_dict = eval(text)
+        global_host_page = choice(link_dict['adfly_host_page_list'])
+        host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
+        host_port = int(host_port)
+        global_host_address = (host_ip, host_port)
+
+    def fetch_and_update_local_host_address():
+        global local_network_adapters
+        instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
+        u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
+        connection = force_connect_global_host()
+        data_to_send = {'purpose': 'fetch_network_adapters', 'u_name': str(u_name), 'token': str(instance_token)}
+        __send_to_connection(connection, str(data_to_send).encode())
+        response = __receive_from_connection(connection)
+        if response[0] == 123 and response[-1] == 125:
+            response = eval(response)
+            if response['status_code'] == 0:
+                local_network_adapters = response['network_adapters']
+                if not local_network_adapters:
+                    print("Local host not found! Please run and login to the user_host file first.")
+                    sleep(10)
+                    fetch_and_update_local_host_address()
+                for ip in local_network_adapters:
+                    Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
+                for _ in range(10):
+                    if local_host_address:
+                        break
+                    else:
+                        sleep(1)
+                else:
+                    print("Please check if local host is working and reachable.")
+            else:
+                print("Please restart this VM and re-login")
+                __restart_host_machine()
+
+    def try_pinging_local_host_connection(ip):
+        global local_host_address
+        try:
+            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            connection.connect((ip, LOCAL_HOST_PORT))
+            data_to_send = {'purpose': 'ping'}
+            __send_to_connection(connection, str(data_to_send).encode())
+            received_data = __receive_from_connection(connection)
+            if received_data[0] == 123 and received_data[-1] == 125:
+                received_data = eval(received_data)
+                if received_data['ping'] == 'ping':
+                    local_host_address = (ip, LOCAL_HOST_PORT)
+                    return True
+            else:
+                return False
+        except:
+            pass
+
+    def force_connect_global_host():
+        global global_host_address, global_host_page
+        while True:
+            try:
+                if type(ping('8.8.8.8')) == float:
+                    break
+            except:
+                print("Please check your internet connection")
         while True:
             try:
                 connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.settimeout(5)
-                connection.connect((host_ip, host_port))
+                connection.connect(global_host_address)
                 break
             except:
-                pass
-        connection.settimeout(15)
+                verify_global_host_address()
+        return connection
+
+    def force_connect_local_host():
+        global global_host_address, global_host_page
+        while True:
+            try:
+                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                connection.connect(local_host_address)
+                break
+            except:
+                fetch_and_update_local_host_address()
         return connection
 
     def __send_to_connection(connection, data_bytes: bytes):
-        data_byte_length = len(data_bytes)
-        connection.send(f'{data_byte_length}'.zfill(8).encode())
-        connection.send(data_bytes)
+        connection.sendall(str(len(data_bytes)).zfill(8).encode() + data_bytes)
 
     def __receive_from_connection(connection):
-        length = b''
-        while len(length) != 8:
-            length += connection.recv(8 - len(length))
-        length = int(length)
         data_bytes = b''
-        while len(data_bytes) != length:
-            data_bytes += connection.recv(length - len(data_bytes))
-        if data_bytes == b'restart':
-            print('server forced restart')
-            __restart_host_machine()
-            input()
+        length = b''
+        for _ in range(12000):
+            if len(length) != 8:
+                length += connection.recv(8 - len(length))
+                sleep(0.01)
+            else:
+                break
         else:
+            return b''
+        if len(length) == 8:
+            length = int(length)
+            for _ in range(12000):
+                data_bytes += connection.recv(length - len(data_bytes))
+                sleep(0.01)
+                if len(data_bytes) == length:
+                    break
+            else:
+                return b''
             return data_bytes
+        else:
+            return b''
 
 
     def __close_chrome_forced():
@@ -78,46 +148,34 @@ def run(img_dict, instance_token):
                     __click(coordinates)
                     break
 
-    def send_debug_data(text, additional_comment: str = ''):
-        with open('debug', 'a') as debug_file:
-            debug_file.write(f'\n{text}-{additional_comment}')
-        try:
-            debug_connection = force_connect_server()
-            __send_to_connection(debug_connection, b'3')
-            __send_to_connection(debug_connection, open('debug', 'r').read().encode())
-            open('debug', 'w').close()
-        except:
-            pass
-
 
     def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
-        sock = force_connect_server()
+        if img_name in img_dict:
+            version = img_dict[img_name]['version']
+        else:
+            version = -1
         try:
-            sock.settimeout(10)
-            __send_to_connection(sock, b'6')
-            __send_to_connection(sock, img_name.encode())
-            if img_name in img_dict and 'version' in img_dict[img_name]:
-                __send_to_connection(sock, img_dict[img_name]['version'])
-            else:
-                __send_to_connection(sock, b'0')
-            version = __receive_from_connection(sock)
-            if version != b'x':
-                size = eval(__receive_from_connection(sock))
-                img_bytes = __receive_from_connection(sock)
-                img_dict[img_name] = {}
-                img_dict[img_name]['size'] = size
-                img_dict[img_name]['version'] = version
-                img_dict[img_name]['file'] = img_bytes
+            sock = force_connect_local_host()
+            data_to_send = {'purpose': 'image_request', 'image_name': img_name, 'version': version}
+            __send_to_connection(sock, str(data_to_send).encode())
+            response = __receive_from_connection(sock)
+            if response[0] == 123 and response[-1] == 125:
+                response = eval(response)
+                if response['image_name'] == img_name:
+                    if 'image_data' in response:
+                        img_dict[img_name] = {'img_data': response['image_data'], 'version': response['version'], 'img_size': response['image_size']}
+                    else:
+                        pass
             try:
-                img_bytes = Image.frombytes(mode="RGBA", size=img_dict[img_name]['size'], data=img_dict[img_name]['file'], decoder_name='raw')
+                img_bytes = Image.frombytes(mode="RGBA", size=img_dict[img_name]['img_size'], data=img_dict[img_name]['img_data'], decoder_name='raw')
             except:
-                img_bytes = Image.frombytes(mode="RGB", size=img_dict[img_name]['size'], data=img_dict[img_name]['file'], decoder_name='raw')
+                img_bytes = Image.frombytes(mode="RGB", size=img_dict[img_name]['img_size'], data=img_dict[img_name]['img_data'], decoder_name='raw')
             if all_findings:
                 return pyautogui.locateAllOnScreen(img_bytes, confidence=confidence, region=region)
             else:
                 return pyautogui.locateOnScreen(img_bytes, confidence=confidence, region=region)
         except Exception as e:
-            send_debug_data(f'img find {repr(e)}')
+            print(repr(e))
             return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
 
 
@@ -158,66 +216,25 @@ def run(img_dict, instance_token):
         while not success and not failure:
             sleep(10)
             if int(time() - start_time) >= 800:
-                Thread(target=send_debug_data, args=('slow_instance_restart  current_instance_duration > 800',)).start()
                 __restart_host_machine()
-                break
-
-    def change_user_agent():
-        while True:
-            try:
-                sock = force_connect_server()
-                __send_to_connection(sock, b'7')
-                user_agent = __receive_from_connection(sock).decode()
-                if user_agent:
-                    break
-            except:
-                pass
-        pyautogui.hotkey('ctrl','shift','i')
-
-        for _ in range(5):
-            sleep(2)
-            coordinates = __find_image_on_screen('network conditions', all_findings=False, confidence=0.8)
-            if coordinates:
-                __click(coordinates)
-                break
-
-        for _ in range(5):
-            sleep(2)
-            coordinates = __find_image_on_screen('use browser default', all_findings=False, confidence=0.8)
-            if coordinates:
-                __click(coordinates)
-                break
-
-        for _ in range(5):
-            sleep(2)
-            coordinates = __find_image_on_screen('user agent input', all_findings=False, confidence=0.6)
-            if coordinates:
-                __click(coordinates)
-                sleep(1)
-                pyautogui.hotkey('ctrl', 'a')
-                sleep(1)
-                pyautogui.typewrite(user_agent, typing_speed)
-                sleep(1)
-                pyautogui.press('enter')
                 break
 
 
     def get_link():
         def fetch_main_link():
-            return f'http://{host_ip}:{65500}'
-            sleep(2)
-            from requests import get
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
-            link_dict = eval(text)
-            main_link = choice(link_dict['host_page_list'])
-            return main_link
+            while get(f"{global_host_page}/ping").text != 'ping':
+                verify_global_host_address()
+            return global_host_page
 
         def fetch_side_link():
-            sock = force_connect_server()
-            __send_to_connection(sock, b'4')
-            __send_to_connection(sock, instance_token)
-            side_link = __receive_from_connection(sock).decode()
-            return side_link
+            instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
+            sock = force_connect_global_host()
+            data_to_send = {'purpose': 'link_fetch', 'token': instance_token}
+            __send_to_connection(sock, str(data_to_send).encode())
+            received_data = __receive_from_connection(sock)
+            if received_data[0] == 123 and received_data[-1] == 125:
+                side_link = eval(received_data)['suffix_link']
+                return side_link
 
         while True:
             try:
@@ -233,10 +250,11 @@ def run(img_dict, instance_token):
                     break
             except:
                 pass
-        return str(main_link+side_link)
+        return str(main_link + side_link)
 
 
     pyautogui.FAILSAFE = False
+
     os_type = system()
     start_time = time()
     link = ''
@@ -247,7 +265,6 @@ def run(img_dict, instance_token):
     current_screen_condition = last_change_condition = sign = comment = ''
     mouse_movement_speed = 0.4
     typing_speed = 0.06
-
 
     try:
         possible_screen_conditions = {
@@ -343,11 +360,6 @@ def run(img_dict, instance_token):
                     else:
                         nothing_opened_counter += 1
                 elif current_screen_condition == 'blank_chrome':
-                    change_user_agent()
-                    for item in ['search box 1', 'search box 2', 'search box 3', 'search box 4']:
-                        coordinates = __find_image_on_screen(item, all_findings=False, confidence=0.8)
-                        if coordinates:
-                            break
                     __click(coordinates)
                     sleep(1)
                     if clear_chrome:
@@ -399,9 +411,8 @@ def run(img_dict, instance_token):
                 continue
         sleep(10)
         __close_chrome_safe()
-    except Exception as e:
+    except:
         success = False
         failure = True
         comment = ''
-        Thread(target=send_debug_data, args=(sign, f' instance outer exception {link=} {repr(e)=} failure',)).start()
-    return ['ngrok_direct', int(success), comment, img_dict]
+    return [int(success), comment, img_dict]
