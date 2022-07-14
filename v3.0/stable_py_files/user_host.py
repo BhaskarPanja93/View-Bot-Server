@@ -1,25 +1,6 @@
-user_host_version = '0.0.1'
-print(f"\n{user_host_version=}\n\n")
-
-while True:
-    try:
-        import cryptography
-        import flask
-        import turbo_flask
-        import psutil
-        import ping3
-        break
-    except:
-        import pip
-        pip.main(['install', 'cryptography'])
-        pip.main(['install', 'flask'])
-        pip.main(['install', 'turbo_flask'])
-        pip.main(['install', 'psutil'])
-        pip.main(['install', 'ping3'])
-
 import socket
 import webbrowser
-from os import popen, system as system_caller
+from os import popen, system as system_caller, mkdir, path
 from random import randrange
 from time import time, localtime
 from random import choice
@@ -33,10 +14,42 @@ from psutil import virtual_memory, cpu_percent as cpu
 from requests import get
 
 
+local_drive_name = 'C'
+if not path.exists(f"{local_drive_name}://"):
+    for _ascii in range(67,90+1):
+        local_drive_name = chr(_ascii)
+        if path.exists(f"{local_drive_name}://"):
+            break
+    else:
+        local_drive_name = ''
+        print('No available local drive, please create a github issue!!')
+        input()
+
+data_location = f"{local_drive_name}://adfly_files"
+updates_location = f"{local_drive_name}://adfly_files/updates"
+
+if not path.exists(data_location):
+    mkdir(data_location)
+    mkdir(updates_location)
+    with open(f'{data_location}/DO NOT MODIFY!!.txt', 'w') as file:
+        file.write("Do not modify any file in this directory. It can cause conflicts and/or security bugs")
+
+vbox_manage_binary_location = "VBoxManage.exe"
+possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
+                           "D://Programas/Virtual Box",
+                           "C:\Program Files\Oracle\VirtualBox"]
+
+for location in possible_vbox_locations:
+    if path.exists(location):
+        vbox_manage_binary_location = location
+        break
+else:
+    print("VirtualBox path not found, make sure you have Oracle Virtualbox installed, else create a github issue here: https://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
+    input()
+
+start_time = time()
 bot_metrics_written = False
 vms_to_use_written = False
-adfly_data_location = "C://adfly_files"
-vbox_manage_binary_location = "C://Program Files/Oracle/VirtualBox/VBoxManage.exe"
 vm_manager_start_vm = True
 vm_manager_working = True
 per_vm_memory = default_per_vm_memory = 1228
@@ -48,8 +61,8 @@ total_system_memory = virtual_memory()[0]
 PRIVATE_HOST_PORT = 59999
 PUBLIC_HOST_PORT = 60000
 LOCAL_CONNECTION_PORT = 59998
-global_host_address = ('10.10.77.118', 65499)
-global_host_page = 'http://10.10.77.118:65500'
+global_host_address = ()
+global_host_page = ''
 host_cpu_percent, host_ram_percent = 0, 0
 vm_stop_queue = []
 vms_to_use = []
@@ -69,15 +82,64 @@ messages_for_host = {'severe_info':[{'message':"If you want to host this page gl
                      'notification_info':[],
                      'success_info':[]}
 
+def reprint_screen():
+    adapters = [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
+    while True:
+        system_caller('cls')
+        print("""
+To change host account, login Here
+(only from current PC): 
+http://127.0.0.1:59999
+
+To manage VMs and your account, login Here
+(from any device in the network):""")
+        for ip in adapters:
+            print(f"http://{ip}:60000")
+        sleep(10)
+
+
+def verify_global_host_site():
+    global global_host_page
+    while True:
+        try:
+            if type(ping('8.8.8.8')) == float:
+                break
+        except:
+            print("Please check your internet connection")
+    while True:
+        try:
+            if get(f"{global_host_page}/ping").text == 'ping':
+                break
+            else:
+                print("Unable to connect to global host...")
+                _ = 1 / 0
+        except:
+            try:
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                link_dict = eval(text)
+                global_host_page = choice(link_dict['adfly_host_page_list'])
+            except:
+                sleep(1)
+
 
 def verify_global_host_address():
-    global global_host_address, global_host_page
-    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-    link_dict = eval(text)
-    global_host_page = choice(link_dict['adfly_host_page_list'])
-    host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-    host_port = int(host_port)
-    global_host_address = (host_ip, host_port)
+    global global_host_address
+    while True:
+        try:
+            if type(ping('8.8.8.8')) == float:
+                break
+        except:
+            print("Please check your internet connection")
+    while True:
+        try:
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            link_dict = eval(text)
+            host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
+            host_port = int(host_port)
+            global_host_address = (host_ip, host_port)
+            break
+        except:
+            sleep(1)
 
 
 def force_connect_global_server():
@@ -90,11 +152,14 @@ def force_connect_global_server():
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
         try:
+            token = get(f"{global_host_page}/token_for_tcp_connection").text
             connection.connect(global_host_address)
             break
-        except:
+        except Exception:
+            verify_global_host_site()
+            sleep(1)
             verify_global_host_address()
-    return connection
+    return connection, token
 
 
 def __send_to_connection(connection, data_bytes: bytes):
@@ -266,7 +331,7 @@ def write_bot_metrics_to_file():
         return
     global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
     try:
-        last_vm_metrics = eval(open(f'{adfly_data_location}/adfly_vm_metrics', 'r').read())
+        last_vm_metrics = eval(open(f'{data_location}/adfly_vm_metrics', 'r').read())
         per_vm_memory = last_vm_metrics['per_vm_memory']
         max_vm_count = last_vm_metrics['max_vm_count']
         max_memory_percent = last_vm_metrics['max_memory_percent']
@@ -278,7 +343,7 @@ def write_bot_metrics_to_file():
         max_memory_percent = default_max_memory_percent
         rtc_start = default_rtc_start
         rtc_stop = default_rtc_stop
-        open(f'{adfly_data_location}/adfly_vm_metrics', 'w').write(str({'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}))
+        open(f'{data_location}/adfly_vm_metrics', 'w').write(str({'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}))
     bot_metrics_written = True
 
 
@@ -289,13 +354,13 @@ def write_vms_to_use():
     all_vms = return_all_vms()
     try:
         vms_to_use = []
-        last_vms_to_use = eval(open(f'{adfly_data_location}/adfly_vm_manager', 'r').read())['vms_to_use']
+        last_vms_to_use = eval(open(f'{data_location}/adfly_vm_manager', 'r').read())['vms_to_use']
         for vm_uuid in all_vms:
             if vm_uuid in last_vms_to_use:
                 vms_to_use.append(vm_uuid)
     except:
         vms_to_use = []
-        open(f'{adfly_data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
+        open(f'{data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
     vms_to_use_written = True
 
 
@@ -408,15 +473,15 @@ def global_host_peering_authenticator():
     global global_host_auth_data
     global_host_auth_data = {}
     try:
-        last_global_host_peering_data = eval(open(f'{adfly_data_location}/adfly_local_host_authenticator', 'r').read())
+        last_global_host_peering_data = eval(open(f'{data_location}/adfly_local_host_authenticator', 'r').read())
         for u_name in last_global_host_peering_data:
             global_host_auth_data[u_name] = {'auth_token': last_global_host_peering_data[u_name]}
     except:
         pass
     if global_host_auth_data:
         for u_name in global_host_auth_data:
-            connection = force_connect_global_server()
-            data_to_be_sent = {'purpose': 'host_authentication'}
+            connection, binding_token = force_connect_global_server()
+            data_to_be_sent = {'purpose': 'host_authentication', 'binding_token':binding_token}
             __send_to_connection(connection, str(data_to_be_sent).encode())
             data_to_send = {'purpose': 'auth_token', 'u_name':u_name, 'auth_token': global_host_auth_data[u_name]['auth_token'], 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
             __send_to_connection(connection, str(data_to_send).encode())
@@ -669,7 +734,7 @@ def process_form_action(viewer_id:str, form:dict):
         check_and_fix_repeated_mac_addresses()
         if vm_uuid not in vms_to_use:
             vms_to_use.append(vm_uuid)
-            open(f'{adfly_data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
+            open(f'{data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
         render_vms_manage_tables(viewer_id)
 
 
@@ -678,7 +743,7 @@ def process_form_action(viewer_id:str, form:dict):
         write_vms_to_use()
         if vm_uuid in vms_to_use:
             vms_to_use.remove(vm_uuid)
-            open(f'{adfly_data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
+            open(f'{data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
         render_vms_manage_tables(viewer_id)
 
 
@@ -712,7 +777,7 @@ def process_form_action(viewer_id:str, form:dict):
                         time_format_correct = True
         if not time_format_correct:
             force_send_flask_data(f"[ERROR] [Bot Time Set] Time format wrong. Allowed range: 00:00 - 23:59", 'severe_info', viewer_id, 'new_div', 0, 3)
-        open(f'{adfly_data_location}/adfly_vm_metrics', 'w').write(str({'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}))
+        open(f'{data_location}/adfly_vm_metrics', 'w').write(str({'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}))
         render_bot_metrics_table(viewer_id)
 
 
@@ -798,54 +863,67 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
 
 def __fetch_image_from_global_host(img_name):
     try:
-        windows_img_files[img_name] = None
-        global_connection = force_connect_global_server()
-        data_to_be_sent = {'purpose': 'image_request', 'image_name': str(img_name)}
-        __send_to_connection(global_connection, str(data_to_be_sent).encode())
-        received_data = __receive_from_connection(global_connection)
-        if received_data[0] == 123 and received_data[-1] == 125:
-            received_data = eval(received_data)
-            if received_data['image_name'] == img_name:
-                img_data = received_data['data']
-                img_size = received_data['size']
-                windows_img_files[img_name] = {'img_data': img_data, 'img_size': img_size, 'version': time()}
+        if img_name in windows_img_files:
+            windows_img_files[img_name]['verified'] = None
+            version = windows_img_files[img_name]['version']
+        else:
+            windows_img_files[img_name]={'verified': None, 'version': 0}
+            version = 0
+        verify_global_host_site()
+        response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}").content
+        if response[0] == 123 and response[-1] == 125:
+            response = eval(response)
+            if response['img_name'] == img_name:
+                if response['version'] != version:
+                    windows_img_files[img_name] = {'data': response['data'], 'img_size': response['size'],'version': response['version'], 'verified':True}
+                else:
+                    windows_img_files[img_name]['verified'] = True
+        else:
+            _ = 1/0
     except:
-        __fetch_image_from_global_host(img_name)
+        sleep(1)
+        __fetch_py_file_from_global_host(img_name)
 
 
 def __fetch_py_file_from_global_host(file_code):
     try:
-        py_files[file_code] = None
-        while get(f"{global_host_page}/ping").text != 'ping':
-            verify_global_host_address()
-        response = get(f"{global_host_page}/py_files?file_code={file_code}").content
+        if file_code in py_files:
+            py_files[file_code]['verified'] = None
+            version = py_files[file_code]['version']
+        else:
+            py_files[file_code]={'verified': None, 'version': 0}
+            version = 0
+        verify_global_host_site()
+        response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}").content
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
             if response['file_code'] == str(file_code):
-                py_files[file_code] = response['data']
+                if response['version'] != version:
+                    py_files[file_code] = {'data':response['data'], 'verified':True}
+                else:
+                    py_files[file_code]['verified'] = True
         else:
             _ = 1/0
     except:
+        sleep(1)
         __fetch_py_file_from_global_host(file_code)
 
 
 def invalidate_all_images(interval):
-    global windows_img_files
     while True:
         sleep(interval)
-        windows_img_files = {}
+        for img_name in windows_img_files:
+            windows_img_files[img_name]['verified'] = False
 
 
 def invalidate_all_py_files(interval):
-    global py_files
     while True:
         sleep(interval)
-        py_files = {}
+        for file_code in windows_img_files:
+            py_files[file_code]['verified'] = False
 
 
 def vm_connection_manager():
-    global windows_img_files, py_files
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('0.0.0.0', LOCAL_CONNECTION_PORT))
     sock.listen()
@@ -867,26 +945,26 @@ def vm_connection_manager():
 
         elif purpose == 'py_file_request':
             file_code = request_data['file_code']
-            if file_code not in py_files:
+            if file_code not in py_files or not py_files[file_code]['verified'] and not py_files[file_code]['verified'] is not None:
                Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
-               sleep(0.1)
-            while py_files[file_code] is None:
-                sleep(0.1)
-            data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]}
+               sleep(0.5)
+            while py_files[file_code]['verified'] is None:
+                sleep(0.5)
+            data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
             __send_to_connection(connection, str(data_to_be_sent).encode())
 
         elif purpose == 'image_request':
             img_name = request_data['image_name']
             client_image_version = request_data['version']
-            if img_name not in windows_img_files:
+            if img_name not in windows_img_files or not windows_img_files[img_name]['version'] and windows_img_files[img_name]['version'] is not None:
                Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
-               sleep(0.1)
-            while windows_img_files[img_name] is None:
-                sleep(0.1)
+               sleep(0.5)
+            while windows_img_files[img_name]['verified'] is None:
+                sleep(0.5)
             if windows_img_files[img_name]['version'] == client_image_version:
                 data_to_be_sent = {'image_name': str(img_name)}
             else:
-                data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['img_data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
+                data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
             __send_to_connection(connection, str(data_to_be_sent).encode())
 
         elif purpose == 'stat_connection_establish':
@@ -1140,8 +1218,8 @@ def public_div_manager(real_cookie, viewer_id):
 
 def account_div_manager(viewer_id, reconnect=False):
     div_name = force_send_flask_data('[WAITING] Waiting for server!', 'notification_info', viewer_id, 'new_div', 0, 0)
-    global_host_connection = force_connect_global_server()
-    data_to_be_sent = {'purpose': 'user_authentication'}
+    global_host_connection, binding_token = force_connect_global_server()
+    data_to_be_sent = {'purpose': 'user_authentication', 'binding_token':binding_token}
     __send_to_connection(global_host_connection, str(data_to_be_sent).encode())
     received_data = __receive_from_connection(global_host_connection)
     if received_data[0] == 123 and received_data[-1] == 125:
@@ -1260,8 +1338,8 @@ def private_flask_operations():
         if purpose == 'login':
             username = form_dict['username'].strip().lower()
             password = form_dict['password']
-            connection = force_connect_global_server()
-            data_to_send = {'purpose': 'host_authentication'}
+            connection, binding_token = force_connect_global_server()
+            data_to_send = {'purpose': 'host_authentication', 'binding_token':binding_token}
             __send_to_connection(connection, str(data_to_send).encode())
             data_to_send = {'purpose': "login", "u_name": username, "password": password, 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
             __send_to_connection(connection, str(data_to_send).encode())
@@ -1270,7 +1348,7 @@ def private_flask_operations():
                 response = eval(response)
                 if response['status_code'] == 0:
                     auth_token = response['auth_token']
-                    open(f'{adfly_data_location}/adfly_local_host_authenticator', 'w').write(str({username: auth_token}))
+                    open(f'{data_location}/adfly_local_host_authenticator', 'w').write(str({username: auth_token}))
                     global_host_peering_authenticator()
                     return f"Host is now serving as {username}.</br>Please close this browser tab."
                 elif response['status_code'] < 0:
@@ -1287,8 +1365,8 @@ def private_flask_operations():
                 return redirect(f"/?reason=Passwords don't match!!&u_name={username}")
             elif not password_matches_standard(password2):
                 return redirect(f"/?reason=Password too weak!!&u_name={username}")
-            connection = force_connect_global_server()
-            data_to_send = {'purpose': 'host_authentication'}
+            connection, binding_token = force_connect_global_server()
+            data_to_send = {'purpose': 'host_authentication', 'binding_token':binding_token}
             __send_to_connection(connection, str(data_to_send).encode())
             data_to_send = {'purpose': "create_new_account", "u_name":username, "password": password2, 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
             __send_to_connection(connection, str(data_to_send).encode())
@@ -1297,7 +1375,7 @@ def private_flask_operations():
                 response = eval(response)
                 if response['status_code'] == 0:
                     auth_token = response['auth_token']
-                    open(f'{adfly_data_location}/adfly_local_host_authenticator', 'w').write(str({username: auth_token}))
+                    open(f'{data_location}/adfly_local_host_authenticator', 'w').write(str({username: auth_token}))
                     global_host_peering_authenticator()
                     return f"Account created successfully. Host is now serving: {username}.</br>Please close this browser tab."
                 elif response['status_code'] < 0:
@@ -1343,6 +1421,10 @@ def public_flask_operations():
     @app.route('/favicon.ico')
     def public_favicon():
         return redirect('https://avatars.githubusercontent.com/u/101955196')
+
+    @app.route('/start_time')
+    def return_start_time():
+        return str(start_time)
 
 
     @app.route('/action/', methods=['GET'])
@@ -1724,5 +1806,5 @@ Thread(target=vm_connection_manager).start()
 Thread(target=vm_manager).start()
 Thread(target=invalidate_all_py_files, args=(60*60,)).start()
 Thread(target=invalidate_all_images, args=(60*60*24,)).start()
-
-
+sleep(2)
+Thread(target=reprint_screen).start()
