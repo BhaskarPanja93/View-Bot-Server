@@ -1,0 +1,25 @@
+{{ turbo() }}
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossOrigin="anonymous"></script>
+<script>let socket = io();
+socket.on('connect', function (){
+    socket.emit('connection_request', {'special_string': '{{ REPLACE_SPECIAL_STRING }}'});
+})</script>
+<script>
+function socket_io_send(form){
+var data = JSON.stringify( $(form).serializeArray() );
+socket.emit('socketio_operation', data);
+return false;}
+</script>
+
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="cache-control" content="no-cache, must-revalidate">
+<meta name="turbo-cache-control" content="no-cache, must-revalidate">
+
+<div id="styles_scripts"></div>
+<FONT COLOR="RED"><div id="severe_info"></div></FONT>
+<FONT COLOR="BLUE"><div id="notification_info"></div></FONT>
+<FONT COLOR="GREEN"><div id="success_info"></div></FONT>
+<div id="main_div"></div>
+<div id="debug_data"></div>

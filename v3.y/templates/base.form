@@ -1,0 +1,14 @@
+<form onsubmit="return socket_io_send(this)">
+<input type="hidden" name="purpose" value="account_choice">
+<input type="hidden" name="special_string" value="REPLACE_SPECIAL_STRING">
+<input type="hidden" name="session_token" value="REPLACE_SESSION_TOKEN">
+<input type="hidden" name="choice" value="login">
+<button type=submit>Login</button>
+</form>
+<form onsubmit="return socket_io_send(this)">
+<input type="hidden" name="purpose" value="account_choice">
+<input type="hidden" name="special_string" value="REPLACE_SPECIAL_STRING">
+<input type="hidden" name="session_token" value="REPLACE_SESSION_TOKEN">
+<input type="hidden" name="choice" value="create_new">
+<button type=submit>Register</button>
+</form>

@@ -1,5 +1,5 @@
-global_host_address = ('10.10.77.118', 65499)
-global_host_page = 'http://10.10.77.118:65500'
+global_host_address = ()
+global_host_page = ''
 local_host_address = ()
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
@@ -46,7 +46,8 @@ while True:
         while get(f"{global_host_page}/ping").text != 'ping':
             sleep(1)
             verify_global_host_address()
-        received_data = get(f"{global_host_page}/py_files?file_code=5").content
+        file_code = 5
+        received_data = get(f"{global_host_page}/py_files?file_code={file_code}").content
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
             this_file_data = received_data['data']

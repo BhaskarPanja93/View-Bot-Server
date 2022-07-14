@@ -1,0 +1,18 @@
+<div id="viewer_stats"></div>
+<h2> VM Data: </h2>
+<div id="vm_activities"></div>
+<div id="vm_data"></div>
+<h2> Host Health: </h2>
+<table>
+<tr>
+<td>CPU(%)
+<td>RAM(%)
+<td>Options
+</tr>
+<tr>
+<td><div id="host_cpu"></div></td>
+<td><div id="host_ram"></div></td>
+<td> - no options- </td>
+</tr>
+</table>
+<div id="debug_data">- debug_data - </div>

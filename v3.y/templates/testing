@@ -1,0 +1,12 @@
+<script>
+    function login_button(){
+        socket.emit('socketio_operation', {"button": "login"});
+  return false;
+}
+</script>
+<script>
+    function create_new__button(){
+        socket.emit('socketio_operation', {"button": "create_new_account"});
+  return false;
+}
+</script>
