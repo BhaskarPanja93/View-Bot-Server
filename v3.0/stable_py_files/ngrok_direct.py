@@ -5,10 +5,11 @@ LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 start_time  = ''
+link_viewer_token = ''
 def run(img_dict):
     from os import remove
     remove('instance.py')
-    global start_time
+    global start_time, link_viewer_token
     import socket
     from time import time, sleep
     from random import choice, randrange
@@ -229,13 +230,16 @@ def run(img_dict):
             return global_host_page
 
         def fetch_side_link():
+            global link_viewer_token
             instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
             sock = force_connect_global_host()
             data_to_send = {'purpose': 'link_fetch', 'token': instance_token}
             __send_to_connection(sock, str(data_to_send).encode())
             received_data = __receive_from_connection(sock)
             if received_data[0] == 123 and received_data[-1] == 125:
-                side_link = eval(received_data)['suffix_link']
+                received_data = eval(received_data)
+                link_viewer_token = received_data['link_viewer_token']
+                side_link = received_data['suffix_link']
                 return side_link
 
         while True:
@@ -403,6 +407,11 @@ def run(img_dict):
                 elif current_screen_condition == 'force_close_chrome_success':
                     success = True
                     start_time = time()
+                    if link_viewer_token:
+                        success_ack_con = force_connect_global_host()
+                        data_to_send = {'purpose': 'view_accomplished', 'link_view_token':str(link_viewer_token)}
+                        __send_to_connection(success_ack_con, str(data_to_send).encode())
+                    start_time = time()
                     break
                 elif current_screen_condition == 'force_close_chrome_failure':
                     if sign == 'site cant be reached':
@@ -411,7 +420,6 @@ def run(img_dict):
                     break
             else:
                 continue
-        sleep(10)
         __close_chrome_safe()
     except:
         success = False

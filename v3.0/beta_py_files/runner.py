@@ -4,8 +4,9 @@ local_host_address = ()
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
-from os import remove
-remove('runner.py')
+#from os import remove
+#remove('runner.py')
+print('runner')
 comment, current_ip, last_ip = str, int, str
 img_dict = {}
 host_cpu = host_ram = views = uptime = 0
@@ -167,18 +168,49 @@ def __shutdown_host_machine(duration=5):
     system_caller(f'shutdown -s -f -t {duration}')
 
 
-def __connect_vpn():
-    locations = ["Mountain", "Ranch", "Cub", "Snow", "Vice", "Empire", "Precedent", "Dogg", "Cobain", "Expo 67", "Comfort Zone", "The 6", "Granville", "Vansterdam", "Jardin", "Seine", "Castle", "Wurstchen", "Wiener", "Canal", "Red Light", "Tulip", "Fjord", "No Vampires", "Alphorn", "Lindenhof", "Crumpets", "Custard" , "Ataturk", "Victoria",]
-    loc = choice(locations)
-    system_caller(f'windscribe-cli.exe connect "{loc}"')
+def __connect_proxy():
+    print('connect proxy')
+    try:
+        __disconnect_proxy()
+        _dict = {}
+        all_lines = get('https://raw.githubusercontent.com/fate0/proxylist/master/proxy.list').text.splitlines()
+        for line in all_lines:
+            _dict[eval(line)['host']] = eval(line)
+        _selected_proxy_dict = choice(sorted(_dict))
+        for field_name in _dict[_selected_proxy_dict]:
+            print(field_name, _dict[_selected_proxy_dict][field_name])
+        proxy = f"{_dict[_selected_proxy_dict]['host']}:{_dict[_selected_proxy_dict]['port']}"
+        print(proxy)
+        system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
+        system_caller(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d {proxy} /f')
+        sleep(3)
+        Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
+        sleep(3)
+        system_caller('taskkill /F /IM "iexplore.exe" /T')
+    except:
+        __connect_proxy()
 
 
-def __disconnect_all_vpn():
-    system_caller('windscribe-cli.exe disconnect')
+def __disconnect_proxy():
+    print('disconnect proxy')
+    system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 0 /f')
+    sleep(3)
+    Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
+    sleep(3)
+    system_caller('taskkill /F /IM "iexplore.exe" /T')
 
 
 def __get_global_ip(trial = 0):
     if trial >= 3:
+        return ''
+    for _ in range(10):
+        sleep(1)
+        try:
+            if type(ping('8.8.8.8')) == float:
+                break
+        except:
+            print('no internet')
+    else:
         return ''
     for _ in range(3):
         try:
@@ -188,6 +220,7 @@ def __get_global_ip(trial = 0):
             for __ in range(3):
                 return popen(f"curl {global_host_page}/ip").read()
         except:
+            verify_global_host_address()
             sleep(1)
     try:
         return popen("curl http://checkip.dyndns.org").read().split(': ', 1)[1].split('</body></html>', 1)[0]
@@ -241,26 +274,31 @@ def update_cpu_ram():
     host_ram = int(virtual_memory()[2])
 
 
-def restart_vpn_recheck_ip(required=False):
+def restart_vpn_recheck_ip():
     global last_ip, connection_enabled
-    _ = 1
+    _ = 0
     while True:
         update_current_ip()
-        if (not current_ip or current_ip == genuine_ip) and not required:
-            if _ <= 6:
-                sleep(5)
+        print(_, current_ip, genuine_ip, last_ip)
+        if (not current_ip or current_ip == genuine_ip) and _:
+            if _ <= 5:
+                sleep(3)
                 _ += 1
             else:
-                __restart_host_machine()
-        elif genuine_ip != current_ip != last_ip and not required:
+                _ = 0
+        elif genuine_ip != current_ip != last_ip:
+            print('successfully found working proxy')
+            print(current_ip, genuine_ip, last_ip)
+            sleep(5)
             break
         else:
             last_ip = current_ip
             connection_enabled = False
-            ### proxy change script
+            __connect_proxy()
+            sleep(10)
+            print('conenct proxy finished')
+            _ = 1
             connection_enabled = True
-            required = False
-            return
 
 
 def uptime_calculator():
@@ -319,20 +357,10 @@ def __clean_temps_directory():
         except:
             pass
 
-def check_windscribe_logged_in():
-    while True:
-        output = popen('windscribe-cli.exe locations').read().lower()
-        if 'login' in output:
-            print("waiting for windscribe login")
-            system_caller('windscribe.exe')
-            sleep(5)
-        else:
-            break
 
 
 __clean_temps_directory()
-__disconnect_all_vpn()
-check_windscribe_logged_in()
+__disconnect_proxy()
 sleep(3)
 while not genuine_ip:
     genuine_ip = __get_global_ip()
@@ -345,7 +373,8 @@ next_ip_reset = 0
 while True:
     while True:
         if (views >= next_ip_reset) or comment == 'change_ip':
-            restart_vpn_recheck_ip(True)
+            restart_vpn_recheck_ip()
+            sleep(5)
             comment = ''
             next_ip_reset += randrange(1, 3)
         if type(ping('8.8.8.8')) == float:

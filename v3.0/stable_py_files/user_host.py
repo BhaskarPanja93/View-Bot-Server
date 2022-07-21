@@ -36,15 +36,14 @@ if not path.exists(data_location):
 
 vbox_manage_binary_location = "VBoxManage.exe"
 possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
-                           "D://Programas/Virtual Box",
-                           "C:\Program Files\Oracle\VirtualBox"]
+                           "D://Programas/Virtual Box/VBoxManage.exe",]
 
 for location in possible_vbox_locations:
     if path.exists(location):
         vbox_manage_binary_location = location
         break
 else:
-    print("VirtualBox path not found, make sure you have Oracle Virtualbox installed, else create a github issue here: https://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
+    print("VirtualBox path not found, \nMake sure you have Oracle Virtualbox installed, \nElse create a github issue here: \nhttps://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
     input()
 
 start_time = time()

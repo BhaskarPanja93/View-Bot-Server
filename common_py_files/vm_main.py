@@ -43,18 +43,19 @@ def verify_global_host_address():
 
 while True:
     try:
-        while get(f"{global_host_page}/ping").text != 'ping':
-            sleep(1)
-            verify_global_host_address()
+        verify_global_host_address()
+        if get(f"{global_host_page}/ping").text != 'ping':
+            _ = 1/0
         file_code = 5
         received_data = get(f"{global_host_page}/py_files?file_code={file_code}").content
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
             this_file_data = received_data['data']
-            with open(f'../v3.0/extra_py_files/client_uname_checker.py', 'wb') as file:
+            with open(f'client_uname_checker.py', 'wb') as file:
                 file.write(this_file_data)
             break
-    except:
-        verify_global_host_address()
+    except Exception as e:
+        print(repr(e))
+        sleep(1)
 import client_uname_checker
 client_uname_checker.run()

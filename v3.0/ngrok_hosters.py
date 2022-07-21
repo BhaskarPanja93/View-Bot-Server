@@ -1,11 +1,12 @@
 from random import choice
 from threading import Thread
-from time import ctime, sleep, time
+from time import sleep
 import socket
 
-old_user_connection = ''
-user_connection_list = []
-host_page_list = []
+from requests import get
+
+final_dict_to_show_on_github = {'adfly_host_page_list':[], 'adfly_user_tcp_connection_list':[]}
+
 
 host_ip = '127.0.0.1'
 HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1))
@@ -32,27 +33,25 @@ def force_connect_server(host_ip, host_port):
 
 
 def __send_to_connection(connection, data_bytes: bytes):
-    data_byte_length = len(data_bytes)
-    connection.sendall(f'{data_byte_length}'.zfill(8).encode())
-    connection.sendall(data_bytes)
+    connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
 
 
 def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
-    for _ in range(120):
+    for _ in range(500):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(1)
+            sleep(0.01)
         else:
             break
     else:
         return b''
     if len(length) == 8:
         length = int(length)
-        for _ in range(120):
+        for _ in range(500):
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(1)
+            sleep(0.01)
             if len(data_bytes) == length:
                 break
         else:
@@ -62,23 +61,65 @@ def __receive_from_connection(connection):
         return b''
 
 
-def debug_host(text: str):
-    print(text)
-    with open('debugging/host.txt', 'a') as file:
-        file.write(f'[{ctime()}] : {text}\n')
-
-
-def github_link_updater(key, new_data):
+def update_github():
     try:
         connection = force_connect_server(host_ip, 50010)
-        dict_to_send = {key: new_data}
-        __send_to_connection(connection, str(dict_to_send).encode())
-    except Exception as e:
-        print(repr(e))
+        __send_to_connection(connection, str(final_dict_to_show_on_github).encode())
+    except:
+        update_github()
+
+def url_checker(ngrok, url):
+    error_count = 0
+    while True:
+        sleep(2)
+        try:
+            if get(f"{url}/ping").text == 'ping':
+                error_count = 0
+            else:
+                error_count += 1
+        except:
+            error_count += 1
+
+        if error_count >= 5:
+            ngrok.disconnect(url)
+            print(f"{url} removed because it is unreachable")
+            if url in final_dict_to_show_on_github['adfly_host_page_list']:
+                final_dict_to_show_on_github['adfly_host_page_list'].remove(url)
+            return
+
+
+def tcp_checker(ngrok, url):
+    _ip, _port = url.split(':')
+    _port = int(_port)
+    error_count = 0
+    while True:
+        sleep(2)
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            connection.connect((_ip, _port))
+            dict_to_send = {'purpose': 'ping'}
+            __send_to_connection(connection, str(dict_to_send).encode())
+            received_data = __receive_from_connection(connection)
+            if received_data[0] == 123 and received_data[-1] == 125:
+                received_data = eval(received_data)
+                if received_data['ping'] == 'ping':
+                    error_count = 0
+                else:
+                    _ = 1/0
+            else:
+                _ = 1/0
+        except:
+            error_count += 1
+
+        if error_count >= 3:
+            ngrok.disconnect(url)
+            print(f"{url} removed because it is unreachable")
+            if url in final_dict_to_show_on_github['adfly_user_tcp_connection_list']:
+                final_dict_to_show_on_github['adfly_user_tcp_connection_list'].remove(url)
+            return
 
 
 def ngrok_user_connection(port):
-    global user_connection_list
     while True:
         try:
             from pyngrok import ngrok, conf
@@ -87,82 +128,28 @@ def ngrok_user_connection(port):
             tunnel = ngrok.connect(port, proto='tcp')
             user_connection = tunnel.public_url.replace('tcp://','')
             print(f"{user_connection=}")
-            user_connection_list.append(user_connection)
-            github_link_updater('adfly_user_tcp_connection_list', user_connection_list)
-            while user_connection in user_connection_list:
-                pass
-        except Exception as e:
-            debug_host(repr(e))
+            final_dict_to_show_on_github['adfly_user_tcp_connection_list'].append(user_connection)
+            update_github()
+            tcp_checker(ngrok, user_connection)
+        except:
             ngrok_user_connection(port)
 
 
 def ngrok_host_page(port):
-    global host_page_list
     while True:
         try:
             from pyngrok import ngrok, conf
             ngrok.set_auth_token(choice(ngrok_tokens))
             conf.get_default().region = 'in'
-            tunnel = ngrok.connect(port, bind_tls=True)
-            host_url = tunnel.public_url
+            tunnel = ngrok.connect(port)
+            host_url = tunnel.public_url.replace('http://', 'https://')
             print(f"{host_url=}")
-            host_page_list.append(host_url)
-            github_link_updater('adfly_host_page_list', host_page_list)
-            while host_url in host_page_list:
-                pass
-        except Exception as e:
-            debug_host(repr(e))
+            final_dict_to_show_on_github['adfly_host_page_list'].append(host_url)
+            update_github()
+            url_checker(ngrok, host_url)
+        except:
             ngrok_host_page(port)
 
-
-def list_connection_checker(_list):
-    def custom_connection_closer(connection):
-        s_time = time()
-        while time() - s_time <= 5:
-            sleep(1)
-        else:
-            connection.close()
-    while True:
-        sleep(10)
-        connection_list = _list
-        for connection in connection_list:
-            try:
-                ip, port = connection.split(':')
-                port = int(port)
-                temp = force_connect_server(ip, port)
-                Thread(target=custom_connection_closer, args=(temp,)).start()
-                __send_to_connection(temp, b'-1')
-                data = __receive_from_connection(temp)
-                if data == b'x':
-                    pass
-                else:
-                    user_connection_list.remove(connection)
-            except:
-                user_connection_list.remove(connection)
-
-
-def variable_connection_checker(variable_name):
-    def custom_connection_closer(connection):
-        s_time = time()
-        while time() - s_time <= 5:
-            sleep(1)
-        else:
-            connection.close()
-    while True:
-        sleep(10)
-        try:
-            ip, port = globals()[variable_name].split(':')
-            port = int(port)
-            temp = force_connect_server(ip, port)
-            Thread(target=custom_connection_closer, args=(temp,)).start()
-            __send_to_connection(temp, b'-1')
-            data = __receive_from_connection(temp)
-            if data == b'x':
-                pass
-            else:
-                globals()[variable_name] = ''
-        except:
-            globals()[variable_name] = ''
 
 
 for port in HOST_MAIN_WEB_PORT_LIST:
@@ -171,7 +158,3 @@ for port in HOST_MAIN_WEB_PORT_LIST:
 for port in USER_CONNECTION_PORT_LIST:
     Thread(target=ngrok_user_connection, args=(port,)).start()
     sleep(1.5)
-
-#Thread(target=list_connection_checker, args=(user_connection_list,)).start()
-#Thread(target=list_connection_checker, args=(host_page_list,)).start()
-#Thread(target=variable_connection_checker, args=(old_user_connection,)).start()
