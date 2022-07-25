@@ -1,0 +1,7 @@
+pillow
+requests
+psutil
+turbo_flask
+flask
+ping3
+cryptography

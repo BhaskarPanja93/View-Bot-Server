@@ -1,6 +1,6 @@
 import socket
 import webbrowser
-from os import popen, system as system_caller, mkdir, path
+from os import popen, system as system_caller, path
 from random import randrange
 from time import time, localtime
 from random import choice
@@ -24,15 +24,11 @@ if not path.exists(f"{local_drive_name}://"):
         local_drive_name = ''
         print('No available local drive, please create a github issue!!')
         input()
+        exit()
 
 data_location = f"{local_drive_name}://adfly_files"
 updates_location = f"{local_drive_name}://adfly_files/updates"
-
-if not path.exists(data_location):
-    mkdir(data_location)
-    mkdir(updates_location)
-    with open(f'{data_location}/DO NOT MODIFY!!.txt', 'w') as file:
-        file.write("Do not modify any file in this directory. It can cause conflicts and/or security bugs")
+user_host_version = open(f"{data_location}/version", 'r').read()
 
 vbox_manage_binary_location = "VBoxManage.exe"
 possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
@@ -44,7 +40,7 @@ for location in possible_vbox_locations:
         break
 else:
     print("VirtualBox path not found, \nMake sure you have Oracle Virtualbox installed, \nElse create a github issue here: \nhttps://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
-    input()
+    input("You can ignore this warning by pressing 'Enter' but you will be missing out on features like automatic VM Manage, VM activities, VM uptimes, Per VM View etc.")
 
 start_time = time()
 bot_metrics_written = False
@@ -85,7 +81,9 @@ def reprint_screen():
     adapters = [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
     while True:
         system_caller('cls')
-        print("""
+        print(f"""
+Current user_host version: {user_host_version}
+
 To change host account, login Here
 (only from current PC): 
 http://127.0.0.1:59999
@@ -1803,7 +1801,6 @@ Thread(target=private_flask_operations).start()
 Thread(target=public_flask_operations).start()
 Thread(target=vm_connection_manager).start()
 Thread(target=vm_manager).start()
-Thread(target=invalidate_all_py_files, args=(60*60,)).start()
-Thread(target=invalidate_all_images, args=(60*60*24,)).start()
-sleep(2)
-Thread(target=reprint_screen).start()
+Thread(target=invalidate_all_py_files, args=(60*10,)).start()
+Thread(target=invalidate_all_images, args=(60*60,)).start()
+reprint_screen()

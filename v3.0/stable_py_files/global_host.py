@@ -1,4 +1,4 @@
-current_user_host_main_version = '2.0.0'
+current_user_host_main_version = '2.1.1'
 current_vm_main_version = '0.0.0'
 
 while True:
@@ -16,7 +16,7 @@ while True:
         pip.main(['install', 'cryptography'])
         pip.main(['install', 'werkzeug'])
         del pip
-from os import path, getcwd
+from os import path, getcwd, system as system_caller
 import socket
 from random import choice, randrange
 from threading import Thread
@@ -385,20 +385,6 @@ def user_login_manager(connection):
 
 
 def accept_connections_from_users(port):
-    """
-        -1:'ping using __send_to_connection()',
-         2:'user_host_image',
-         3:'debug_data',
-         4:'ngrok_link_check',
-         6:'network_adapters',
-         7: random_user_agent,
-         8: local_host_authenticate,
-         9: user_login(local host),
-         10: 'vpn_issue_checker',
-         98: check instance token,
-         99: fetch VM instance token,
-    """
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('0.0.0.0', port))
     sock.listen()
@@ -554,10 +540,10 @@ def flask_operations(port):
 
     def return_adfly_link_page(u_name):
         data = ''
-        for para_length in range(randrange(400, 1000)):
+        for para_length in range(randrange(100, 400)):
             data += choice(paragraph_lines) + '.'
             if randrange(0, 5) == 1:
-                data += f"<a href='/adf_link_click?u_name={u_name}&random={generate_random_string(10, 50)}'> CLICK HERE </a>"
+                data += f"<a href='/adf_link_click?u_name={u_name}&random={generate_random_string(1, 10)}'> CLICK HERE </a>"
         html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
         return html_data
 
@@ -601,10 +587,17 @@ def flask_operations(port):
     8: 'user_host.exe'
     """
 
-    def return_exe_file(file_id):
+    def return_other_file(file_id):
         if file_id == '8':
-            if ('user_host.exe' not in exe_files) or (path.getmtime('other_files/user_host.exe') != exe_files['user_host.exe']['version']):
-                exe_files['user_host.exe'] = {'version': path.getmtime('other_files/user_host.exe'), 'file': open('other_files/user_host.exe', 'rb').read()}
+            if ('user_host.py' not in python_files) or (path.getmtime(f'stable_py_files/user_host.py') != python_files['user_host.py']['version']):
+                python_files['user_host.py'] = {'version': path.getmtime('stable_py_files/user_host.py'), 'file': open('stable_py_files/user_host.py', 'rb').read()}
+                with open('other_files/requirements.txt', 'r') as requirement_file:
+                    import pip
+                    for item in requirement_file.readlines():
+                        pip.main(['install', item.strip()])
+                system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/stable_py_files/user_host.py"')
+            if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
+                exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
             return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
 
 
@@ -651,10 +644,10 @@ def flask_operations(port):
             return str({'file_code':file_code, 'version':current_version,'data':data})
 
 
-    @app.route('/exe_files', methods=["GET"])
+    @app.route('/other_files', methods=["GET"])
     def _return_exe_files():
         file_code = request.args.get("file_code")
-        current_version, data = return_exe_file(file_code)
+        current_version, data = return_other_file(file_code)
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:
@@ -695,7 +688,7 @@ def flask_operations(port):
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
         while True:
-            token  = generate_random_string(10,50)
+            token  = generate_random_string(10,100)
             if token not in active_tcp_tokens:
                 break
         Thread(target=tcp_token_manager, args=(ip, token)).start()
@@ -743,7 +736,7 @@ def flask_operations(port):
                     break
         except:
             id_to_serve = 1
-        adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{request.root_url}youtube_img?random={generate_random_string(5, 100)}"
+        adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{request.root_url}youtube_img?random={generate_random_string(1, 10)}"
         return redirect(adf_link)
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
