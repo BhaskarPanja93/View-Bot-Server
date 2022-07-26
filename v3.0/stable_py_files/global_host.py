@@ -8,6 +8,7 @@ while True:
         from PIL import Image
         from flask import Flask, request, redirect, send_from_directory
         from werkzeug.security import generate_password_hash, check_password_hash
+        from requests import get, post
         break
     except Exception as e:
         import pip
@@ -15,6 +16,7 @@ while True:
         pip.main(['install', 'flask'])
         pip.main(['install', 'cryptography'])
         pip.main(['install', 'werkzeug'])
+        pip.main(['install', 'requests'])
         del pip
 from os import path, getcwd, system as system_caller
 import socket
@@ -44,6 +46,8 @@ db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same
 paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.')
 stable_file_location = 'stable_py_files'
 testing_py_files_location = 'testing_py_files'
+
+waiting_proxy_list, working_proxy_list = [], []
 
 def __send_to_connection(connection, data_bytes: bytes):
     connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
@@ -133,6 +137,104 @@ def password_matches_standard(password: str):
         return True
     else:
         return False
+
+
+def proxy_manager():
+
+    def check_proxy_working():
+        if not waiting_proxy_list:
+            return
+        proxy_text_to_send = ''
+        temp_proxies_list = []
+        for _ in range(min(400, len(waiting_proxy_list))):
+            proxy = waiting_proxy_list.pop(0)
+            temp_proxies_list.append(proxy)
+            proxy_text_to_send += proxy + ','
+        else:
+            proxy_text_to_send += '35.234.248.49:3128'
+        try:
+            _id = post('https://api.proxyscan.io', timeout=15, data={'proxies': proxy_text_to_send}).text.replace('"', '')
+            for _ in range(300):
+                sleep(5)
+                try:
+                    html_data = eval(get(f"https://api.proxyscan.io/?id={_id}", timeout=15).text.replace('null', 'None').replace('true', 'True').replace('false', 'False'))
+                    for proxy_dict in html_data:
+                        proxy = f"{proxy_dict['ip']}:{proxy_dict['port']}"
+                        if proxy in temp_proxies_list:
+                            if proxy_dict['failed']:
+                                temp_proxies_list.remove(proxy)
+                            else:
+                                if proxy not in working_proxy_list:
+                                    temp_proxies_list.remove(proxy)
+                                    working_proxy_list.append(proxy)
+                except:
+                    pass
+        except:
+            for proxy in temp_proxies_list:
+                if proxy not in waiting_proxy_list:
+                    waiting_proxy_list.append(proxy)
+            return
+
+    def fetch_new_proxies():
+        while True:
+            ### normal links (IP:PORT format)
+            normal_links = """https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
+            https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt
+            https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt
+            https://raw.githubusercontent.com/shiftytr/proxy-list/master/proxy.txt
+            https://raw.githubusercontent.com/manuGMG/proxy-365/main/SOCKS5.txt
+            https://raw.githubusercontent.com/HyperBeats/proxy-list/main/http.txt
+            https://raw.githubusercontent.com/HyperBeats/proxy-list/main/socks4.txt
+            https://raw.githubusercontent.com/HyperBeats/proxy-list/main/socks5.txt
+            https://raw.githubusercontent.com/mertguvencli/http-proxy-list/main/proxy-list/data.txt
+            https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt
+            https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks4.txt
+            https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt
+            https://raw.githubusercontent.com/Volodichev/proxy-list/main/http.txt
+            https://raw.githubusercontent.com/RX4096/proxy-list/main/online/all.txt
+            https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt
+            https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4_RAW.txt
+            https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt
+            https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/all.txt
+            https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/raw.txt
+            https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt
+            https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/http.txt
+            https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks4.txt
+            https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt
+            https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/http.txt
+            https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks4.txt
+            https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt
+            https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt
+            https://raw.githubusercontent.com/jetkai/proxy-list/main/archive/txt/proxies.txt
+            https://raw.githubusercontent.com/ITProxy/Ban_Proxies/main/proxies_of_all_countries.txt
+            https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt"""
+            for link in normal_links.splitlines():
+                try:
+                    html_data = get(link).text.splitlines()
+                    for _line in html_data:
+                        if _line not in waiting_proxy_list:
+                            waiting_proxy_list.append(_line)
+                except:
+                    pass
+
+            ### special links dictionary or other apis
+            try:
+                html_data = get("https://raw.githubusercontent.com/fate0/proxylist/master/proxy.list").text
+                dict_list = html_data.splitlines()
+                for line in dict_list:
+                    _dict = eval(line)
+                    proxy = f"{_dict['host']}:{_dict['port']}"
+                    if proxy not in waiting_proxy_list:
+                        waiting_proxy_list.append(proxy)
+            except:
+                pass
+            sleep(10 * 60)
+
+    Thread(target=fetch_new_proxies).start()
+    sleep(2)
+    while True:
+        Thread(target=check_proxy_working).start()
+        sleep(5)
 
 
 def user_host_manager(connection):
@@ -582,6 +684,9 @@ def flask_operations(port):
                 python_files['runner.py'] = { 'version': path.getmtime(f'beta_py_files/runner.py'), 'file': open(f'beta_py_files/runner.py', 'rb').read()}
             return python_files['runner.py']['version'], python_files['runner.py']['file']
 
+        else:
+            return None, None
+
     """
     stable
     8: 'user_host.exe'
@@ -600,8 +705,14 @@ def flask_operations(port):
                 exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
             return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
 
+        else:
+            return None, None
+
 
     def return_img_file(image_name):
+        if not path.exists(f'{images_location}/{image_name}.PNG'):
+            return None, None, None
+
         if (image_name not in windows_img_files) or (path.getmtime(f'{images_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
             windows_img_files[image_name] = {'version': path.getmtime(f'{images_location}/{image_name}.PNG'), 'file': Image.open(f'{images_location}/{image_name}.PNG')}
         return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
@@ -634,6 +745,8 @@ def flask_operations(port):
     def _return_py_files():
         file_code = request.args.get("file_code")
         current_version, data = return_py_file(file_code)
+        if not data:
+            return ' '
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:
@@ -648,6 +761,8 @@ def flask_operations(port):
     def _return_exe_files():
         file_code = request.args.get("file_code")
         current_version, data = return_other_file(file_code)
+        if not data:
+            return ' '
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:
@@ -664,6 +779,8 @@ def flask_operations(port):
         if '/' in img_name or '\\' in img_name:
             return ' '
         current_version, data, size = return_img_file(img_name)
+        if not data:
+            return ' '
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:
@@ -693,6 +810,16 @@ def flask_operations(port):
                 break
         Thread(target=tcp_token_manager, args=(ip, token)).start()
         return token
+
+
+    @app.route('/proxy_list', methods=['GET'])
+    def _return_proxy_list():
+        if not working_proxy_list:
+            return 'None'
+        return_string = ''
+        for proxy in working_proxy_list:
+            return_string += proxy+'</br>'
+        return return_string
 
 
     @app.route('/current_user_host_main_version', methods=['GET'])
@@ -741,7 +868,7 @@ def flask_operations(port):
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
-
+Thread(target=proxy_manager).start()
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=flask_operations, args=(port,)).start()
 for port in USER_CONNECTION_PORT_LIST:
