@@ -1,3 +1,4 @@
+print('runner')
 global_host_address = ()
 global_host_page = ''
 local_host_address = ()
@@ -211,7 +212,7 @@ def run_instance(instance_name):
     global views, comment, img_dict
     try:
         instance_connection = force_connect_local_host()
-        file_code = 2
+        file_code = 'stable_4'
         data_to_send = {'purpose': 'py_file_request', 'file_code': file_code}
         __send_to_connection(instance_connection, str(data_to_send).encode())
         response = __receive_from_connection(instance_connection)

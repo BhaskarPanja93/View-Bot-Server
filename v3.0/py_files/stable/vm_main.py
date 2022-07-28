@@ -1,4 +1,9 @@
-vm_main_version = '1.0.0'
+print('vm_main')
+try:
+    vm_main_version = float(open('vm_main_version', 'r').read())
+except:
+    vm_main_version = 0
+    open('vm_main_version', 'w').write('0')
 
 while True:
     try:
@@ -37,14 +42,14 @@ def verify_global_site():
     while True:
         try:
             print(f'Trying to connect to global_page at {global_host_page}')
-            if get(f"{global_host_page}/ping", timeout=5).text == 'ping':
+            if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
                 break
             else:
                 _ = 1 / 0
         except:
             try:
                 print("Global host ping failed. Rechecking from github...")
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=5).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
                 link_dict = eval(text)
                 global_host_page = choice(link_dict['adfly_host_page_list'])
             except:
@@ -57,22 +62,24 @@ print("Checking vm main version...\n\n")
 while True:
     verify_global_site()
     try:
-        file_code =
-        response = get(f"{global_host_page}/other_files?file_code={file_code}&version={vm_main_version}", timeout=10).content
+        file_code = 'stable_1'
+        response = get(f"{global_host_page}/py_files?file_code={file_code}&version={vm_main_version}", timeout=10).content
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
             if response['file_code'] == file_code:
                 if response['version'] != vm_main_version:
                     print("Writing new file")
-                    with open(f'C://Users/Administrator/Adfly/vm_main.py', 'wb') as file:
+                    with open('vm_main.py', 'wb') as file:
                         file.write(response['data'])
-                    system_caller(f'shutdown -r -f -t 0')
+                    with open('vm_main_version', 'w') as file:
+                        file.write(str(response['version']))
+                    system_caller('shutdown -r -f -t 2')
                     input('waiting for restart')
                 else:
                     print("No new Updates")
                     break
-    except:
-        pass
+    except Exception as e:
+        print('vm_main1', repr(e))
 
 ## Download next file
 while True:
@@ -80,15 +87,15 @@ while True:
         verify_global_site()
         if get(f"{global_host_page}/ping").text != 'ping':
             _ = 1/0
-        file_code = 5
+        file_code = 'stable_2'
         received_data = get(f"{global_host_page}/py_files?file_code={file_code}", timeout=10).content
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
-            with open(f'client_uname_checker.py', 'wb') as file:
+            with open('client_uname_checker.py', 'wb') as file:
                 file.write(received_data['data'])
             break
     except Exception as e:
-        print(repr(e))
+        print('vm_main2', repr(e))
         sleep(1)
 
 import client_uname_checker

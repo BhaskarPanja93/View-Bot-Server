@@ -193,7 +193,7 @@ def run():
         try_username_password()
     fetch_and_update_local_host_address()
     final_main_connection = force_connect_local_host()
-    file_code = 1
+    file_code = 'stable_3'
     data_to_send = {'purpose': 'py_file_request', 'file_code': file_code}
     __send_to_connection(final_main_connection, str(data_to_send).encode())
     response = __receive_from_connection(final_main_connection)

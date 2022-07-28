@@ -1,5 +1,4 @@
 current_user_host_main_version = '2.3.1'
-current_vm_main_version = '0.0.0'
 
 while True:
     try:
@@ -32,12 +31,6 @@ reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke',
 
 parent, _ = path.split(path.split(getcwd())[0])
 read_only_location = path.join(parent, 'read only')
-
-parent, _ = path.split(getcwd())
-images_location = path.join(parent, 'req_imgs/Windows')
-
-parent, _ = path.split(getcwd())
-common_py_files_location = path.join(parent, 'common_py_files')
 
 HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1))
 USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1))
@@ -544,13 +537,6 @@ def accept_connections_from_users(port):
                 data_to_be_sent = {'ping': 'ping'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
-            elif purpose == 'image_request':
-                image_name = received_data['image_name']
-                if (image_name not in windows_img_files) or (path.getmtime(f'{images_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
-                    windows_img_files[image_name] = {'version': path.getmtime(f'{images_location}/{image_name}.PNG'), 'file': Image.open(f'{images_location}/{image_name}.PNG')}
-                data_to_be_sent = {'image_name': image_name, 'data': windows_img_files[image_name]['file'].tobytes(), 'size': windows_img_files[image_name]['file'].size}
-                __send_to_connection(connection, str(data_to_be_sent).encode())
-
             elif purpose == 'link_fetch':
                 u_name = ''
                 received_token = received_data['token']
@@ -656,7 +642,7 @@ def accept_connections_from_users(port):
         Thread(target=acceptor).start()
 
 
-python_files = {}
+python_files = {'stable':{}, 'beta':{}, 'overwrite':{}}
 windows_img_files = {}
 text_files = {}
 exe_files = {}
@@ -672,74 +658,102 @@ def return_adfly_link_page(u_name):
 
 
 """
-stable 
+OVERWRITE
+3 or 5: overwrite
 
-5:'client_uname_checker'
-1:'runner',
-2:'ngrok_instance',
+STABLE
+stable_1:'vm_main'
+stable_2:'client_uname_checker'
+stable_3:'runner'
+stable_4:'ngrok_instance'
+
 BETA
-3:'client_uname_checker'
-4:'runner'
+beta_1:'vm_main'
+beta_2:'client_uname_checker'
+beta_3:'runner'
 """
 
 
 def return_py_file(file_id):
-    if file_id == '1':
-        if ('runner.py' not in python_files) or (path.getmtime('stable_py_files/runner.py') != python_files['runner.py']['version']):
-            python_files['runner.py'] = {'version': path.getmtime('stable_py_files/runner.py'), 'file': open('stable_py_files/runner.py', 'rb').read()}
-        return python_files['runner.py']['version'], python_files['runner.py']['file']
-    elif file_id == '2':
-        if f'ngrok_direct.py' not in python_files or (path.getmtime(f'stable_py_files/ngrok_direct.py') != python_files[f'ngrok_direct.py']['version']):
-            python_files[f'ngrok_direct.py'] = {'version': path.getmtime(f'stable_py_files/ngrok_direct.py'), 'file': open(f'stable_py_files/ngrok_direct.py', 'rb').read()}
-            python_files[f'ngrok_direct.py']['version'] = path.getmtime(f'stable_py_files/ngrok_direct.py')
-            python_files[f'ngrok_direct.py']['file'] = open(f'stable_py_files/ngrok_direct.py', 'rb').read()
-        return python_files[f'ngrok_direct.py']['version'], python_files[f'ngrok_direct.py']['file']
-    elif file_id == '5':
-        if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'stable_py_files/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
-            python_files['client_uname_checker.py'] = {'version': path.getmtime(f'stable_py_files/client_uname_checker.py'), 'file': open(f'stable_py_files/client_uname_checker.py', 'rb').read()}
-        return python_files['client_uname_checker.py']['version'], python_files['client_uname_checker.py']['file']
+    if file_id == '3' or file_id == '5':
+        if ('vm_main_overwrite.py' not in python_files['overwrite']) or (path.getmtime(f'py_files/overwriter/vm_main_overwrite.py') != python_files['overwrite']['vm_main_overwrite.py']['version']):
+            python_files['overwrite']['vm_main_overwrite.py'] = {'version': path.getmtime(f'py_files/overwriter/vm_main_overwrite.py'), 'file': open(f'py_files/overwriter/vm_main_overwrite.py', 'rb').read()}
+        return python_files['overwrite']['vm_main_overwrite.py']['version'], python_files['overwrite']['vm_main_overwrite.py']['file']
 
-    elif file_id == '3':
-        if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'beta_py_files/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
-            python_files['client_uname_checker.py'] = {'version': path.getmtime(f'beta_py_files/client_uname_checker.py'), 'file': open(f'beta_py_files/client_uname_checker.py', 'rb').read()}
-        return python_files['client_uname_checker.py']['version'], python_files['client_uname_checker.py']['file']
-    elif file_id == '4':
-        if ('runner.py' not in python_files) or (path.getmtime(f'beta_py_files/runner.py') != python_files['runner.py']['version']):
-            python_files['runner.py'] = {'version': path.getmtime(f'beta_py_files/runner.py'), 'file': open(f'beta_py_files/runner.py', 'rb').read()}
-        return python_files['runner.py']['version'], python_files['runner.py']['file']
+    elif file_id == 'stable_1':
+        if ('vm_main.py' not in python_files['stable']) or (path.getmtime(f'py_files/stable/vm_main.py') != python_files['stable']['vm_main.py']['version']):
+            python_files['stable']['vm_main.py'] = {'version': path.getmtime(f'py_files/stable/vm_main.py'), 'file': open(f'py_files/stable/vm_main.py', 'rb').read()}
+        return python_files['stable']['vm_main.py']['version'], python_files['stable']['vm_main.py']['file']
+
+    elif file_id == 'stable_2':
+        if ('client_uname_checker.py' not in python_files['stable']) or (path.getmtime(f'py_files/stable/client_uname_checker.py') != python_files['stable']['client_uname_checker.py']['version']):
+            python_files['stable']['client_uname_checker.py'] = {'version': path.getmtime(f'py_files/stable/client_uname_checker.py'), 'file': open(f'py_files/stable/client_uname_checker.py', 'rb').read()}
+        return python_files['stable']['client_uname_checker.py']['version'], python_files['stable']['client_uname_checker.py']['file']
+
+    elif file_id == 'stable_3':
+        if ('runner.py' not in python_files['stable']) or (path.getmtime('py_files/stable/runner.py') != python_files['stable']['runner.py']['version']):
+            python_files['stable']['runner.py'] = {'version': path.getmtime('py_files/stable/runner.py'), 'file': open('py_files/stable/runner.py', 'rb').read()}
+        return python_files['stable']['runner.py']['version'], python_files['stable']['runner.py']['file']
+
+    elif file_id == 'stable_4':
+        if f'ngrok_direct.py' not in python_files['stable'] or (path.getmtime(f'py_files/stable/ngrok_direct.py') != python_files['stable'][f'ngrok_direct.py']['version']):
+            python_files['stable'][f'ngrok_direct.py'] = {'version': path.getmtime(f'py_files/stable/ngrok_direct.py'), 'file': open(f'py_files/stable/ngrok_direct.py', 'rb').read()}
+            python_files['stable'][f'ngrok_direct.py']['version'] = path.getmtime(f'py_files/stable/ngrok_direct.py')
+            python_files['stable'][f'ngrok_direct.py']['file'] = open(f'py_files/stable/ngrok_direct.py', 'rb').read()
+        return python_files['stable'][f'ngrok_direct.py']['version'], python_files['stable'][f'ngrok_direct.py']['file']
+
+    ####
+
+    elif file_id == 'beta_2':
+        if ('client_uname_checker.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/client_uname_checker.py') != python_files['beta']['client_uname_checker.py']['version']):
+            python_files['beta']['client_uname_checker.py'] = {'version': path.getmtime(f'py_files/beta/client_uname_checker.py'), 'file': open(f'py_files/beta/client_uname_checker.py', 'rb').read()}
+        return python_files['beta']['client_uname_checker.py']['version'], python_files['beta']['client_uname_checker.py']['file']
+    elif file_id == 'beta_3':
+        if ('runner.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/runner.py') != python_files['beta']['runner.py']['version']):
+            python_files['beta']['runner.py'] = {'version': path.getmtime(f'py_files/beta/runner.py'), 'file': open(f'py_files/beta/runner.py', 'rb').read()}
+        return python_files['beta']['runner.py']['version'], python_files['beta']['runner.py']['file']
 
     else:
         return None, None
 
 
 """
-stable
-8: 'user_host.exe'
+STABLE
+8 or stable_user_host: 'user_host.exe'
 """
 
 
 def return_other_file(file_id):
-    if file_id == '8':
-        if ('user_host.py' not in python_files) or (path.getmtime(f'stable_py_files/user_host.py') != python_files['user_host.py']['version']):
-            python_files['user_host.py'] = {'version': path.getmtime('stable_py_files/user_host.py'), 'file': open('stable_py_files/user_host.py', 'rb').read()}
+    if file_id == '8' or file_id == 'stable_user_host':
+        if ('user_host.py' not in python_files) or (path.getmtime(f'py_files/stable/user_host.py') != python_files['user_host.py']['version']):
+            python_files['user_host.py'] = {'version': path.getmtime('py_files/stable/user_host.py'), 'file': open('py_files/stable/user_host.py', 'rb').read()}
+            python_files['user_host.py'] = {'version': path.getmtime('py_files/stable/user_host.py'), 'file': open('py_files/stable/user_host.py', 'rb').read()}
             with open('other_files/requirements.txt', 'r') as requirement_file:
                 import pip
                 for item in requirement_file.readlines():
                     pip.main(['install', item.strip()])
-            system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/stable_py_files/user_host.py"')
-        if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
+        try:
+            if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
+                exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
+            return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
+        except:
+            with open('other_files/requirements.txt', 'r') as requirement_file:
+                import pip
+                for item in requirement_file.readlines():
+                    pip.main(['install', item.strip()])
+            system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
+            sleep(1)
             exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
-        return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
-
+            return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
     else:
         return None, None
 
 
 def return_img_file(image_name):
-    if not path.exists(f'{images_location}/{image_name}.PNG'):
+    if not path.exists(f'req_imgs/Windows/{image_name}.PNG') or '/' in image_name or '\\' in image_name:
         return None, None, None
-    if (image_name not in windows_img_files) or (path.getmtime(f'{images_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
-        windows_img_files[image_name] = {'version': path.getmtime(f'{images_location}/{image_name}.PNG'), 'file': Image.open(f'{images_location}/{image_name}.PNG')}
+    if (image_name not in windows_img_files) or (path.getmtime(f'req_imgs/Windows/{image_name}.PNG') != windows_img_files[image_name]['version']):
+        windows_img_files[image_name] = {'version': path.getmtime(f'req_imgs/Windows/{image_name}.PNG'), 'file': Image.open(f'req_imgs/Windows/{image_name}.PNG')}
     return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
 
 
@@ -749,15 +763,15 @@ def flask_operations(port):
     @app.route('/debug_data', methods=['GET'])
     def debug_data():
         return f"""
-Hardware:
+Hardware:</br>
 CPU: {host_cpu}</br>
 RAM: {host_ram}</br>
-
-Network:
-{network_out} Out
-{network_in} In
-
-Proxy:
+</br></br>
+Network:</br>
+{network_out} mbps Out</br>
+{network_in} mbps In</br>
+</br></br>
+Proxy:</br>
 No. of unique proxies found: {len(all_proxies_ever)}</br>
 No. of proxies waiting to be checked: {len(waiting_proxy_list)}</br>
 No. of working proxies: {len(working_proxy_list)}</br>
@@ -798,7 +812,7 @@ Links:</br>
 
     @app.route('/youtube_img')
     def _return_youtube_img():
-        return send_from_directory(directory=images_location, path='yt logo 2.PNG')
+        return send_from_directory(directory='req_imgs/Windows', path='yt logo 2.PNG')
 
     @app.route('/ip', methods=['GET'])
     def _return_global_ip():
@@ -884,11 +898,6 @@ Links:</br>
     @app.route('/current_user_host_main_version', methods=['GET'])
     def _return_user_host_main_version():
         return current_user_host_main_version
-
-
-    @app.route('/current_vm_main_version', methods=['GET'])
-    def _return_vm_main_version():
-        return current_vm_main_version
 
 
     @app.route('/user_load_links', methods=['GET'])

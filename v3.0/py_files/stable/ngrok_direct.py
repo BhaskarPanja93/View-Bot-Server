@@ -1,3 +1,4 @@
+print('instance')
 global_host_address = ()
 global_host_page = ''
 local_host_address = ()
