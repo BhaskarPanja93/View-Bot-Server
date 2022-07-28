@@ -859,51 +859,57 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
 
 
 def __fetch_image_from_global_host(img_name):
-    try:
-        if img_name in windows_img_files:
-            windows_img_files[img_name]['verified'] = None
-            version = windows_img_files[img_name]['version']
-        else:
-            windows_img_files[img_name]={'verified': None, 'version': 0}
-            version = 0
-        verify_global_host_site()
-        response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}").content
-        if response[0] == 123 and response[-1] == 125:
-            response = eval(response)
-            if response['img_name'] == img_name:
-                if response['version'] != version:
-                    windows_img_files[img_name] = {'data': response['data'], 'img_size': response['size'],'version': response['version'], 'verified':True}
-                else:
-                    windows_img_files[img_name]['verified'] = True
-        else:
-            _ = 1/0
-    except:
-        sleep(1)
-        __fetch_py_file_from_global_host(img_name)
+    for trial_count in range(500):
+        try:
+            if img_name in windows_img_files:
+                windows_img_files[img_name]['verified'] = None
+                version = windows_img_files[img_name]['version']
+            else:
+                windows_img_files[img_name]={'verified': None, 'version': 0}
+                version = 0
+            verify_global_host_site()
+            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}").content
+            if response[0] == 123 and response[-1] == 125:
+                response = eval(response)
+                if response['img_name'] == img_name:
+                    if response['version'] != version:
+                        windows_img_files[img_name] = {'data': response['data'], 'img_size': response['size'],'version': response['version'], 'verified':True}
+                    else:
+                        windows_img_files[img_name]['verified'] = True
+                    break
+            else:
+                _ = 1/0
+        except:
+            sleep(1)
+    else:
+        windows_img_files[img_name]={'verified': False, 'version': 0}
 
 
 def __fetch_py_file_from_global_host(file_code):
-    try:
-        if file_code in py_files:
-            py_files[file_code]['verified'] = None
-            version = py_files[file_code]['version']
-        else:
-            py_files[file_code]={'verified': None, 'version': 0}
-            version = 0
-        verify_global_host_site()
-        response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}").content
-        if response[0] == 123 and response[-1] == 125:
-            response = eval(response)
-            if response['file_code'] == str(file_code):
-                if response['version'] != version:
-                    py_files[file_code] = {'data':response['data'], 'verified':True}
-                else:
-                    py_files[file_code]['verified'] = True
-        else:
-            _ = 1/0
-    except:
-        sleep(1)
-        __fetch_py_file_from_global_host(file_code)
+    for trial_count in range(500):
+        try:
+            if file_code in py_files:
+                py_files[file_code]['verified'] = None
+                version = py_files[file_code]['version']
+            else:
+                py_files[file_code]={'verified': None, 'version': 0}
+                version = 0
+            verify_global_host_site()
+            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}").content
+            if response[0] == 123 and response[-1] == 125:
+                response = eval(response)
+                if response['file_code'] == str(file_code):
+                    if response['version'] != version:
+                        py_files[file_code] = {'data':response['data'], 'verified':True}
+                    else:
+                        py_files[file_code]['verified'] = True
+                    break
+            else:
+                _ = 1/0
+        except:
+            sleep(1)
+    else:
+        py_files[file_code]={'verified': False, 'version': 0}
 
 
 def invalidate_all_images(interval):

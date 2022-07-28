@@ -1,4 +1,4 @@
-current_user_host_main_version = '2.1.1'
+current_user_host_main_version = '2.3.1'
 current_vm_main_version = '0.0.0'
 
 while True:
@@ -9,6 +9,7 @@ while True:
         from flask import Flask, request, redirect, send_from_directory
         from werkzeug.security import generate_password_hash, check_password_hash
         from requests import get, post
+        from psutil import cpu_percent, virtual_memory, net_io_counters
         break
     except Exception as e:
         import pip
@@ -47,7 +48,29 @@ paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decod
 stable_file_location = 'stable_py_files'
 testing_py_files_location = 'testing_py_files'
 
-waiting_proxy_list, working_proxy_list = [], []
+all_proxies_ever, waiting_proxy_list, working_proxy_list = [], [], []
+proxies_currently_checking = 0
+proxies_finished_checking = 0
+proxy_retries = 0
+
+host_cpu = 0.0
+host_ram = 0.0
+network_in = 0.000
+network_out = 0.000
+
+def server_stats_updater():
+    global host_ram, host_cpu, network_out, network_in
+    while True:
+        host_cpu = cpu_percent()
+        host_ram = virtual_memory()[2]
+        old_net_stat = net_io_counters()
+        sleep(1)
+        new_net_stat = net_io_counters()
+        bits_out = new_net_stat.bytes_sent - old_net_stat.bytes_sent
+        bits_in = new_net_stat.bytes_recv - old_net_stat.bytes_recv
+        network_in = round((bits_in * 8) / 1024 / 1024, 3)
+        network_out = round((bits_out * 8) / 1024 / 1024, 3)
+
 
 def __send_to_connection(connection, data_bytes: bytes):
     connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
@@ -139,9 +162,19 @@ def password_matches_standard(password: str):
         return False
 
 
-def proxy_manager():
+active_tcp_tokens = {}
+def tcp_token_manager(ip, token):
+    active_tcp_tokens[token] = [ip, False]
+    for _ in range(30):
+        sleep(1)
+        if active_tcp_tokens[token][1]:
+            del active_tcp_tokens[token]
+            break
 
+
+def proxy_manager():
     def check_proxy_working():
+        global proxies_currently_checking, proxies_finished_checking, proxy_retries
         if not waiting_proxy_list:
             return
         proxy_text_to_send = ''
@@ -150,6 +183,7 @@ def proxy_manager():
             proxy = waiting_proxy_list.pop(0)
             temp_proxies_list.append(proxy)
             proxy_text_to_send += proxy + ','
+            proxies_currently_checking += 1
         else:
             proxy_text_to_send += '35.234.248.49:3128'
         try:
@@ -163,78 +197,77 @@ def proxy_manager():
                         if proxy in temp_proxies_list:
                             if proxy_dict['failed']:
                                 temp_proxies_list.remove(proxy)
+                                proxies_currently_checking -= 1
+                                proxies_finished_checking += 1
                             else:
                                 if proxy not in working_proxy_list:
                                     temp_proxies_list.remove(proxy)
                                     working_proxy_list.append(proxy)
+                                    proxies_currently_checking -= 1
+                                    proxies_finished_checking += 1
                 except:
-                    pass
+                    proxy_retries += 1
         except:
+            proxy_retries += 1
             for proxy in temp_proxies_list:
-                if proxy not in waiting_proxy_list:
-                    waiting_proxy_list.append(proxy)
+                proxies_currently_checking -= 1
+                waiting_proxy_list.append(proxy)
             return
 
-    def fetch_new_proxies():
+    def reset_all_proxies_list():
+        global all_proxies_ever
+        while True:
+            sleep(60*60*6)
+            all_proxies_ever = []
+
+
+    def recheck_old_proxies():
+        while True:
+            sleep(60*10)
+            if len(working_proxy_list) > 100:
+                for _ in range(len(working_proxy_list)//2):
+                    waiting_proxy_list.append(working_proxy_list.pop(0))
+
+    def fetch_proxies():
         while True:
             ### normal links (IP:PORT format)
             normal_links = """https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
-            https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt
-            https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt
-            https://raw.githubusercontent.com/shiftytr/proxy-list/master/proxy.txt
-            https://raw.githubusercontent.com/manuGMG/proxy-365/main/SOCKS5.txt
-            https://raw.githubusercontent.com/HyperBeats/proxy-list/main/http.txt
-            https://raw.githubusercontent.com/HyperBeats/proxy-list/main/socks4.txt
-            https://raw.githubusercontent.com/HyperBeats/proxy-list/main/socks5.txt
-            https://raw.githubusercontent.com/mertguvencli/http-proxy-list/main/proxy-list/data.txt
-            https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt
-            https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks4.txt
-            https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt
-            https://raw.githubusercontent.com/Volodichev/proxy-list/main/http.txt
-            https://raw.githubusercontent.com/RX4096/proxy-list/main/online/all.txt
-            https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt
-            https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4_RAW.txt
-            https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt
-            https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/all.txt
-            https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/raw.txt
-            https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt
-            https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/http.txt
-            https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks4.txt
-            https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt
-            https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/http.txt
-            https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks4.txt
-            https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt
-            https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt
-            https://raw.githubusercontent.com/jetkai/proxy-list/main/archive/txt/proxies.txt
-            https://raw.githubusercontent.com/ITProxy/Ban_Proxies/main/proxies_of_all_countries.txt
-            https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt"""
+https://raw.githubusercontent.com/HyperBeats/proxy-list/main/http.txt
+https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt
+https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt
+https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/http.txt
+https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/http.txt
+https://raw.githubusercontent.com/RX4096/proxy-list/main/online/all.txt
+https://raw.githubusercontent.com/mertguvencli/http-proxy-list/main/proxy-list/data.txt
+https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/HTTP.txt
+https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/https.txt
+https://raw.githubusercontent.com/proxy4parsing/proxy-list/main/http.txt
+https://raw.githubusercontent.com/mmpx12/proxy-list/master/http.txt
+https://raw.githubusercontent.com/mmpx12/proxy-list/master/https.txt
+https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/http.txt
+https://raw.githubusercontent.com/almroot/proxylist/master/list.txt
+https://www.proxy-list.download/api/v1/get?type=http&anon=elite
+https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=elite
+https://www.proxyscan.io/api/proxy?last_check=6000&limit=20&type=http,https&format=txt
+https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
             for link in normal_links.splitlines():
                 try:
-                    html_data = get(link).text.splitlines()
+                    html_data = get(link.strip()).text.splitlines()
                     for _line in html_data:
-                        if _line not in waiting_proxy_list:
+                        if _line not in all_proxies_ever:
                             waiting_proxy_list.append(_line)
+                            all_proxies_ever.append(_line)
                 except:
                     pass
-
-            ### special links dictionary or other apis
-            try:
-                html_data = get("https://raw.githubusercontent.com/fate0/proxylist/master/proxy.list").text
-                dict_list = html_data.splitlines()
-                for line in dict_list:
-                    _dict = eval(line)
-                    proxy = f"{_dict['host']}:{_dict['port']}"
-                    if proxy not in waiting_proxy_list:
-                        waiting_proxy_list.append(proxy)
-            except:
-                pass
             sleep(10 * 60)
 
-    Thread(target=fetch_new_proxies).start()
+    Thread(target=fetch_proxies).start()
+    Thread(target=recheck_old_proxies).start()
+    Thread(target=reset_all_proxies_list).start()
     sleep(2)
     while True:
         Thread(target=check_proxy_working).start()
-        sleep(5)
+        sleep(2)
 
 
 def user_host_manager(connection):
@@ -623,107 +656,134 @@ def accept_connections_from_users(port):
         Thread(target=acceptor).start()
 
 
-active_tcp_tokens = {}
-def tcp_token_manager(ip, token):
-    active_tcp_tokens[token] = [ip, False]
-    for _ in range(30):
-        sleep(1)
-        if active_tcp_tokens[token][1]:
-            del active_tcp_tokens[token]
-            break
-
-
 python_files = {}
 windows_img_files = {}
 text_files = {}
 exe_files = {}
+
+def return_adfly_link_page(u_name):
+    data = ''
+    for para_length in range(randrange(100, 400)):
+        data += choice(paragraph_lines) + '.'
+        if randrange(0, 5) == 1:
+            data += f"<a href='/adf_link_click?u_name={u_name}&random={generate_random_string(1, 10)}'> CLICK HERE </a>"
+    html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
+    return html_data
+
+
+"""
+stable 
+
+5:'client_uname_checker'
+1:'runner',
+2:'ngrok_instance',
+BETA
+3:'client_uname_checker'
+4:'runner'
+"""
+
+
+def return_py_file(file_id):
+    if file_id == '1':
+        if ('runner.py' not in python_files) or (path.getmtime('stable_py_files/runner.py') != python_files['runner.py']['version']):
+            python_files['runner.py'] = {'version': path.getmtime('stable_py_files/runner.py'), 'file': open('stable_py_files/runner.py', 'rb').read()}
+        return python_files['runner.py']['version'], python_files['runner.py']['file']
+    elif file_id == '2':
+        if f'ngrok_direct.py' not in python_files or (path.getmtime(f'stable_py_files/ngrok_direct.py') != python_files[f'ngrok_direct.py']['version']):
+            python_files[f'ngrok_direct.py'] = {'version': path.getmtime(f'stable_py_files/ngrok_direct.py'), 'file': open(f'stable_py_files/ngrok_direct.py', 'rb').read()}
+            python_files[f'ngrok_direct.py']['version'] = path.getmtime(f'stable_py_files/ngrok_direct.py')
+            python_files[f'ngrok_direct.py']['file'] = open(f'stable_py_files/ngrok_direct.py', 'rb').read()
+        return python_files[f'ngrok_direct.py']['version'], python_files[f'ngrok_direct.py']['file']
+    elif file_id == '5':
+        if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'stable_py_files/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
+            python_files['client_uname_checker.py'] = {'version': path.getmtime(f'stable_py_files/client_uname_checker.py'), 'file': open(f'stable_py_files/client_uname_checker.py', 'rb').read()}
+        return python_files['client_uname_checker.py']['version'], python_files['client_uname_checker.py']['file']
+
+    elif file_id == '3':
+        if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'beta_py_files/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
+            python_files['client_uname_checker.py'] = {'version': path.getmtime(f'beta_py_files/client_uname_checker.py'), 'file': open(f'beta_py_files/client_uname_checker.py', 'rb').read()}
+        return python_files['client_uname_checker.py']['version'], python_files['client_uname_checker.py']['file']
+    elif file_id == '4':
+        if ('runner.py' not in python_files) or (path.getmtime(f'beta_py_files/runner.py') != python_files['runner.py']['version']):
+            python_files['runner.py'] = {'version': path.getmtime(f'beta_py_files/runner.py'), 'file': open(f'beta_py_files/runner.py', 'rb').read()}
+        return python_files['runner.py']['version'], python_files['runner.py']['file']
+
+    else:
+        return None, None
+
+
+"""
+stable
+8: 'user_host.exe'
+"""
+
+
+def return_other_file(file_id):
+    if file_id == '8':
+        if ('user_host.py' not in python_files) or (path.getmtime(f'stable_py_files/user_host.py') != python_files['user_host.py']['version']):
+            python_files['user_host.py'] = {'version': path.getmtime('stable_py_files/user_host.py'), 'file': open('stable_py_files/user_host.py', 'rb').read()}
+            with open('other_files/requirements.txt', 'r') as requirement_file:
+                import pip
+                for item in requirement_file.readlines():
+                    pip.main(['install', item.strip()])
+            system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/stable_py_files/user_host.py"')
+        if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
+            exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
+        return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
+
+    else:
+        return None, None
+
+
+def return_img_file(image_name):
+    if not path.exists(f'{images_location}/{image_name}.PNG'):
+        return None, None, None
+    if (image_name not in windows_img_files) or (path.getmtime(f'{images_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
+        windows_img_files[image_name] = {'version': path.getmtime(f'{images_location}/{image_name}.PNG'), 'file': Image.open(f'{images_location}/{image_name}.PNG')}
+    return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
+
+
 def flask_operations(port):
     app = Flask(__name__, template_folder=getcwd() + '/templates/')
 
-    def return_adfly_link_page(u_name):
-        data = ''
-        for para_length in range(randrange(100, 400)):
-            data += choice(paragraph_lines) + '.'
-            if randrange(0, 5) == 1:
-                data += f"<a href='/adf_link_click?u_name={u_name}&random={generate_random_string(1, 10)}'> CLICK HERE </a>"
-        html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
-        return html_data
+    @app.route('/debug_data', methods=['GET'])
+    def debug_data():
+        return f"""
+Hardware:
+CPU: {host_cpu}</br>
+RAM: {host_ram}</br>
 
-    """
-    stable 
-    5:'client_uname_checker'
-    1:'runner',
-    2:'ngrok_instance',
-    BETA
-    3:'client_uname_checker'
-    4:'runner'
-    """
+Network:
+{network_out} Out
+{network_in} In
 
-    def return_py_file(file_id):
-        if file_id == '1':
-            if ('runner.py' not in python_files) or (path.getmtime('stable_py_files/runner.py') != python_files['runner.py']['version']):
-                python_files['runner.py'] = {'version': path.getmtime('stable_py_files/runner.py'), 'file': open('stable_py_files/runner.py', 'rb').read()}
-            return python_files['runner.py']['version'], python_files['runner.py']['file']
-        elif file_id == '2':
-            if f'ngrok_direct.py' not in python_files or (path.getmtime(f'stable_py_files/ngrok_direct.py') != python_files[f'ngrok_direct.py']['version']):
-                python_files[f'ngrok_direct.py'] = {'version': path.getmtime(f'stable_py_files/ngrok_direct.py'), 'file': open(f'stable_py_files/ngrok_direct.py', 'rb').read()}
-                python_files[f'ngrok_direct.py']['version'] = path.getmtime(f'stable_py_files/ngrok_direct.py')
-                python_files[f'ngrok_direct.py']['file'] = open(f'stable_py_files/ngrok_direct.py', 'rb').read()
-            return python_files[f'ngrok_direct.py']['version'], python_files[f'ngrok_direct.py']['file']
-        elif file_id == '5':
-            if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'stable_py_files/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
-                python_files['client_uname_checker.py'] = { 'version': path.getmtime(f'stable_py_files/client_uname_checker.py'), 'file': open(f'stable_py_files/client_uname_checker.py', 'rb').read()}
-            return python_files['client_uname_checker.py']['version'], python_files['client_uname_checker.py']['file']
-
-        elif file_id == '3':
-            if ('client_uname_checker.py' not in python_files) or (path.getmtime(f'beta_py_files/client_uname_checker.py') != python_files['client_uname_checker.py']['version']):
-                python_files['client_uname_checker.py'] = { 'version': path.getmtime(f'beta_py_files/client_uname_checker.py'), 'file': open(f'beta_py_files/client_uname_checker.py', 'rb').read()}
-            return python_files['client_uname_checker.py']['version'], python_files['client_uname_checker.py']['file']
-        elif file_id == '4':
-            if ('runner.py' not in python_files) or (path.getmtime(f'beta_py_files/runner.py') != python_files['runner.py']['version']):
-                python_files['runner.py'] = { 'version': path.getmtime(f'beta_py_files/runner.py'), 'file': open(f'beta_py_files/runner.py', 'rb').read()}
-            return python_files['runner.py']['version'], python_files['runner.py']['file']
-
-        else:
-            return None, None
-
-    """
-    stable
-    8: 'user_host.exe'
-    """
-
-    def return_other_file(file_id):
-        if file_id == '8':
-            if ('user_host.py' not in python_files) or (path.getmtime(f'stable_py_files/user_host.py') != python_files['user_host.py']['version']):
-                python_files['user_host.py'] = {'version': path.getmtime('stable_py_files/user_host.py'), 'file': open('stable_py_files/user_host.py', 'rb').read()}
-                with open('other_files/requirements.txt', 'r') as requirement_file:
-                    import pip
-                    for item in requirement_file.readlines():
-                        pip.main(['install', item.strip()])
-                system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/stable_py_files/user_host.py"')
-            if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
-                exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
-            return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
-
-        else:
-            return None, None
-
-
-    def return_img_file(image_name):
-        if not path.exists(f'{images_location}/{image_name}.PNG'):
-            return None, None, None
-
-        if (image_name not in windows_img_files) or (path.getmtime(f'{images_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
-            windows_img_files[image_name] = {'version': path.getmtime(f'{images_location}/{image_name}.PNG'), 'file': Image.open(f'{images_location}/{image_name}.PNG')}
-        return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
-
+Proxy:
+No. of unique proxies found: {len(all_proxies_ever)}</br>
+No. of proxies waiting to be checked: {len(waiting_proxy_list)}</br>
+No. of working proxies: {len(working_proxy_list)}</br>
+No. of proxies currently checking: {proxies_currently_checking}</br>
+No. of proxies checked: {proxies_finished_checking}</br>
+Proxy check retries: {proxy_retries}</br>
+"""
 
     @app.route('/')
     def _return_root_url():
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
-        return f"IP: {ip}</br>This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>>  Here  <</a>"
+        return f"""
+IP: {ip}</br>
+This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>>  Here  <</a></br>
+Links:</br>
+<a href='/ping/'>>  Ping Server  <</a></br>
+<a href='/favicon.ico'>>  Icon  <</a></br>
+<a href='/youtube_img'>>  YT img  <</a></br>
+<a href='/ip'>>  Your IP  <</a></br>
+<a href='/proxy_list'>>  Working proxies  <</a></br>
+<a href='/current_user_host_main_version'>>  User Host Main version  <</a></br>
+<a href='/current_vm_main_version'>>  VM Main version  <</a></br>
+<a href='/debug_data'>>  Developer debug data  <</a></br>
+"""
 
 
     @app.route('/ping/', methods=['GET'])
@@ -739,6 +799,13 @@ def flask_operations(port):
     @app.route('/youtube_img')
     def _return_youtube_img():
         return send_from_directory(directory=images_location, path='yt logo 2.PNG')
+
+    @app.route('/ip', methods=['GET'])
+    def _return_global_ip():
+        ip = request.remote_addr
+        if not ip or ip == '127.0.0.1':
+            ip = request.environ['HTTP_X_FORWARDED_FOR']
+        return ip
 
 
     @app.route('/py_files', methods=["GET"])
@@ -789,14 +856,6 @@ def flask_operations(port):
             return str({'img_name': img_name, 'version': current_version})
         else:
             return str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
-
-
-    @app.route('/ip', methods=['GET'])
-    def _return_global_ip():
-        ip = request.remote_addr
-        if not ip or ip == '127.0.0.1':
-            ip = request.environ['HTTP_X_FORWARDED_FOR']
-        return ip
 
 
     @app.route('/token_for_tcp_connection', methods=['GET'])
@@ -868,6 +927,7 @@ def flask_operations(port):
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
+Thread(target=server_stats_updater).start()
 Thread(target=proxy_manager).start()
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=flask_operations, args=(port,)).start()
