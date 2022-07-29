@@ -32,6 +32,9 @@ reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke',
 parent, _ = path.split(path.split(getcwd())[0])
 read_only_location = path.join(parent, 'read only')
 
+parent, _ = path.split(getcwd())
+img_location = path.join(parent, 'req_imgs/Windows')
+
 HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1))
 USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1))
 
@@ -750,10 +753,10 @@ def return_other_file(file_id):
 
 
 def return_img_file(image_name):
-    if not path.exists(f'req_imgs/Windows/{image_name}.PNG') or '/' in image_name or '\\' in image_name:
+    if not path.exists(f'{img_location}/{image_name}.PNG') or '/' in image_name or '\\' in image_name:
         return None, None, None
-    if (image_name not in windows_img_files) or (path.getmtime(f'req_imgs/Windows/{image_name}.PNG') != windows_img_files[image_name]['version']):
-        windows_img_files[image_name] = {'version': path.getmtime(f'req_imgs/Windows/{image_name}.PNG'), 'file': Image.open(f'req_imgs/Windows/{image_name}.PNG')}
+    if (image_name not in windows_img_files) or (path.getmtime(f'{img_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
+        windows_img_files[image_name] = {'version': path.getmtime(f'{img_location}/{image_name}.PNG'), 'file': Image.open(f'{img_location}/{image_name}.PNG')}
     return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
 
 
@@ -795,7 +798,6 @@ Links:</br>
 <a href='/ip'>>  Your IP  <</a></br>
 <a href='/proxy_list'>>  Working proxies  <</a></br>
 <a href='/current_user_host_main_version'>>  User Host Main version  <</a></br>
-<a href='/current_vm_main_version'>>  VM Main version  <</a></br>
 <a href='/debug_data'>>  Developer debug data  <</a></br>
 """
 
@@ -812,7 +814,7 @@ Links:</br>
 
     @app.route('/youtube_img')
     def _return_youtube_img():
-        return send_from_directory(directory='req_imgs/Windows', path='yt logo 2.PNG')
+        return send_from_directory(directory=img_location, path='yt logo 2.PNG')
 
     @app.route('/ip', methods=['GET'])
     def _return_global_ip():
