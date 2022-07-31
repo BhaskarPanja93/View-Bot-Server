@@ -184,8 +184,8 @@ def proxy_manager():
             proxy_text_to_send += '35.234.248.49:3128'
         try:
             _id = post('https://api.proxyscan.io', timeout=15, data={'proxies': proxy_text_to_send}).text.replace('"', '')
-            for _ in range(300):
-                sleep(5)
+            for _ in range(100):
+                sleep(10)
                 try:
                     html_data = eval(get(f"https://api.proxyscan.io/?id={_id}", timeout=15).text.replace('null', 'None').replace('true', 'True').replace('false', 'False'))
                     for proxy_dict in html_data:
@@ -213,7 +213,7 @@ def proxy_manager():
     def reset_all_proxies_list():
         global all_proxies_ever
         while True:
-            sleep(60*60*6)
+            sleep(60*60)
             all_proxies_ever = []
 
 
@@ -226,6 +226,12 @@ def proxy_manager():
 
     def fetch_proxies():
         while True:
+            response_html = get("https://free-proxy-list.net/").text.splitlines()
+            for _line in response_html:
+                if _line.count(".") == 3 and _line.count(':') == 1:
+                    if _line not in all_proxies_ever:
+                        waiting_proxy_list.append(_line)
+                        all_proxies_ever.append(_line)
             ### normal links (IP:PORT format)
             normal_links = """https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
 https://raw.githubusercontent.com/HyperBeats/proxy-list/main/http.txt
@@ -790,15 +796,17 @@ Proxy check retries: {proxy_retries}</br>
             ip = request.environ['HTTP_X_FORWARDED_FOR']
         return f"""
 IP: {ip}</br>
-This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>>  Here  <</a></br>
+This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
-<a href='/ping/'>>  Ping Server  <</a></br>
-<a href='/favicon.ico'>>  Icon  <</a></br>
-<a href='/youtube_img'>>  YT img  <</a></br>
-<a href='/ip'>>  Your IP  <</a></br>
-<a href='/proxy_list'>>  Working proxies  <</a></br>
-<a href='/current_user_host_main_version'>>  User Host Main version  <</a></br>
-<a href='/debug_data'>>  Developer debug data  <</a></br>
+
+<a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
+<a href='/ping/'>=>  Ping Server  </a></br>
+<a href='/favicon.ico'>=>  Icon  </a></br>
+<a href='/youtube_img'>=>  YT img  </a></br>
+<a href='/ip'>=>  Your IP  </a></br>
+<a href='/proxy_list'>=>  Working proxies  </a></br>
+<a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
+<a href='/debug_data'>=>  Developer debug data  </a></br>
 """
 
 
