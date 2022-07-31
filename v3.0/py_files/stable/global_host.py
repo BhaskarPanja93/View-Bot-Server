@@ -226,12 +226,15 @@ def proxy_manager():
 
     def fetch_proxies():
         while True:
-            response_html = get("https://free-proxy-list.net/").text.splitlines()
-            for _line in response_html:
-                if _line.count(".") == 3 and _line.count(':') == 1:
-                    if _line not in all_proxies_ever:
-                        waiting_proxy_list.append(_line)
-                        all_proxies_ever.append(_line)
+            try:
+                response_html = get("https://free-proxy-list.net/").text.splitlines()
+                for _line in response_html:
+                    if _line.count(".") == 3 and _line.count(':') == 1:
+                        if _line not in all_proxies_ever:
+                            waiting_proxy_list.append(_line)
+                            all_proxies_ever.append(_line)
+            except:
+                pass
             ### normal links (IP:PORT format)
             normal_links = """https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
 https://raw.githubusercontent.com/HyperBeats/proxy-list/main/http.txt
@@ -731,29 +734,28 @@ STABLE
 8 or stable_user_host: 'user_host.exe'
 """
 
+def recreate_user_host_exe():
+    with open('other_files/requirements.txt', 'r') as requirement_file:
+        import pip
+        for item in requirement_file.readlines():
+            pip.main(['install', item.strip()])
+    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
+    exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
+    sleep(1)
+
 
 def return_other_file(file_id):
     if file_id == '8' or file_id == 'stable_user_host':
         if ('user_host.py' not in python_files) or (path.getmtime(f'py_files/stable/user_host.py') != python_files['user_host.py']['version']):
             python_files['user_host.py'] = {'version': path.getmtime('py_files/stable/user_host.py'), 'file': open('py_files/stable/user_host.py', 'rb').read()}
-            python_files['user_host.py'] = {'version': path.getmtime('py_files/stable/user_host.py'), 'file': open('py_files/stable/user_host.py', 'rb').read()}
-            with open('other_files/requirements.txt', 'r') as requirement_file:
-                import pip
-                for item in requirement_file.readlines():
-                    pip.main(['install', item.strip()])
+            recreate_user_host_exe()
         try:
             if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
                 exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
             return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
         except:
-            with open('other_files/requirements.txt', 'r') as requirement_file:
-                import pip
-                for item in requirement_file.readlines():
-                    pip.main(['install', item.strip()])
-            system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
-            sleep(1)
-            exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
-            return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
+            recreate_user_host_exe()
+        return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
     else:
         return None, None
 
@@ -837,7 +839,7 @@ Links:</br>
         file_code = request.args.get("file_code")
         current_version, data = return_py_file(file_code)
         if not data:
-            return ' '
+            return str({'file_code': "-100"})
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:
@@ -853,7 +855,7 @@ Links:</br>
         file_code = request.args.get("file_code")
         current_version, data = return_other_file(file_code)
         if not data:
-            return ' '
+            return str({'file_code': "-100"})
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:
@@ -868,10 +870,10 @@ Links:</br>
     def _return_img_files():
         img_name = request.args.get("img_name")
         if '/' in img_name or '\\' in img_name:
-            return ' '
+            return str({'img_name': "-100"})
         current_version, data, size = return_img_file(img_name)
         if not data:
-            return ' '
+            return str({'img_name': "-100"})
         if 'version' in request.args and request.args.get('version'):
             version = float(request.args.get('version'))
         else:

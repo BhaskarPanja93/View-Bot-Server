@@ -68,6 +68,7 @@ def update_github():
     except:
         update_github()
 
+
 def url_checker(ngrok, url, _key):
     error_count = 0
     while True:
@@ -78,11 +79,11 @@ def url_checker(ngrok, url, _key):
             else:
                 error_count += 1
         except:
+            print(f"[{error_count+1}/5] [{_key}] [{url}] failed a heartbeat")
             error_count += 1
-
         if error_count >= 5:
             ngrok.disconnect(url)
-            print(f"[{_key}] {url} removed because it is unreachable")
+            print(f"[{_key}] [{url}] removed because it is unreachable")
             if url in final_dict_to_show_on_github[_key]:
                 final_dict_to_show_on_github[_key].remove(url)
             return
@@ -109,11 +110,12 @@ def tcp_checker(ngrok, url, _key):
             else:
                 _ = 1/0
         except:
+            print(f"[{error_count+1}/3] [{_key}] [{url}] failed a heartbeat")
             error_count += 1
 
         if error_count >= 3:
             ngrok.disconnect(url)
-            print(f"[{_key}] {url} removed because it is unreachable")
+            print(f"[{_key}] [{url}] removed because it is unreachable")
             if url in final_dict_to_show_on_github[_key]:
                 final_dict_to_show_on_github[_key].remove(url)
             return
@@ -133,6 +135,7 @@ def ngrok_user_connection(port):
             tcp_checker(ngrok, user_connection, 'adfly_user_tcp_connection_list')
         except:
             ngrok_user_connection(port)
+            return
 
 
 def ngrok_host_page(port):
@@ -149,9 +152,10 @@ def ngrok_host_page(port):
             url_checker(ngrok, host_url, 'adfly_host_page_list')
         except:
             ngrok_host_page(port)
+            return
 
 
-def minecraft_connection(port):
+def ngrok_minecraft_connection(port):
     while True:
         try:
             from pyngrok import ngrok, conf
@@ -164,15 +168,16 @@ def minecraft_connection(port):
             update_github()
             break
         except:
-            ngrok_user_connection(port)
+            ngrok_minecraft_connection(port)
+            return
 
 
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=ngrok_host_page, args=(port,)).start()
-    sleep(1.5)
+    sleep(2)
 for port in USER_CONNECTION_PORT_LIST:
     Thread(target=ngrok_user_connection, args=(port,)).start()
-    sleep(1.5)
+    sleep(2)
 for port in MINECRAFT_CONNECTION_PORT_LIST:
-    Thread(target=minecraft_connection, args=(port,)).start()
-    sleep(1.5)
+    Thread(target=ngrok_minecraft_connection, args=(port,)).start()
+    sleep(2)
