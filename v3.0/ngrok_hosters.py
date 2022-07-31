@@ -3,6 +3,7 @@ from threading import Thread
 from time import sleep
 import socket
 from requests import get
+from ping3 import ping
 
 final_dict_to_show_on_github = {'adfly_host_page_list':[], 'adfly_user_tcp_connection_list':[], 'minecraft_connection_list':[]}
 
@@ -73,14 +74,16 @@ def url_checker(ngrok, url, _key):
     error_count = 0
     while True:
         sleep(2)
+        if type(ping('8.8.8.8')) != float:
+            continue
         try:
             if get(f"{url}/ping").text == 'ping':
                 error_count = 0
             else:
                 error_count += 1
         except:
-            print(f"[{error_count+1}/5] [{_key}] [{url}] failed a heartbeat")
             error_count += 1
+            print(f"[{error_count}/5] [{_key}] [{url}] failed a heartbeat")
         if error_count >= 5:
             ngrok.disconnect(url)
             print(f"[{_key}] [{url}] removed because it is unreachable")
@@ -95,6 +98,8 @@ def tcp_checker(ngrok, url, _key):
     error_count = 0
     while True:
         sleep(2)
+        if type(ping('8.8.8.8')) != float:
+            continue
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             connection.connect((_ip, _port))
@@ -110,9 +115,8 @@ def tcp_checker(ngrok, url, _key):
             else:
                 _ = 1/0
         except:
-            print(f"[{error_count+1}/3] [{_key}] [{url}] failed a heartbeat")
             error_count += 1
-
+            print(f"[{error_count}/3] [{_key}] [{url}] failed a heartbeat")
         if error_count >= 3:
             ngrok.disconnect(url)
             print(f"[{_key}] [{url}] removed because it is unreachable")

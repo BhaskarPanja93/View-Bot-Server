@@ -23,6 +23,7 @@ import socket
 from random import choice, randrange
 from threading import Thread
 from time import sleep, time
+
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
 server_start_time = time()
 
