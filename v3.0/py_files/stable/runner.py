@@ -190,21 +190,7 @@ def __get_global_ip(trial = 0):
                 return popen(f"curl {global_host_page}/ip").read()
         except:
             sleep(1)
-    try:
-        return popen("curl http://checkip.dyndns.org").read().split(': ', 1)[1].split('</body></html>', 1)[0]
-    except:
-        try:
-            return eval(popen("curl https://jsonip.com/").read())["ip"]
-        except:
-            try:
-                popen('curl https://whatismyipaddress.com/').read().split("Your IP</span>: ")[-1].split("</span>")[0]
-            except:
-                try:
-                    tokens = ['1c2b2492f5a877', '1f7618d92d4e2a', 'cd9ab345f3808f', '0a7ccd07fc681e', 'ab1ebf3eadd073', '9962cf0bb58406', '80680bd2126db9', '320f04c218efc6', 'c09284712fb9bf', 'b6b15de8d6b57d', 'd485675cb2fa9b', 'cf1d7004288741', '226b5f51917215', '8490ecefbd6cd3', '49455ef8931ebc', 'b6fbe34547c0b3', '9e39df3ddc5496', 'c17e8bbfc9452d', '965f9effaccc57', '4848f4807a3adb', '771e5d76de0edd', '3c1d90e97b0d57', '72fad79fdbfbea', 'f13675a0178340', '3cab6aa6ee3efd']
-                    return eval(popen(f"curl https://ipinfo.io/json?token={choice(tokens)}").read())["ip"]
-                except:
-                    sleep(1)
-                    return __get_global_ip(trial)
+    return __get_global_ip(trial+1)
 
 
 def run_instance(instance_name):

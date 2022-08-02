@@ -1,4 +1,4 @@
-current_user_host_main_version = '2.3.1'
+current_user_host_main_version = '2.3.2'
 
 while True:
     try:
@@ -22,7 +22,11 @@ from os import path, getcwd, system as system_caller
 import socket
 from random import choice, randrange
 from threading import Thread
-from time import sleep, time
+from time import sleep, time, ctime
+import logging
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
 server_start_time = time()
@@ -105,6 +109,21 @@ def __try_closing_connection(connection):
             connection.close()
         except:
             pass
+
+
+def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
+    if ip in known_ips:
+        u_name = known_ips[ip]
+    else:
+        known_ips[ip] = []
+        u_name = known_ips[ip]
+    print(f"\n[{round(processing_time*1000, 2)}ms] [{ip}] {u_name} [{request_type}] {additional_data}")
+
+
+def debug_data(data:str):
+    data_to_write = f"[{ctime()}] {data}\n"
+    with open("other_files/debug.txt", "a") as debug_file:
+        debug_file.write(data_to_write)
 
 
 def generate_random_string(_min, _max):
@@ -276,7 +295,7 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
         sleep(2)
 
 
-def user_host_manager(connection):
+def host_manager(ip, connection):
     response_string = __receive_from_connection(connection).strip()
     if response_string and response_string[0] == 123 and response_string[-1] == 125:
         response_dict = eval(response_string)
@@ -298,6 +317,8 @@ def user_host_manager(connection):
                     db_connection.commit()
                     instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
+                    if u_name not in known_ips[ip]:
+                        known_ips[ip].append(u_name)
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password weak
@@ -328,6 +349,8 @@ def user_host_manager(connection):
                     db_connection.commit()
                     instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
+                    if u_name not in known_ips[ip]:
+                        known_ips[ip].append(u_name)
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password wrong
@@ -358,6 +381,8 @@ def user_host_manager(connection):
                     new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
                     db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
                     db_connection.commit()
+                    if u_name not in known_ips[ip]:
+                        known_ips[ip].append(u_name)
                     data_to_be_sent = {'status_code': 0, 'additional_data': {'auth_token': auth_token}}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # auth token wrong
@@ -378,7 +403,7 @@ def user_host_manager(connection):
         _ = 1 / 0
 
 
-def user_login_manager(connection):
+def user_manager(ip, connection):
     u_name = None
     login_success = False
     expected_token = generate_random_string(10, 20)
@@ -410,6 +435,8 @@ def user_login_manager(connection):
                                 network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
                                 db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
                                 db_connection.commit()
+                                if u_name not in known_ips[ip]:
+                                    known_ips[ip].append(u_name)
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': {}, 'total_views': 0, 'network_adapters': []}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -442,6 +469,8 @@ def user_login_manager(connection):
                                 except:
                                     network_adapters = []
                                 total_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
+                                if u_name not in known_ips[ip]:
+                                    known_ips[ip].append(u_name)
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': old_ids, 'total_views': total_views, 'network_adapters': network_adapters}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -544,7 +573,6 @@ def accept_connections_from_users(port):
             return
         purpose = received_data['purpose']
         try:
-
             db_connection.commit()
             if purpose == 'ping':
                 data_to_be_sent = {'ping': 'ping'}
@@ -578,21 +606,23 @@ def accept_connections_from_users(port):
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
                     public_ip = active_tcp_tokens[binding_token][0]
-                    print(public_ip)
+                    request_type = 'host_authentication'
+                    log_data(public_ip, request_type, 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
                     return
-                user_host_manager(connection)
+                host_manager(public_ip, connection)
 
             elif purpose == 'user_authentication':
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
                     public_ip = active_tcp_tokens[binding_token][0]
-                    print(public_ip)
+                    request_type = 'user_authentication'
+                    log_data(public_ip, request_type, 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
                     return
-                user_login_manager(connection)
+                user_manager(public_ip, connection)
 
             elif purpose == 'fetch_network_adapters':
                 received_u_name = received_data['u_name'].lower().strip()
@@ -768,13 +798,19 @@ def return_img_file(image_name):
         windows_img_files[image_name] = {'version': path.getmtime(f'{img_location}/{image_name}.PNG'), 'file': Image.open(f'{img_location}/{image_name}.PNG')}
     return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
 
-
+known_ips = {}
 def flask_operations(port):
     app = Flask(__name__, template_folder=getcwd() + '/templates/')
 
     @app.route('/debug_data', methods=['GET'])
     def debug_data():
-        return f"""
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/debug_data'
+        request_start_time = time()
+
+        return_data = f"""<meta http-equiv = "refresh" content = "1; url = /debug_data" />
 Hardware:</br>
 CPU: {host_cpu}</br>
 RAM: {host_ram}</br>
@@ -791,17 +827,25 @@ No. of proxies currently checking: {proxies_currently_checking}</br>
 No. of proxies checked: {proxies_finished_checking}</br>
 Proxy check retries: {proxy_retries}</br>
 """
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time)
+        return return_data
 
     @app.route('/')
     def _return_root_url():
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/'
+        request_start_time = time()
+
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
-        return f"""
+        return_data = f"""
 IP: {ip}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
-
 <a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
 <a href='/ping/'>=>  Ping Server  </a></br>
 <a href='/favicon.ico'>=>  Icon  </a></br>
@@ -811,7 +855,9 @@ Links:</br>
 <a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
 <a href='/debug_data'>=>  Developer debug data  </a></br>
 """
-
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time)
+        return return_data
 
     @app.route('/ping/', methods=['GET'])
     def _return_ping():
@@ -827,6 +873,7 @@ Links:</br>
     def _return_youtube_img():
         return send_from_directory(directory=img_location, path='yt logo 2.PNG')
 
+
     @app.route('/ip', methods=['GET'])
     def _return_global_ip():
         ip = request.remote_addr
@@ -837,6 +884,12 @@ Links:</br>
 
     @app.route('/py_files', methods=["GET"])
     def _return_py_files():
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/py_files'
+        request_start_time = time()
+
         file_code = request.args.get("file_code")
         current_version, data = return_py_file(file_code)
         if not data:
@@ -846,13 +899,23 @@ Links:</br>
         else:
             version = 0
         if version == current_version:
-            return str({'file_code': file_code, 'version': current_version})
+            return_data = str({'file_code': file_code, 'version': current_version})
         else:
-            return str({'file_code':file_code, 'version':current_version,'data':data})
+            return_data =  str({'file_code':file_code, 'version':current_version,'data':data})
+
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        return  return_data
 
 
     @app.route('/other_files', methods=["GET"])
     def _return_exe_files():
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/other_files'
+        request_start_time = time()
+
         file_code = request.args.get("file_code")
         current_version, data = return_other_file(file_code)
         if not data:
@@ -862,13 +925,22 @@ Links:</br>
         else:
             version = 0
         if version == current_version:
-            return str({'file_code': file_code, 'version': current_version})
+            return_data = str({'file_code': file_code, 'version': current_version})
         else:
-            return str({'file_code': file_code, 'version': current_version, 'data': data})
+            return_data = str({'file_code': file_code, 'version': current_version, 'data': data})
 
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"{file_code} : {' : Updated' if version != current_version else ''}")
+        return return_data
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/img_files'
+        request_start_time = time()
+
         img_name = request.args.get("img_name")
         if '/' in img_name or '\\' in img_name:
             return str({'img_name': "-100"})
@@ -880,13 +952,23 @@ Links:</br>
         else:
             version = 0
         if version == current_version:
-            return str({'img_name': img_name, 'version': current_version})
+            return_data = str({'img_name': img_name, 'version': current_version})
         else:
-            return str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
+            return_data = str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
+
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"{img_name} : {' : Updated' if version != current_version else ''}")
+        return return_data
 
 
     @app.route('/token_for_tcp_connection', methods=['GET'])
     def _return_token_for_tcp_connection():
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/token_for_tcp_connection'
+        request_start_time = time()
+
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
@@ -895,16 +977,28 @@ Links:</br>
             if token not in active_tcp_tokens:
                 break
         Thread(target=tcp_token_manager, args=(ip, token)).start()
+
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"active tokens: {len(active_tcp_tokens)}")
         return token
 
 
     @app.route('/proxy_list', methods=['GET'])
     def _return_proxy_list():
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        request_type = '/proxy_list'
+        request_start_time = time()
+
         if not working_proxy_list:
             return 'None'
         return_string = ''
         for proxy in working_proxy_list:
             return_string += proxy+'</br>'
+
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"working proxies: {len(working_proxy_list)}")
         return return_string
 
 

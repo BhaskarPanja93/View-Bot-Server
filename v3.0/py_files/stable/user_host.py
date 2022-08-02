@@ -10,7 +10,7 @@ from cryptography.fernet import Fernet
 from flask import Flask, request, redirect, make_response, render_template_string
 from ping3 import ping
 from turbo_flask import Turbo
-from psutil import virtual_memory, cpu_percent as cpu
+from psutil import virtual_memory
 from requests import get
 
 
@@ -105,14 +105,14 @@ def verify_global_host_site():
             print("Please check your internet connection")
     while True:
         try:
-            if get(f"{global_host_page}/ping").text == 'ping':
+            if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
                 break
             else:
                 print("Unable to connect to global host...")
                 _ = 1 / 0
         except:
             try:
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
                 link_dict = eval(text)
                 global_host_page = choice(link_dict['adfly_host_page_list'])
             except:
@@ -129,7 +129,7 @@ def verify_global_host_address():
             print("Please check your internet connection")
     while True:
         try:
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
             link_dict = eval(text)
             host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
             host_port = int(host_port)
@@ -149,7 +149,7 @@ def force_connect_global_server():
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
         try:
-            token = get(f"{global_host_page}/token_for_tcp_connection").text
+            token = get(f"{global_host_page}/token_for_tcp_connection", timeout=10).text
             connection.connect(global_host_address)
             break
         except Exception:
@@ -868,7 +868,7 @@ def __fetch_image_from_global_host(img_name):
                 windows_img_files[img_name]={'verified': None, 'version': 0}
                 version = 0
             verify_global_host_site()
-            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}").content
+            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=20).content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
                 if response['img_name'] == img_name:
@@ -895,7 +895,7 @@ def __fetch_py_file_from_global_host(file_code):
                 py_files[file_code]={'verified': None, 'version': 0}
                 version = 0
             verify_global_host_site()
-            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}").content
+            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=20).content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
                 if response['file_code'] == str(file_code):
@@ -948,7 +948,7 @@ def vm_connection_manager():
 
         elif purpose == 'py_file_request':
             file_code = request_data['file_code']
-            if file_code not in py_files or not py_files[file_code]['verified'] and not py_files[file_code]['verified'] is not None:
+            if file_code not in py_files or not py_files[file_code]['verified'] and py_files[file_code]['verified'] is not None:
                Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
                sleep(0.5)
             while py_files[file_code]['verified'] is None:
@@ -982,7 +982,7 @@ def vm_connection_manager():
 
 
 def update_vm_responses():
-    global public_vm_data, host_cpu_percent, host_ram_percent
+    global public_vm_data
 
     def receive_data(mac_address):
         try:
@@ -1034,8 +1034,6 @@ def update_vm_responses():
                     else:
                         current_vm_response_data[mac_address]['vm_name'] = '--'
                 public_vm_data = current_vm_response_data
-                host_cpu_percent = cpu(percpu=False)
-                host_ram_percent = virtual_memory()[2]
             except:
                 pass
         else:
@@ -1056,7 +1054,10 @@ def render_account_manage_table(viewer_id, self_ids):
     if self_ids:
         account_manage_tbody = ""
         for account_id in self_ids:
-            purpose = f'remove_account-{generate_random_string(20,30)}'
+            while True:
+                purpose = f'remove_account-{generate_random_string(20,30)}'
+                if purpose not in account_manage_purpose_list:
+                    break
             account_manage_purpose_list.append(purpose)
             button_data = f"""<form id='base_form' method='post' action='/action/'>
             <div id='{purpose}_csrf_token'></div>
@@ -1093,7 +1094,10 @@ def render_vms_manage_tables(viewer_id):
         vms_remove_tbody = ""
         for vm_uuid in vms_to_use:
             vm_name = get_vm_info(vm_uuid, 'name')
-            purpose = f'remove_vm-{generate_random_string(20, 30)}'
+            while True:
+                purpose = f'remove_vm-{generate_random_string(20, 30)}'
+                if purpose not in vms_manage_purpose_list:
+                    break
             vms_manage_purpose_list.append(purpose)
             button_data = f"""<form id='base_form' method='post' action='/action/'>
                         <div id='{purpose}_csrf_token'></div>
@@ -1109,7 +1113,10 @@ def render_vms_manage_tables(viewer_id):
         vms_add_tbody = ""
         for vm_uuid in vms_to_skip:
             vm_name = get_vm_info(vm_uuid, 'name')
-            purpose = f'add_vm-{generate_random_string(20, 30)}'
+            while True:
+                purpose = f'add_vm-{generate_random_string(20, 30)}'
+                if purpose not in vms_manage_purpose_list:
+                    break
             vms_manage_purpose_list.append(purpose)
             button_data = f"""<form id='base_form' method='post' action='/action/'>
                                 <div id='{purpose}_csrf_token'></div>
@@ -1131,7 +1138,7 @@ def render_vms_manage_tables(viewer_id):
 def render_bot_metrics_table(viewer_id):
     global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
     write_bot_metrics_to_file()
-    purpose = f'vms_metric_update-{generate_random_string(10,20)}'
+    purpose = f'vms_metric_update-{generate_random_string(10,30)}'
     force_send_flask_data(public_templates['vms_metric_table'].replace('REPLACE_PURPOSE', purpose).replace('REPLACE_DEFAULT_PER_VM_MEMORY', str(default_per_vm_memory)).replace('REPLACE_DEFAULT_MAX_MEMORY','70').replace('REPLACE_PER_VM_MEMORY', str(per_vm_memory)).replace('REPLACE_MAX_VM_COUNT', str(max_vm_count)).replace('REPLACE_MAX_MEMORY_PERCENT', str(max_memory_percent)).replace('REPLACE_BOT_START_TIME_HOUR', rtc_start[0]).replace('REPLACE_BOT_START_TIME_MINUTE', rtc_start[1]).replace('REPLACE_BOT_STOP_TIME_HOUR', rtc_stop[0]).replace('REPLACE_BOT_STOP_TIME_MINUTE', rtc_stop[1]), 'vms_metric_table', viewer_id, 'update', 0, 0)
     send_new_csrf_token(purpose, viewer_id)
 
@@ -1149,7 +1156,10 @@ def render_running_bots_table(viewer_id):
             turn_off_vm_tbody = ""
             for vm_uuid in running_vms:
                 vm_name = get_vm_info(vm_uuid, 'name')
-                purpose = f'turn_off_vm-{generate_random_string(20, 30)}'
+                while True:
+                    purpose = f'turn_off_vm-{generate_random_string(20, 30)}'
+                    if purpose not in live_vm_manage_purpose_list:
+                        break
                 live_vm_manage_purpose_list.append(purpose)
                 button_data = f"""<form id='base_form' method='post' action='/action/'>
                             <div id='{purpose}_csrf_token'></div>
@@ -1164,7 +1174,10 @@ def render_running_bots_table(viewer_id):
             turn_on_vm_tbody = ""
             for vm_uuid in stopped_vms:
                 vm_name = get_vm_info(vm_uuid, 'name')
-                purpose = f'turn_on_vm-{generate_random_string(20, 30)}'
+                while True:
+                    purpose = f'turn_on_vm-{generate_random_string(20, 30)}'
+                    if purpose not in live_vm_manage_purpose_list:
+                        break
                 live_vm_manage_purpose_list.append(purpose)
                 button_data = f"""<form id='base_form' method='post' action='/action/'>
                             <div id='{purpose}_csrf_token'></div>
@@ -1276,7 +1289,7 @@ def account_div_manager(viewer_id, reconnect=False):
 
 
 def send_new_csrf_token(purpose, viewer_id):
-    csrf_token = generate_random_string(10, 20)
+    csrf_token = generate_random_string(30, 50)
     force_send_flask_data(f'<input type="hidden" name="csrf_token" value="{csrf_token}">', f'{purpose}_csrf_token', viewer_id, 'update', 0, 0)
     active_viewers[viewer_id]['csrf_tokens'][purpose] = csrf_token
 
@@ -1302,6 +1315,7 @@ def private_flask_operations():
         sleep(60)
         if token in csrf_tokens:
             csrf_tokens.remove(token)
+
 
     @app.route('/favicon.ico')
     def private_favicon():
@@ -1424,6 +1438,7 @@ def public_flask_operations():
     @app.route('/favicon.ico')
     def public_favicon():
         return redirect('https://avatars.githubusercontent.com/u/101955196')
+
 
     @app.route('/start_time')
     def return_start_time():
