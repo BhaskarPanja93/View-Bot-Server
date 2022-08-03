@@ -14,7 +14,6 @@ genuine_ip = None
 connection_enabled = True
 from random import randrange, choice
 from time import sleep, time
-from os import popen
 from os import system as system_caller
 from threading import Thread
 import socket
@@ -41,15 +40,19 @@ def force_connect_global_host():
             verify_global_host_address()
     return connection
 
+
 def verify_global_host_address():
     global global_host_address, global_host_page
-    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[
-        0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-    link_dict = eval(text)
-    global_host_page = choice(link_dict['adfly_host_page_list'])
-    host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-    host_port = int(host_port)
-    global_host_address = (host_ip, host_port)
+    try:
+        text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+        link_dict = eval(text)
+        global_host_page = choice(link_dict['adfly_host_page_list'])
+        host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
+        host_port = int(host_port)
+        global_host_address = (host_ip, host_port)
+    except:
+        print('No internet connection')
+        sleep(1)
 
 def fetch_and_update_local_host_address():
     global local_network_adapters

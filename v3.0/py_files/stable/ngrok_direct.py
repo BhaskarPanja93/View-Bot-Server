@@ -280,7 +280,7 @@ def run(img_dict):
             'enable_popups': ['sites can send popups'],
             'allow_ads':['sites can show ads'],
             'google_captcha': ['google captcha'],
-            'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4'],
+            'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4', 'search box 5', 'search box 6'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
             'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2', 'wants to send notifications 3', 'wants to send notifications 4'],
             'force_click_bottom_center': ['click ok to continue 2'],

@@ -29,7 +29,6 @@ from requests import get
 from os import path, mkdir, system as system_caller
 
 global_host_page = ''
-local_host_address = ()
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"

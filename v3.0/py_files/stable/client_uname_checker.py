@@ -7,7 +7,7 @@ LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 def run():
-    from os import remove
+    from os import remove, system as system_caller
     remove('client_uname_checker.py')
     from threading import Thread
     import socket
@@ -16,15 +16,19 @@ def run():
     from requests import get
     from ping3 import ping
 
-
     def verify_global_host_address():
         global global_host_address, global_host_page
-        text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-        link_dict = eval(text)
-        global_host_page = choice(link_dict['adfly_host_page_list'])
-        host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-        host_port = int(host_port)
-        global_host_address = (host_ip, host_port)
+        try:
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            link_dict = eval(text)
+            global_host_page = choice(link_dict['adfly_host_page_list'])
+            host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
+            host_port = int(host_port)
+            global_host_address = (host_ip, host_port)
+        except:
+            print('No internet connection')
+            sleep(1)
+            verify_global_host_address()
 
 
     def fetch_and_update_local_host_address():
@@ -178,7 +182,7 @@ def run():
                     break
                 if response['status_code'] == -1:
                     print("Wrong Username-Password combination\n")
-
+    system_caller('cls')
     try:
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
@@ -203,3 +207,4 @@ def run():
             with open('runner.py', 'wb') as file:
                 file.write(response['py_file_data'])
     subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
+    #subprocess.Popen('python runner.py')

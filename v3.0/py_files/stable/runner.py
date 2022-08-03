@@ -43,13 +43,17 @@ def force_connect_global_host():
 
 def verify_global_host_address():
     global global_host_address, global_host_page
-    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[
-        0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-    link_dict = eval(text)
-    global_host_page = choice(link_dict['adfly_host_page_list'])
-    host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-    host_port = int(host_port)
-    global_host_address = (host_ip, host_port)
+    try:
+        text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+        link_dict = eval(text)
+        global_host_page = choice(link_dict['adfly_host_page_list'])
+        host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
+        host_port = int(host_port)
+        global_host_address = (host_ip, host_port)
+    except:
+        print('No internet connection')
+        sleep(1)
+        verify_global_host_address()
 
 def fetch_and_update_local_host_address():
     global local_network_adapters
@@ -183,13 +187,11 @@ def __get_global_ip(trial = 0):
         return ''
     for _ in range(3):
         try:
-            if get(f"{global_host_page}/ping").text != 'ping':
-                verify_global_host_address()
-                sleep(1)
-            for __ in range(3):
-                return popen(f"curl {global_host_page}/ip").read()
+            if get(f"{global_host_page}/ping").text == 'ping':
+                    return popen(f"curl {global_host_page}/ip").read()
         except:
             sleep(1)
+            verify_global_host_address()
     return __get_global_ip(trial+1)
 
 

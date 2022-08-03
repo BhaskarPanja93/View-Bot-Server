@@ -1,4 +1,4 @@
-current_user_host_main_version = '2.3.2'
+current_user_host_main_version = '2.4.2'
 
 while True:
     try:
@@ -117,7 +117,7 @@ def log_data(ip:str, request_type:str, processing_time: float,additional_data:st
     else:
         known_ips[ip] = []
         u_name = known_ips[ip]
-    print(f"\n[{round(processing_time*1000, 2)}ms] [{ip}] {u_name} [{request_type}] {additional_data}")
+    print(f"[{round(processing_time*1000, 2)}ms] [{ip}] {u_name} [{request_type}] {additional_data}")
 
 
 def debug_data(data:str):
@@ -562,18 +562,19 @@ def accept_connections_from_users(port):
     def acceptor():
         connection, address = sock.accept()
         Thread(target=acceptor).start()
-        received_data = __receive_from_connection(connection).strip()
-        if received_data[0] == 123 and received_data[-1] == 125:
-            received_data = eval(received_data)
-            if 'purpose' not in received_data:
+        try:
+            received_data = __receive_from_connection(connection).strip()
+            if received_data[0] == 123 and received_data[-1] == 125:
+                received_data = eval(received_data)
+                if 'purpose' not in received_data:
+                    __try_closing_connection(connection)
+                    return
+            else:
                 __try_closing_connection(connection)
                 return
-        else:
-            __try_closing_connection(connection)
-            return
-        purpose = received_data['purpose']
-        try:
+            purpose = received_data['purpose']
             db_connection.commit()
+            ###
             if purpose == 'ping':
                 data_to_be_sent = {'ping': 'ping'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -747,6 +748,10 @@ def return_py_file(file_id):
 
     ####
 
+    #elif file_id == 'beta_1':
+    #    if ('vm_main.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/vm_main.py') != python_files['beta']['vm_main.py']['version']):
+    #        python_files['beta']['vm_main.py'] = {'version': path.getmtime(f'py_files/beta/vm_main.py'), 'file': open(f'py_files/beta/vm_main.py', 'rb').read()}
+    #    return python_files['beta']['vm_main.py']['version'], python_files['beta']['vm_main.py']['file']
     elif file_id == 'beta_2':
         if ('client_uname_checker.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/client_uname_checker.py') != python_files['beta']['client_uname_checker.py']['version']):
             python_files['beta']['client_uname_checker.py'] = {'version': path.getmtime(f'py_files/beta/client_uname_checker.py'), 'file': open(f'py_files/beta/client_uname_checker.py', 'rb').read()}
@@ -930,7 +935,7 @@ Links:</br>
             return_data = str({'file_code': file_code, 'version': current_version, 'data': data})
 
         processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{file_code} : {' : Updated' if version != current_version else ''}")
+        log_data(request_ip, request_type, processing_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
 
     @app.route('/img_files', methods=["GET"])
@@ -957,7 +962,7 @@ Links:</br>
             return_data = str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
 
         processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{img_name} : {' : Updated' if version != current_version else ''}")
+        log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
