@@ -295,7 +295,7 @@ def check_and_fix_repeated_mac_addresses(vm=None):
 
 
 def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
-    print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {ip} [{request_type}] {additional_data}")
+    print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] [{ip}] [{request_type}] {additional_data}")
 
 
 def u_name_matches_standard(u_name: str):
@@ -870,14 +870,13 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
 def __fetch_image_from_global_host(img_name):
     for trial_count in range(500):
         try:
-            if img_name in windows_img_files:
+            if img_name in windows_img_files and 'version' in windows_img_files[img_name]:
                 if windows_img_files[img_name]['verified'] is None:
                     return
-                windows_img_files[img_name]['verified'] = None
                 version = windows_img_files[img_name]['version']
             else:
                 windows_img_files[img_name]={'verified': None, 'version': 0}
-                version = -1
+                version = 0
             verify_global_host_site()
             s_time = time()
             response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=20).content
@@ -902,14 +901,13 @@ def __fetch_image_from_global_host(img_name):
 def __fetch_py_file_from_global_host(file_code):
     for trial_count in range(500):
         try:
-            if file_code in py_files:
+            if file_code in py_files and 'version' in py_files[file_code]:
                 if py_files[file_code]['verified'] is None:
                     return
-                py_files[file_code]['verified'] = None
                 version = py_files[file_code]['version']
             else:
                 py_files[file_code]={'verified': None, 'version': 0}
-                version = -1
+                version = 0
             verify_global_host_site()
             s_time = time()
             response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=20).content
@@ -919,7 +917,7 @@ def __fetch_py_file_from_global_host(file_code):
                 response = eval(response)
                 if response['file_code'] == str(file_code):
                     if response['version'] != version:
-                        py_files[file_code] = {'data':response['data'], 'verified':True}
+                        py_files[file_code] = {'data':response['data'], 'verified':True, 'version':response['version']}
                     else:
                         py_files[file_code]['verified'] = True
                     break
@@ -966,30 +964,6 @@ def vm_connection_manager():
 
         if purpose == 'ping':
             data_to_be_sent = {'ping': 'ping'}
-            __send_to_connection(connection, str(data_to_be_sent).encode())
-
-        elif purpose == 'py_file_request':
-            file_code = request_data['file_code']
-            if file_code not in py_files or not py_files[file_code]['verified'] and 'version' in py_files[file_code] and py_files[file_code]['verified'] is not None:
-                Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
-            while py_files[file_code]['verified'] is None and 'version' in py_files[file_code] and not py_files[file_code]['version']:
-                sleep(0.1)
-            data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
-            log_data(address, 'Py File Request', time() - s_time, file_code)
-            __send_to_connection(connection, str(data_to_be_sent).encode())
-
-        elif purpose == 'image_request':
-            img_name = request_data['image_name']
-            client_image_version = request_data['version']
-            if img_name not in windows_img_files or not windows_img_files[img_name]['version'] and 'version' in windows_img_files[img_name] and windows_img_files[img_name]['version'] is not None:
-                Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
-            while windows_img_files[img_name]['verified'] is None and 'version' in windows_img_files[img_name] and not windows_img_files[img_name]['version']:
-                sleep(0.1)
-            if windows_img_files[img_name]['version'] == client_image_version:
-                data_to_be_sent = {'image_name': str(img_name)}
-            else:
-                data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
-            log_data(address, 'Image Request', time() - s_time, img_name)
             __send_to_connection(connection, str(data_to_be_sent).encode())
 
         elif purpose == 'stat_connection_establish':
@@ -1572,12 +1546,9 @@ def public_flask_operations():
         if "file_code" not in request.args:
             return ""
         file_code = request.args.get("file_code")
-        if file_code not in py_files or not py_files[file_code]['verified'] and py_files[file_code]['verified'] is not None:
+        while file_code not in py_files or 'version' not in py_files[file_code] or not py_files[file_code]['version'] or py_files[file_code]['verified'] is None:
             Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
-            sleep(0.5)
-        while py_files[file_code]['verified'] is None and not py_files[file_code]['version']:
-            Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
-            sleep(0.5)
+            sleep(1)
         data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
 
         processing_time = time() - request_start_time
@@ -1594,12 +1565,9 @@ def public_flask_operations():
         if "img_name" not in request.args:
             return ""
         img_name = request.args.get("img_name")
-        if img_name not in windows_img_files or not windows_img_files[img_name]['version'] and windows_img_files[img_name]['version'] is not None:
+        while img_name not in windows_img_files or 'version' not in windows_img_files[img_name] or windows_img_files[img_name]['version'] == 0 or windows_img_files[img_name]['verified'] is None:
             Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
-            sleep(0.5)
-        while windows_img_files[img_name]['verified'] is None and not windows_img_files[img_name]['version']:
-            Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
-            sleep(0.5)
+            sleep(1)
         if "version" not in request.args or windows_img_files[img_name]['version'] != float(request.args.get("version")) or float(request.args.get("version")) == 0:
             updated = False
             data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
@@ -1608,7 +1576,7 @@ def public_flask_operations():
             data_to_be_sent = {'image_name': str(img_name)}
 
         processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if updated else ''}")
+        log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if not updated else ''}")
         return str(data_to_be_sent)
 
     app.run(host='0.0.0.0', port=PUBLIC_HOST_PORT, debug=False, use_reloader=False, threaded=True)
