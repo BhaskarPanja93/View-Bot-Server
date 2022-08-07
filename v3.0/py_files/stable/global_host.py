@@ -112,12 +112,12 @@ def __try_closing_connection(connection):
 
 
 def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
-    if ip in known_ips:
+    if ip in known_ips and known_ips[ip]:
         u_name = known_ips[ip]
     else:
         known_ips[ip] = []
-        u_name = known_ips[ip]
-    print(f"[{round(processing_time*1000, 2)}ms] [{ip}] {u_name} [{request_type}] {additional_data}")
+        u_name = [ip]
+    print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}")
 
 
 def debug_data(data:str):
@@ -195,7 +195,7 @@ def proxy_manager():
             return
         proxy_text_to_send = ''
         temp_proxies_list = []
-        for _ in range(min(400, len(waiting_proxy_list))):
+        for _ in range(min(200, len(waiting_proxy_list))):
             proxy = waiting_proxy_list.pop(0)
             temp_proxies_list.append(proxy)
             proxy_text_to_send += proxy + ','
@@ -240,7 +240,7 @@ def proxy_manager():
     def recheck_old_proxies():
         while True:
             sleep(60*10)
-            if len(working_proxy_list) > 100:
+            if len(working_proxy_list) > 50:
                 for _ in range(len(working_proxy_list)//2):
                     waiting_proxy_list.append(working_proxy_list.pop(0))
 
@@ -292,20 +292,25 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
     sleep(2)
     while True:
         Thread(target=check_proxy_working).start()
-        sleep(2)
+        sleep(1)
 
 
 def host_manager(ip, connection):
+    s_time = time()
     response_string = __receive_from_connection(connection).strip()
     if response_string and response_string[0] == 123 and response_string[-1] == 125:
         response_dict = eval(response_string)
         purpose = response_dict['purpose']
+
         if purpose == 'create_new_account':
             u_name = response_dict['u_name'].strip().lower()
             password = response_dict['password'].strip().swapcase()
             network_adapters = response_dict['network_adapters']
             if u_name_matches_standard(u_name):
                 if password_matches_standard(password):
+                    log_data(ip, 'New Account (Host)', time() - s_time, u_name)
+                    if u_name not in known_ips[ip]:
+                        known_ips[ip].append(u_name)
                     user_pw_hash = generate_password_hash(password, salt_length=1000)
                     self_ids = {}
                     key = Fernet.generate_key()
@@ -317,14 +322,14 @@ def host_manager(ip, connection):
                     db_connection.commit()
                     instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
-                    if u_name not in known_ips[ip]:
-                        known_ips[ip].append(u_name)
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password weak
+                    log_data(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Weak password")
                     data_to_be_sent = {'status_code': -1, 'reason': 'Password too weak!'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # username taken
+                log_data(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Uname not allowed")
                 data_to_be_sent = {'status_code': -1, 'reason': 'Username taken. Try a different username!'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -336,6 +341,7 @@ def host_manager(ip, connection):
             if u_name in all_u_names:
                 user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                 if check_password_hash(user_pw_hash, password):
+                    log_data(ip, 'Password Login (Host)', time() - s_time, u_name)
                     key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     try:
@@ -343,10 +349,11 @@ def host_manager(ip, connection):
                         old_network_adapters = eval(fernet.decrypt(old_network_adapters_encrypted))
                     except:
                         old_network_adapters = []
-                    new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
-                    new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
-                    db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
-                    db_connection.commit()
+                    if network_adapters not in old_network_adapters:
+                        new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
+                        new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
+                        db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
+                        db_connection.commit()
                     instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                     if u_name not in known_ips[ip]:
@@ -354,9 +361,11 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password wrong
+                    log_data(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Wrong Password")
                     data_to_be_sent = {'status_code': -1, 'reason': 'Wrong Password!'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # wrong username
+                log_data(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Uname not found")
                 data_to_be_sent = {'status_code': -1, 'reason': 'Username not found in database!'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -369,6 +378,9 @@ def host_manager(ip, connection):
                 instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                 real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                 if auth_token == real_auth_token:
+                    log_data(ip, 'Auth Login (Host)', time() - s_time, u_name)
+                    if u_name not in known_ips[ip]:
+                        known_ips[ip].append(u_name)
                     key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     try:
@@ -377,33 +389,31 @@ def host_manager(ip, connection):
                     except:
                         old_network_adapters = []
                     fernet = Fernet(key)
-                    new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
-                    new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
-                    db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
-                    db_connection.commit()
-                    if u_name not in known_ips[ip]:
-                        known_ips[ip].append(u_name)
+                    if network_adapters not in old_network_adapters:
+                        new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
+                        new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
+                        db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
+                        db_connection.commit()
                     data_to_be_sent = {'status_code': 0, 'additional_data': {'auth_token': auth_token}}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # auth token wrong
+                    log_data(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Auth")
                     data_to_be_sent = {'status_code': -1}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # wrong username
+                log_data(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Uname")
                 data_to_be_sent = {'status_code': -1}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
         elif purpose == 'ping':
             data_to_be_sent = {'status_code': 0}
             __send_to_connection(connection, str(data_to_be_sent).encode())
-        elif purpose == 'image_request':
-            pass
-        else:
-            pass
     else:  # not a dict
         _ = 1 / 0
 
 
 def user_manager(ip, connection):
+    s_time = time()
     u_name = None
     login_success = False
     expected_token = generate_random_string(10, 20)
@@ -414,10 +424,12 @@ def user_manager(ip, connection):
             response_string = __receive_from_connection(connection).strip()
             if response_string and response_string[0] == 123 and response_string[-1] == 125:
                 response_dict = eval(response_string)
-                token = response_dict['token']
+                if 'token' in response_dict:
+                    token = response_dict['token']
+                else:
+                    token = ""
                 if token == expected_token:
                     purpose = response_dict['purpose']
-
                     if purpose == 'create_new_account':
                         u_name = None
                         login_success = False
@@ -425,6 +437,9 @@ def user_manager(ip, connection):
                         password = response_dict['password'].strip().swapcase()
                         if u_name_matches_standard(u_name):
                             if password_matches_standard(password):
+                                log_data(ip, 'New Account (User)', time() - s_time, u_name)
+                                if u_name not in known_ips[ip]:
+                                    known_ips[ip].append(u_name)
                                 user_pw_hash = generate_password_hash(password, salt_length=1000)
                                 self_ids = {}
                                 key = Fernet.generate_key()
@@ -435,22 +450,22 @@ def user_manager(ip, connection):
                                 network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
                                 db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
                                 db_connection.commit()
-                                if u_name not in known_ips[ip]:
-                                    known_ips[ip].append(u_name)
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': {}, 'total_views': 0, 'network_adapters': []}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password weak
+                                log_data(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Weak password")
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Password too weak!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # username taken
+                            log_data(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
                             expected_token = generate_random_string(10,20)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username taken. Try a different username!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
 
-                    if purpose == 'login':
+                    elif purpose == 'login':
                         login_success = False
                         u_name = response_dict['u_name'].strip().lower()
                         password = response_dict['password'].strip().swapcase()
@@ -458,6 +473,9 @@ def user_manager(ip, connection):
                         if u_name in all_u_names:
                             user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                             if check_password_hash(user_pw_hash, password):
+                                log_data(ip, 'Password Login (User)', time() - s_time, u_name)
+                                if u_name not in known_ips[ip]:
+                                    known_ips[ip].append(u_name)
                                 key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                                 encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                                 fernet = Fernet(key)
@@ -469,22 +487,22 @@ def user_manager(ip, connection):
                                 except:
                                     network_adapters = []
                                 total_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
-                                if u_name not in known_ips[ip]:
-                                    known_ips[ip].append(u_name)
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': old_ids, 'total_views': total_views, 'network_adapters': network_adapters}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password wrong
+                                log_data(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Wrong Password")
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong Password!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # wrong username
+                            log_data(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Uname not found")
                             expected_token = generate_random_string(10, 20)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username not found in database!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
 
-                    if purpose == 'remove_account':
+                    elif purpose == 'remove_account':
                         if login_success and u_name:
                             acc_id = int(response_dict['acc_id'])
                             key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
@@ -492,11 +510,13 @@ def user_manager(ip, connection):
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id == 'all_acc_ids':
+                                log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} All")
                                 old_ids = {}
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 db_connection.commit()
                             elif acc_id in old_ids:
+                                log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} {acc_id}")
                                 del old_ids[acc_id]
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
@@ -505,11 +525,14 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
+                                log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} unknown")
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} not found'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
+                        else:
+                            log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
-                    if purpose == 'add_account':
+                    elif purpose == 'add_account':
                         if login_success and u_name:
                             acc_id = response_dict['acc_id']
                             identifier = response_dict['identifier']
@@ -518,6 +541,7 @@ def user_manager(ip, connection):
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id not in old_ids:
+                                log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id}")
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
@@ -526,6 +550,7 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             elif acc_id in old_ids and old_ids[acc_id] != identifier:
+                                log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id} Updated")
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
@@ -534,17 +559,20 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 1, 'token': str(expected_token), 'reason': f'Identifier text modified for Account {acc_id}', 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
+                                log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} Re-Add")
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} already added'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
+                        else:
+                            log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
-
-                    if purpose == 'ping':
+                    elif purpose == 'ping':
                         expected_token = generate_random_string(10, 20)
                         data_to_be_sent = {'token': str(expected_token)}
                         __send_to_connection(connection, str(data_to_be_sent).encode())
 
                 else: # wrong token
+                    log_data(ip, f'(User)', time() - s_time, f"{u_name} Wrong token")
                     expected_token = generate_random_string(10, 20)
                     data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong token'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -580,14 +608,11 @@ def accept_connections_from_users(port):
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
             elif purpose == 'link_fetch':
-                u_name = ''
+                u_name = 'invalid_uname'
                 received_token = received_data['token']
                 all_u_name = [row[0] for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
                 if all_u_name and all_u_name[0]:
-                    if randrange(1, 11) == 1 and my_u_name:
-                        u_name = my_u_name
-                    else:
-                        u_name = all_u_name[0]
+                    u_name = all_u_name[0]
                 link_view_token = generate_random_string(100,500)
                 Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
                 data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}', 'link_viewer_token':str(link_view_token)}
@@ -607,8 +632,7 @@ def accept_connections_from_users(port):
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
                     public_ip = active_tcp_tokens[binding_token][0]
-                    request_type = 'host_authentication'
-                    log_data(public_ip, request_type, 0.0)
+                    log_data(public_ip, 'Login Req (Host)', 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
                     return
@@ -618,8 +642,7 @@ def accept_connections_from_users(port):
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
                     public_ip = active_tcp_tokens[binding_token][0]
-                    request_type = 'user_authentication'
-                    log_data(public_ip, request_type, 0.0)
+                    log_data(public_ip, 'Login Req (User)', 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
                     return
@@ -748,10 +771,10 @@ def return_py_file(file_id):
 
     ####
 
-    #elif file_id == 'beta_1':
-    #    if ('vm_main.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/vm_main.py') != python_files['beta']['vm_main.py']['version']):
-    #        python_files['beta']['vm_main.py'] = {'version': path.getmtime(f'py_files/beta/vm_main.py'), 'file': open(f'py_files/beta/vm_main.py', 'rb').read()}
-    #    return python_files['beta']['vm_main.py']['version'], python_files['beta']['vm_main.py']['file']
+    elif file_id == 'beta_1':
+        if ('vm_main.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/vm_main.py') != python_files['beta']['vm_main.py']['version']):
+            python_files['beta']['vm_main.py'] = {'version': path.getmtime(f'py_files/beta/vm_main.py'), 'file': open(f'py_files/beta/vm_main.py', 'rb').read()}
+        return python_files['beta']['vm_main.py']['version'], python_files['beta']['vm_main.py']['file']
     elif file_id == 'beta_2':
         if ('client_uname_checker.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/client_uname_checker.py') != python_files['beta']['client_uname_checker.py']['version']):
             python_files['beta']['client_uname_checker.py'] = {'version': path.getmtime(f'py_files/beta/client_uname_checker.py'), 'file': open(f'py_files/beta/client_uname_checker.py', 'rb').read()}
@@ -760,6 +783,12 @@ def return_py_file(file_id):
         if ('runner.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/runner.py') != python_files['beta']['runner.py']['version']):
             python_files['beta']['runner.py'] = {'version': path.getmtime(f'py_files/beta/runner.py'), 'file': open(f'py_files/beta/runner.py', 'rb').read()}
         return python_files['beta']['runner.py']['version'], python_files['beta']['runner.py']['file']
+    elif file_id == 'beta_4':
+        if f'ngrok_direct.py' not in python_files['beta'] or (path.getmtime(f'py_files/beta/ngrok_direct.py') != python_files['beta'][f'ngrok_direct.py']['version']):
+            python_files['beta'][f'ngrok_direct.py'] = {'version': path.getmtime(f'py_files/beta/ngrok_direct.py'), 'file': open(f'py_files/beta/ngrok_direct.py', 'rb').read()}
+            python_files['beta'][f'ngrok_direct.py']['version'] = path.getmtime(f'py_files/beta/ngrok_direct.py')
+            python_files['beta'][f'ngrok_direct.py']['file'] = open(f'py_files/beta/ngrok_direct.py', 'rb').read()
+        return python_files['beta'][f'ngrok_direct.py']['version'], python_files['beta'][f'ngrok_direct.py']['file']
 
     else:
         return None, None
@@ -771,11 +800,17 @@ STABLE
 """
 
 def recreate_user_host_exe():
+    global exe_files
+    if 'user_host.exe' in exe_files and exe_files['user_host.exe']['version'] is None:
+        while exe_files['user_host.exe']['version'] is None:
+            sleep(1)
+        return
+    exe_files['user_host.exe'] = {'version': None}
     with open('other_files/requirements.txt', 'r') as requirement_file:
         import pip
         for item in requirement_file.readlines():
             pip.main(['install', item.strip()])
-    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
+    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
     exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
     sleep(1)
 
@@ -785,6 +820,8 @@ def return_other_file(file_id):
         if ('user_host.py' not in python_files) or (path.getmtime(f'py_files/stable/user_host.py') != python_files['user_host.py']['version']):
             python_files['user_host.py'] = {'version': path.getmtime('py_files/stable/user_host.py'), 'file': open('py_files/stable/user_host.py', 'rb').read()}
             recreate_user_host_exe()
+        while 'user_host.exe' not in exe_files and exe_files['user_host.exe']['version'] is None:
+            sleep(0.5)
         try:
             if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
                 exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
@@ -809,12 +846,6 @@ def flask_operations(port):
 
     @app.route('/debug_data', methods=['GET'])
     def debug_data():
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/debug_data'
-        request_start_time = time()
-
         return_data = f"""<meta http-equiv = "refresh" content = "1; url = /debug_data" />
 Hardware:</br>
 CPU: {host_cpu}</br>
@@ -832,18 +863,11 @@ No. of proxies currently checking: {proxies_currently_checking}</br>
 No. of proxies checked: {proxies_finished_checking}</br>
 Proxy check retries: {proxy_retries}</br>
 """
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time)
         return return_data
 
     @app.route('/')
     def _return_root_url():
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/'
         request_start_time = time()
-
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
@@ -856,15 +880,17 @@ Links:</br>
 <a href='/favicon.ico'>=>  Icon  </a></br>
 <a href='/youtube_img'>=>  YT img  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
-<a href='/proxy_list'>=>  Working proxies  </a></br>
+<a href='/proxy'>=>  Working proxies  </a></br>
 <a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
 <a href='/debug_data'>=>  Developer debug data  </a></br>
 """
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time)
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/', time() - request_start_time)
         return return_data
 
-    @app.route('/ping/', methods=['GET'])
+    @app.route('/ping', methods=['GET'])
     def _return_ping():
         return 'ping'
 
@@ -889,12 +915,7 @@ Links:</br>
 
     @app.route('/py_files', methods=["GET"])
     def _return_py_files():
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/py_files'
         request_start_time = time()
-
         file_code = request.args.get("file_code")
         current_version, data = return_py_file(file_code)
         if not data:
@@ -908,19 +929,16 @@ Links:</br>
         else:
             return_data =  str({'file_code':file_code, 'version':current_version,'data':data})
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/py_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return  return_data
 
 
     @app.route('/other_files', methods=["GET"])
     def _return_exe_files():
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/other_files'
         request_start_time = time()
-
         file_code = request.args.get("file_code")
         current_version, data = return_other_file(file_code)
         if not data:
@@ -934,18 +952,15 @@ Links:</br>
         else:
             return_data = str({'file_code': file_code, 'version': current_version, 'data': data})
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/other_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/img_files'
         request_start_time = time()
-
         img_name = request.args.get("img_name")
         if '/' in img_name or '\\' in img_name:
             return str({'img_name': "-100"})
@@ -961,49 +976,59 @@ Links:</br>
         else:
             return_data = str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if version != current_version else ''}")
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/img_files', time() - request_start_time, f"{img_name}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
     @app.route('/token_for_tcp_connection', methods=['GET'])
     def _return_token_for_tcp_connection():
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/token_for_tcp_connection'
         request_start_time = time()
-
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
         while True:
-            token  = generate_random_string(10,100)
+            token = generate_random_string(10,100)
             if token not in active_tcp_tokens:
                 break
         Thread(target=tcp_token_manager, args=(ip, token)).start()
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"active tokens: {len(active_tcp_tokens)}")
-        return token
-
-
-    @app.route('/proxy_list', methods=['GET'])
-    def _return_proxy_list():
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_type = '/proxy_list'
+        log_data(request_ip, '/token_for_tcp_connection', time() - request_start_time, f"active tokens: {len(active_tcp_tokens)}")
+        return token
+
+
+    @app.route('/proxy', methods=['GET'])
+    def _return_proxy_list():
         request_start_time = time()
-
         if not working_proxy_list:
-            return 'None'
+            return ''
+        if 'quantity' in request.args:
+            quantity = int(request.args.get('quantity'))
+            quantity = min(quantity, len(working_proxy_list))
+        else:
+            quantity = len(working_proxy_list)
         return_string = ''
-        for proxy in working_proxy_list:
-            return_string += proxy+'</br>'
+        temp_list = []
+        for _ in range(1000):
+            if len(temp_list) == quantity:
+                break
+            for __ in range(quantity):
+                if len(temp_list) == quantity:
+                    break
+                proxy = choice(working_proxy_list)
+                if proxy not in temp_list:
+                    return_string += proxy +'</br>'
+                    temp_list.append(proxy)
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"working proxies: {len(working_proxy_list)}")
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/proxy', time() - request_start_time, f"working proxies: {len(working_proxy_list)}")
         return return_string
 
 
@@ -1014,33 +1039,36 @@ Links:</br>
 
     @app.route('/user_load_links', methods=['GET'])
     def _user_load_links():
-        u_name = request.args.get("u_name")
-        if u_name:
-            return return_adfly_link_page(u_name)
-        else:
-            return return_adfly_link_page(my_u_name)
+        u_name = ""
+        if "u_name" in request.args:
+            u_name = request.args.get("u_name")
+        return return_adfly_link_page(u_name)
 
 
     @app.route('/adf_link_click/', methods=['GET'])
     def _return_adf_link_click():
         try:
-            u_name = request.args.get('u_name')
+            u_name = my_u_name
+            if 'u_name' in request.args:
+                if randrange(1,10) != 1:
+                    u_name = request.args.get('u_name')
             all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
-            if u_name in all_u_names:
-                key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                fernet = Fernet(key)
-                self_ids = eval(fernet.decrypt(encoded_data).decode())
-                id_to_serve = choice(sorted(self_ids))
-            else:
-                while True:
-                    u_name = my_u_name
+            while True:
+                if u_name in all_u_names:
                     key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     self_ids = eval(fernet.decrypt(encoded_data).decode())
-                    id_to_serve = choice(sorted(self_ids))
-                    break
+                    if self_ids:
+                        id_to_serve = choice(sorted(self_ids))
+                        break
+                    elif u_name != my_u_name:
+                        u_name = my_u_name
+                    else:
+                        id_to_serve = '1'
+                        break
+                else:
+                    u_name = my_u_name
         except:
             id_to_serve = 1
         adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{request.root_url}youtube_img?random={generate_random_string(1, 10)}"

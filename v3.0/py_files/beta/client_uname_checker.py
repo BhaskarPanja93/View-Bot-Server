@@ -1,26 +1,27 @@
-import subprocess
-
+print('beta u_name checker')
 global_host_address = ()
 global_host_page = ''
 local_host_address = ()
+local_page = ''
+LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 def run():
-    print('client  u name')
-    #from os import remove
-    #remove('client_uname_checker.py')
+    global local_page, local_network_adapters, local_host_address
+    from os import remove, popen, system as system_caller
+    remove('client_uname_checker.py')
     from threading import Thread
     import socket
     from random import choice
     from time import sleep
-    from requests import get
     from ping3 import ping
+    import subprocess
 
     def verify_global_host_address():
         global global_host_address, global_host_page
         try:
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            text = popen('curl -L -s "https://bhaskarpanja93.github.io/AllLinks.github.io/"').read().split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace("â€˜", "'").replace("â€™", "'")
             link_dict = eval(text)
             global_host_page = choice(link_dict['adfly_host_page_list'])
             host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
@@ -29,8 +30,6 @@ def run():
         except:
             print('No internet connection')
             sleep(1)
-            verify_global_host_address()
-
 
     def fetch_and_update_local_host_address():
         global local_network_adapters
@@ -51,18 +50,18 @@ def run():
                 for ip in local_network_adapters:
                     Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
                 for _ in range(10):
-                    if local_host_address:
+                    if local_host_address and local_page:
                         break
                     else:
                         sleep(1)
                 else:
                     print("Please check if local host is working and reachable.")
             else:
-                try_username_password()
-
+                print("Please restart this VM and re-login")
+                __restart_host_machine()
 
     def try_pinging_local_host_connection(ip):
-        global local_host_address
+        global local_host_address, local_page
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connection.connect((ip, LOCAL_HOST_PORT))
@@ -73,9 +72,13 @@ def run():
                 received_data = eval(received_data)
                 if received_data['ping'] == 'ping':
                     local_host_address = (ip, LOCAL_HOST_PORT)
-                    return True
-            else:
-                return False
+        except:
+            pass
+        try:
+            page = f"http://{ip}:{LOCAL_PAGE_PORT}"
+            response = popen(f'curl -L -s "{page}/ping" --max-time 10').read()
+            if response == 'ping':
+                local_page = page
         except:
             pass
 
@@ -96,19 +99,6 @@ def run():
                 break
             except:
                 verify_global_host_address()
-            sleep(1)
-        return connection
-
-
-    def force_connect_local_host():
-        global global_host_address, global_host_page
-        while True:
-            try:
-                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.connect(local_host_address)
-                break
-            except:
-                fetch_and_update_local_host_address()
             sleep(1)
         return connection
 
@@ -140,6 +130,9 @@ def run():
             return data_bytes
         else:
             return b''
+
+    def __restart_host_machine(duration=5):
+        system_caller(f'shutdown -r -f -t {duration}')
 
 
     def try_matching_token(u_name, instance_token):
@@ -184,6 +177,7 @@ def run():
                 if response['status_code'] == -1:
                     print("Wrong Username-Password combination\n")
 
+    system_caller('cls')
     try:
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
@@ -197,15 +191,18 @@ def run():
     else:
         try_username_password()
     fetch_and_update_local_host_address()
-    final_main_connection = force_connect_local_host()
-    file_code = 4
-    data_to_send = {'purpose': 'py_file_request', 'file_code': file_code}
-    __send_to_connection(final_main_connection, str(data_to_send).encode())
-    response = __receive_from_connection(final_main_connection)
-    if response[0] == 123 and response[-1] == 125:
-        response = eval(response)
-        if response['file_code'] == file_code:
-            with open('runner.py', 'wb') as file:
-                file.write(response['py_file_data'])
+    file_code = 'beta_3'
+    while True:
+        try:
+            response = popen(f'curl -L -s "{local_page}/py_files?file_code={file_code}" --max-time 10').read().encode()
+            if response[0] == 123 and response[-1] == 125:
+                response = eval(response)
+                if response['file_code'] == file_code:
+                    with open('runner.py', 'wb') as file:
+                        file.write(response['py_file_data'])
+                    break
+        except:
+            sleep(1)
+            fetch_and_update_local_host_address()
     #subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
     subprocess.Popen('python runner.py')

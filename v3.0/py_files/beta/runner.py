@@ -1,12 +1,14 @@
+print('beta runner')
 global_host_address = ()
 global_host_page = ''
+local_page = ""
 local_host_address = ()
+LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 #from os import remove
 #remove('runner.py')
-print('runner')
 comment, current_ip, last_ip = str, int, str
 img_dict = {}
 host_cpu = host_ram = views = uptime = 0
@@ -14,14 +16,13 @@ genuine_ip = None
 connection_enabled = True
 from random import randrange, choice
 from time import sleep, time
-from os import system as system_caller
+from os import system as system_caller, popen
 from threading import Thread
 import socket
 from requests import get
 from ping3 import ping
 from psutil import virtual_memory, cpu_percent as cpu
 from getmac import get_mac_address
-
 
 def force_connect_global_host():
     global global_host_address
@@ -44,7 +45,7 @@ def force_connect_global_host():
 def verify_global_host_address():
     global global_host_address, global_host_page
     try:
-        text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+        text = popen('curl -L -s "https://bhaskarpanja93.github.io/AllLinks.github.io/"').read().split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace("â€˜", "'").replace("â€™", "'")
         link_dict = eval(text)
         global_host_page = choice(link_dict['adfly_host_page_list'])
         host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
@@ -73,7 +74,7 @@ def fetch_and_update_local_host_address():
             for ip in local_network_adapters:
                 Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
             for _ in range(10):
-                if local_host_address:
+                if local_host_address and local_page:
                     break
                 else:
                     sleep(1)
@@ -84,7 +85,7 @@ def fetch_and_update_local_host_address():
             __restart_host_machine()
 
 def try_pinging_local_host_connection(ip):
-    global local_host_address
+    global local_host_address, local_page
     try:
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection.connect((ip, LOCAL_HOST_PORT))
@@ -95,9 +96,13 @@ def try_pinging_local_host_connection(ip):
             received_data = eval(received_data)
             if received_data['ping'] == 'ping':
                 local_host_address = (ip, LOCAL_HOST_PORT)
-                return True
-        else:
-            return False
+    except:
+        pass
+    try:
+        page = f"http://{ip}:{LOCAL_PAGE_PORT}"
+        response = popen(f'curl -L -s "{page}/ping" --max-time 10').read()
+        if response == 'ping':
+            local_page = page
     except:
         pass
 
@@ -160,7 +165,7 @@ def restart_if_connection_missing():
             counter += 1
             if counter >= 180:
                 __restart_host_machine()
-                input()
+                input('waiting for restart')
 
 
 def __restart_host_machine(duration=5):
@@ -172,76 +177,90 @@ def __shutdown_host_machine(duration=5):
 
 
 def __connect_proxy():
-    print('connect proxy')
-    try:
-        __disconnect_proxy()
-        _dict = {}
-        all_lines = get('https://raw.githubusercontent.com/fate0/proxylist/master/proxy.list').text.splitlines()
-        for line in all_lines:
-            _dict[eval(line)['host']] = eval(line)
-        _selected_proxy_dict = choice(sorted(_dict))
-        for field_name in _dict[_selected_proxy_dict]:
-            print(field_name, _dict[_selected_proxy_dict][field_name])
-        proxy = f"{_dict[_selected_proxy_dict]['host']}:{_dict[_selected_proxy_dict]['port']}"
-        print(proxy)
-        system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
-        system_caller(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d {proxy} /f')
-        sleep(3)
-        Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
-        sleep(3)
-        system_caller('taskkill /F /IM "iexplore.exe" /T')
-    except:
-        __connect_proxy()
+    while True:
+        sleep(1)
+        try:
+            proxy = popen(f'curl -L -s "{global_host_page}/proxy?quantity=1" --max-time 10').read().replace("</br>", "")
+            #proxy = "8.219.97.248:80"
+            if proxy == '':
+                return False
+            print(f"proxy to connect: {proxy}")
+            system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
+            system_caller(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d {proxy} /f')
+            sleep(1)
+            Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
+            sleep(3)
+            system_caller('taskkill /F /IM "iexplore.exe" /T')
+            return True
+        except:
+            __disconnect_proxy()
+            verify_global_host_address()
 
 
 def __disconnect_proxy():
-    print('disconnect proxy')
     system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 0 /f')
-    sleep(3)
+    sleep(1)
     Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
     sleep(3)
     system_caller('taskkill /F /IM "iexplore.exe" /T')
 
 
-def __get_global_ip(trial = 0):
-    if trial >= 3:
-        return ''
-    for _ in range(3):
+def __get_global_ip():
+    global global_host_page
+    for _ in range(2):
         try:
-            if get(f"{global_host_page}/ping").text != 'ping':
-                verify_global_host_address()
-                sleep(1)
-            for __ in range(3):
-                ip = get(f"{global_host_page}/ip").text
-                if ip.count('.') == 3:
-                    return ip
+            if global_host_page:
+                if popen(f'curl -L -s "{global_host_page}/ping" --max-time 5').read() == 'ping':
+                    ip = get(f"{global_host_page}/ip", timeout=5).text
+                    if ip.count('.') == 3:
+                        return ip
+                else:
+                    print("Unable to ping global host")
+                    _ = 1/0
+            else:
+                _ = 1/0
         except:
-            sleep(1)
-    return __get_global_ip(trial+1)
+            print('http://' in global_host_page, 'https://' in global_host_page)
+            if 'http://' in global_host_page:
+                print('switched to secure')
+                global_host_page = global_host_page.replace("http://","https://")
+            elif 'https://' in global_host_page:
+                print('switched to insecure')
+                global_host_page = global_host_page.replace("https://","http://")
+            else:
+                print('fetching new')
+                sleep(1)
+                verify_global_host_address()
+        sleep(3)
+    else:
+        return ""
 
 
 def run_instance(instance_name):
     sleep(2)
     global views, comment, img_dict
     try:
-        instance_connection = force_connect_local_host()
-        file_code = 2
-        data_to_send = {'purpose': 'py_file_request', 'file_code': file_code}
-        __send_to_connection(instance_connection, str(data_to_send).encode())
-        response = __receive_from_connection(instance_connection)
-        if response[0] == 123 and response[-1] == 125:
-            response = eval(response)
-            if response['file_code'] == file_code:
-                with open('instance.py', 'wb') as file:
-                    file.write(response['py_file_data'])
-                import instance
-                s, comment, img_dict = instance.run(img_dict=img_dict)
-                views += s
-        else:
-            run_instance(instance_name)
-            return
+        file_code = 'beta_4'
+        while True:
+            try:
+                response = popen(f'curl -L -s "{local_page}/py_files?file_code={file_code}" --max-time 10').read().encode()
+                if response[0] == 123 and response[-1] == 125:
+                    response = eval(response)
+                    if response['file_code'] == file_code:
+                        with open('instance.py', 'wb') as file:
+                            file.write(response['py_file_data'])
+                        import instance
+                        s, comment, img_dict = instance.run(img_dict=img_dict, _global_host_page=global_host_page, _local_page=local_page)
+                        views += s
+                        break
+                else:
+                    _ = 1/0
+            except:
+                sleep(1)
+                fetch_and_update_local_host_address()
     except:
         run_instance(instance_name)
+        return
 
 
 def update_current_ip():
@@ -259,25 +278,26 @@ def restart_vpn_recheck_ip():
     global last_ip, connection_enabled
     _ = 0
     while True:
+        sleep(1)
         update_current_ip()
-        print(_, current_ip, genuine_ip, last_ip)
-        if (not current_ip or current_ip == genuine_ip) and _:
-            if _ <= 5:
+        print(f"{current_ip=}")
+        if (not current_ip) and _:
+            if _ < 2:
                 sleep(3)
                 _ += 1
             else:
                 _ = 0
-        elif genuine_ip != current_ip != last_ip:
-            print('successfully found working proxy')
-            print(current_ip, genuine_ip, last_ip)
-            sleep(5)
+        elif genuine_ip != current_ip != last_ip and current_ip:
+            print(f'successfully found working proxy {current_ip}')
             break
         else:
             last_ip = current_ip
             connection_enabled = False
-            __connect_proxy()
-            sleep(10)
-            print('conenct proxy finished')
+            proxy_applied = __connect_proxy()
+            if not proxy_applied:
+                print("Server has no proxy ready. Continuing without a proxy")
+                break
+            print('proxy applied')
             _ = 1
             connection_enabled = True
 
@@ -338,8 +358,6 @@ def __clean_temps_directory():
         except:
             pass
 
-
-
 __clean_temps_directory()
 __disconnect_proxy()
 sleep(3)
@@ -355,12 +373,13 @@ while True:
     while True:
         if (views >= next_ip_reset) or comment == 'change_ip':
             restart_vpn_recheck_ip()
-            sleep(5)
+            #sleep(5)
             comment = ''
             next_ip_reset += randrange(1, 3)
         if type(ping('8.8.8.8')) == float:
                 instance = 'ngrok_direct'
-                system_caller('cls')
+                #system_caller('cls')
                 run_instance(instance)
         else:
+            print("8.8.8.8 ping failed")
             sleep(2)

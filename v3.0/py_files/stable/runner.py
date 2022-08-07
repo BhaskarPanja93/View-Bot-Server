@@ -1,7 +1,9 @@
-print('runner')
+print('stable runner')
 global_host_address = ()
 global_host_page = ''
+local_page = ""
 local_host_address = ()
+LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
@@ -55,6 +57,7 @@ def verify_global_host_address():
         sleep(1)
         verify_global_host_address()
 
+
 def fetch_and_update_local_host_address():
     global local_network_adapters
     instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
@@ -74,18 +77,18 @@ def fetch_and_update_local_host_address():
             for ip in local_network_adapters:
                 Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
             for _ in range(10):
-                if local_host_address:
+                if local_host_address and local_page:
                     break
                 else:
                     sleep(1)
             else:
                 print("Please check if local host is working and reachable.")
         else:
-            print("Please restart this VM and re-login")
             __restart_host_machine()
 
+
 def try_pinging_local_host_connection(ip):
-    global local_host_address
+    global local_host_address, local_page
     try:
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection.connect((ip, LOCAL_HOST_PORT))
@@ -96,11 +99,16 @@ def try_pinging_local_host_connection(ip):
             received_data = eval(received_data)
             if received_data['ping'] == 'ping':
                 local_host_address = (ip, LOCAL_HOST_PORT)
-                return True
-        else:
-            return False
     except:
         pass
+    try:
+        page = f"http://{ip}:{LOCAL_PAGE_PORT}"
+        response = get(f"{page}/ping").text
+        if response == 'ping':
+            local_page = page
+    except:
+        pass
+
 
 def force_connect_local_host():
     while True:
@@ -188,7 +196,7 @@ def __get_global_ip(trial = 0):
     for _ in range(3):
         try:
             if get(f"{global_host_page}/ping").text == 'ping':
-                    return popen(f"curl {global_host_page}/ip").read()
+                return popen(f"curl {global_host_page}/ip").read()
         except:
             sleep(1)
             verify_global_host_address()
@@ -196,26 +204,27 @@ def __get_global_ip(trial = 0):
 
 
 def run_instance(instance_name):
-    sleep(2)
     global views, comment, img_dict
     try:
-        instance_connection = force_connect_local_host()
         file_code = 'stable_4'
-        data_to_send = {'purpose': 'py_file_request', 'file_code': file_code}
-        __send_to_connection(instance_connection, str(data_to_send).encode())
-        response = __receive_from_connection(instance_connection)
-        if response[0] == 123 and response[-1] == 125:
-            response = eval(response)
-            if response['file_code'] == file_code:
-                with open('instance.py', 'wb') as file:
-                    file.write(response['py_file_data'])
-                import instance
-                s, comment, img_dict = instance.run(img_dict=img_dict)
-                views += s
-        else:
-            run_instance(instance_name)
-            return
+        while True:
+            try:
+                response = get(f"{local_page}/py_files?file_code={file_code}", timeout=10).content
+                if response[0] == 123 and response[-1] == 125:
+                    response = eval(response)
+                    if response['file_code'] == file_code:
+                        with open('instance.py', 'wb') as file:
+                            file.write(response['py_file_data'])
+                        import instance
+                        s, comment, img_dict = instance.run(img_dict=img_dict, _global_host_page=global_host_page, _local_page=local_page)
+                        views += s
+                else:
+                    _ = 1/0
+            except:
+                sleep(1)
+                fetch_and_update_local_host_address()
     except:
+        sleep(1)
         run_instance(instance_name)
 
 
@@ -246,10 +255,8 @@ def restart_vpn_recheck_ip(required=False):
         else:
             last_ip = current_ip
             connection_enabled = False
-            print('restart vpn')
             __disconnect_all_vpn()
             __connect_vpn()
-            print('end')
             connection_enabled = True
             required = False
 
@@ -341,7 +348,6 @@ while True:
             next_ip_reset += randrange(1, 3)
         if type(ping('8.8.8.8')) == float:
                 instance = 'ngrok_direct'
-                system_caller('cls')
                 run_instance(instance)
         else:
             sleep(2)

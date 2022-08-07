@@ -2,7 +2,7 @@ import socket
 import webbrowser
 from os import popen, system as system_caller, path
 from random import randrange
-from time import time, localtime
+from time import time, localtime, ctime
 from random import choice
 from time import sleep
 from threading import Thread
@@ -12,7 +12,10 @@ from ping3 import ping
 from turbo_flask import Turbo
 from psutil import virtual_memory
 from requests import get
+import logging
 
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 local_drive_name = 'C'
 if not path.exists(f"{local_drive_name}://"):
@@ -210,8 +213,8 @@ def return_all_vms():
             uuid = get_vm_info(eval(name), 'UUID')
             return_list.append(uuid)
             return_dict[eval(name)] = get_vm_info(eval(name), 'macaddress1')
-    global vm_to_mac_address
-    vm_to_mac_address = return_dict
+    #global vm_to_mac_address
+    #vm_to_mac_address = return_dict
     return return_list
 
 
@@ -262,8 +265,8 @@ def get_vm_info(vm_name, info):
             try:
                 key, value = line.split('=')
                 return value.replace('\n','').replace('\"','').replace('\'','')
-            except:
-                pass
+            except Exception as e:
+                log_data('','debug', 0, repr(e))
 
 def randomise_mac_address(_id):
     system_caller(f'"{vbox_manage_binary_location}" modifyvm {_id} --macaddress1 auto')
@@ -292,7 +295,7 @@ def check_and_fix_repeated_mac_addresses(vm=None):
 
 
 def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
-    print(f"[{round(processing_time*1000, 2)}ms] [{ip}] [{request_type}] {additional_data}")
+    print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {ip} [{request_type}] {additional_data}")
 
 
 def u_name_matches_standard(u_name: str):
@@ -785,11 +788,13 @@ def process_form_action(viewer_id:str, form:dict):
     elif form['purpose'] == 'turn_on_vm':
         vm_uuid = form['vm_uuid']
         start_vm(vm_uuid)
+        force_send_flask_data(f"[SUCCESS] [Turn On VM] {vm_uuid} starting", 'success_info', viewer_id, 'new_div', 0, 3)
 
 
     elif form['purpose'] == 'turn_off_vm':
         vm_uuid = form['vm_uuid']
         queue_vm_stop(vm_uuid, 0)
+        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {vm_uuid} stopping", 'success_info', viewer_id, 'new_div', 0, 3)
 
 
 def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str, method:str, user_delay:int, duration:int, actual_delay:int=0):
@@ -961,16 +966,14 @@ def vm_connection_manager():
 
         if purpose == 'ping':
             data_to_be_sent = {'ping': 'ping'}
-            log_data(address, 'ping', time()-s_time)
             __send_to_connection(connection, str(data_to_be_sent).encode())
 
         elif purpose == 'py_file_request':
             file_code = request_data['file_code']
-            if file_code not in py_files or not py_files[file_code]['verified'] and py_files[file_code]['verified'] is not None:
+            if file_code not in py_files or not py_files[file_code]['verified'] and 'version' in py_files[file_code] and py_files[file_code]['verified'] is not None:
                 Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
-                sleep(0.5)
-            while py_files[file_code]['verified'] is None and not py_files[file_code]['version']:
-                sleep(0.5)
+            while py_files[file_code]['verified'] is None and 'version' in py_files[file_code] and not py_files[file_code]['version']:
+                sleep(0.1)
             data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
             log_data(address, 'Py File Request', time() - s_time, file_code)
             __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -978,11 +981,10 @@ def vm_connection_manager():
         elif purpose == 'image_request':
             img_name = request_data['image_name']
             client_image_version = request_data['version']
-            if img_name not in windows_img_files or not windows_img_files[img_name]['version'] and windows_img_files[img_name]['version'] is not None:
+            if img_name not in windows_img_files or not windows_img_files[img_name]['version'] and 'version' in windows_img_files[img_name] and windows_img_files[img_name]['version'] is not None:
                 Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
-                sleep(0.5)
-            while windows_img_files[img_name]['verified'] is None and not windows_img_files[img_name]['version']:
-                sleep(0.5)
+            while windows_img_files[img_name]['verified'] is None and 'version' in windows_img_files[img_name] and not windows_img_files[img_name]['version']:
+                sleep(0.1)
             if windows_img_files[img_name]['version'] == client_image_version:
                 data_to_be_sent = {'image_name': str(img_name)}
             else:
@@ -992,7 +994,8 @@ def vm_connection_manager():
 
         elif purpose == 'stat_connection_establish':
             mac_address = request_data['mac_address']
-            vm_stat_connections[f"{mac_address}-{generate_random_string(10,20)}"] = connection
+            mac_address = f"{mac_address}-{generate_random_string(10,20)}"
+            vm_stat_connections[mac_address] = connection
             log_data(address, 'Vm Started sending Data', time() - s_time)
 
         else:
@@ -1243,8 +1246,8 @@ def public_div_manager(real_cookie, viewer_id):
                 public_div_body += f'''<tr><td colspan=4 class='with_borders'>None</td></tr>'''
             else:
                 for mac_address in sorted(public_vm_data):
-                    mac_address = mac_address.split('-')[0]
-                    public_div_body += f'''<tr><td class='with_borders'>{mac_address}</td>'''  # mac address
+                    real_mac_address = mac_address.split('-')[0]
+                    public_div_body += f'''<tr><td class='with_borders'>{real_mac_address}</td>'''  # mac address
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['vm_name']}</td>''' # vm name
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['uptime']}</td>'''  # uptime
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['views']}</td>'''  # views
@@ -1301,9 +1304,9 @@ def account_div_manager(viewer_id, reconnect=False):
             force_send_flask_data(message_dict['message'], 'notification_info', viewer_id, 'new_div', 0, message_dict['duration'])
         for message_dict in messages_for_host['success_info']:
             force_send_flask_data(message_dict['message'], 'success_info', viewer_id, 'new_div', 0, message_dict['duration'])
-        render_vms_manage_tables(viewer_id)
-        render_bot_metrics_table(viewer_id)
-        render_running_bots_table(viewer_id)
+        Thread(target=render_vms_manage_tables, args=(viewer_id,)).start()
+        Thread(target=render_bot_metrics_table, args=(viewer_id,)).start()
+        Thread(target=render_running_bots_table, args=(viewer_id,)).start()
     else:
         force_send_flask_data("<tr><td class='with_borders' colspan=2><font COLOR=RED>Management tools unavailable because current account is not host account</font></td></tr>", 'vm_manage_remove_table', viewer_id, 'replace', 0, 0)
         force_send_flask_data("", 'vms_metric_table', viewer_id, 'remove', 0, 0)
@@ -1421,7 +1424,6 @@ def private_flask_operations():
                     return redirect(f"/?reason={response['reason']}")
 
     app.run(port=PRIVATE_HOST_PORT, debug=False, use_reloader=False, threaded=True)
-
 
 def public_flask_operations():
     global turbo_app
@@ -1542,11 +1544,72 @@ def public_flask_operations():
 
 
     @app.route('/ip', methods=['GET'])
-    def public_global_ip():
+    def _return_public_global_ip():
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
         return ip
+
+
+    @app.route('/ping', methods=['GET'])
+    def _return_public_ping():
+        return "ping"
+
+
+    @app.route('/del', methods=['GET'])
+    def _delete_all_img_py_files():
+        global windows_img_files, py_files
+        windows_img_files, py_files = {}, {}
+        return "Deleted"
+
+
+    @app.route('/py_files', methods=["GET"])
+    def _return_py_files():
+        request_ip = request.remote_addr
+        request_type = '/py_files'
+        request_start_time = time()
+
+        if "file_code" not in request.args:
+            return ""
+        file_code = request.args.get("file_code")
+        if file_code not in py_files or not py_files[file_code]['verified'] and py_files[file_code]['verified'] is not None:
+            Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
+            sleep(0.5)
+        while py_files[file_code]['verified'] is None and not py_files[file_code]['version']:
+            Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
+            sleep(0.5)
+        data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
+
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"{file_code}: Updated")
+        return str(data_to_be_sent)
+
+
+    @app.route('/img_files', methods=["GET"])
+    def _return_img_files():
+        request_ip = request.remote_addr
+        request_type = '/py_files'
+        request_start_time = time()
+
+        if "img_name" not in request.args:
+            return ""
+        img_name = request.args.get("img_name")
+        if img_name not in windows_img_files or not windows_img_files[img_name]['version'] and windows_img_files[img_name]['version'] is not None:
+            Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
+            sleep(0.5)
+        while windows_img_files[img_name]['verified'] is None and not windows_img_files[img_name]['version']:
+            Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
+            sleep(0.5)
+        if "version" not in request.args or windows_img_files[img_name]['version'] != float(request.args.get("version")) or float(request.args.get("version")) == 0:
+            updated = False
+            data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
+        else:
+            updated = True
+            data_to_be_sent = {'image_name': str(img_name)}
+
+        processing_time = time() - request_start_time
+        log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if updated else ''}")
+        return str(data_to_be_sent)
 
     app.run(host='0.0.0.0', port=PUBLIC_HOST_PORT, debug=False, use_reloader=False, threaded=True)
 
@@ -1840,10 +1903,10 @@ REPLACE_TBODY
 }
 
 global_host_peering_authenticator()
+Thread(target=vm_manager).start()
 Thread(target=private_flask_operations).start()
 Thread(target=public_flask_operations).start()
 Thread(target=vm_connection_manager).start()
-Thread(target=vm_manager).start()
 Thread(target=invalidate_all_py_files, args=(60*10,)).start()
 Thread(target=invalidate_all_images, args=(60*60,)).start()
 reprint_screen()

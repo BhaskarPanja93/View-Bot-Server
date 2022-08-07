@@ -1,12 +1,14 @@
-import subprocess
-
+print("stable u name checker")
 global_host_address = ()
 global_host_page = ''
 local_host_address = ()
+local_page = ''
+LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 def run():
+    global local_page, local_network_adapters, local_host_address
     from os import remove, system as system_caller
     remove('client_uname_checker.py')
     from threading import Thread
@@ -15,6 +17,7 @@ def run():
     from time import sleep
     from requests import get
     from ping3 import ping
+    import subprocess
 
     def verify_global_host_address():
         global global_host_address, global_host_page
@@ -50,7 +53,7 @@ def run():
                 for ip in local_network_adapters:
                     Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
                 for _ in range(10):
-                    if local_host_address:
+                    if local_host_address and local_page != "":
                         break
                     else:
                         sleep(1)
@@ -61,7 +64,7 @@ def run():
 
 
     def try_pinging_local_host_connection(ip):
-        global local_host_address
+        global local_host_address, local_page
         try:
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connection.connect((ip, LOCAL_HOST_PORT))
@@ -72,9 +75,13 @@ def run():
                 received_data = eval(received_data)
                 if received_data['ping'] == 'ping':
                     local_host_address = (ip, LOCAL_HOST_PORT)
-                    return True
-            else:
-                return False
+        except:
+            pass
+        try:
+            page = f"http://{ip}:{LOCAL_PAGE_PORT}"
+            response = get(f"{page}/ping", timeout=10).text
+            if response == 'ping':
+                local_page = page
         except:
             pass
 
@@ -95,19 +102,6 @@ def run():
                 break
             except:
                 verify_global_host_address()
-            sleep(1)
-        return connection
-
-
-    def force_connect_local_host():
-        global global_host_address, global_host_page
-        while True:
-            try:
-                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.connect(local_host_address)
-                break
-            except:
-                fetch_and_update_local_host_address()
             sleep(1)
         return connection
 
@@ -182,6 +176,7 @@ def run():
                     break
                 if response['status_code'] == -1:
                     print("Wrong Username-Password combination\n")
+
     system_caller('cls')
     try:
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
@@ -196,15 +191,18 @@ def run():
     else:
         try_username_password()
     fetch_and_update_local_host_address()
-    final_main_connection = force_connect_local_host()
     file_code = 'stable_3'
-    data_to_send = {'purpose': 'py_file_request', 'file_code': file_code}
-    __send_to_connection(final_main_connection, str(data_to_send).encode())
-    response = __receive_from_connection(final_main_connection)
-    if response[0] == 123 and response[-1] == 125:
-        response = eval(response)
-        if response['file_code'] == file_code:
-            with open('runner.py', 'wb') as file:
-                file.write(response['py_file_data'])
+    while True:
+        try:
+            response = get(f"{local_page}/py_files?file_code={file_code}", timeout=10).content
+            if response[0] == 123 and response[-1] == 125:
+                response = eval(response)
+                if response['file_code'] == file_code:
+                    with open('runner.py', 'wb') as file:
+                        file.write(response['py_file_data'])
+                    break
+        except:
+            sleep(1)
+            fetch_and_update_local_host_address()
     subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
     #subprocess.Popen('python runner.py')

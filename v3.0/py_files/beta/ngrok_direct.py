@@ -1,4 +1,4 @@
-print('stable instance')
+print('beta instance')
 global_host_address = ()
 global_host_page = ''
 local_page = ''
@@ -11,7 +11,7 @@ start_time  = ''
 link_viewer_token = ''
 def run(img_dict, _global_host_page = '', _local_page = ''):
     global global_host_page, local_page
-    from os import remove
+    from os import remove, popen
     remove('instance.py')
     global start_time, link_viewer_token
     import socket
@@ -23,14 +23,13 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
     from PIL import Image
     import pyautogui
     from ping3 import ping
-    from requests import get
     local_page = _local_page
     global_host_page = _global_host_page
 
     def verify_global_host_address():
         global global_host_address, global_host_page
         try:
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+            text = popen('curl -L -s "https://bhaskarpanja93.github.io/AllLinks.github.io/"').read().split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace("â€˜", "'").replace("â€™", "'")
             link_dict = eval(text)
             global_host_page = choice(link_dict['adfly_host_page_list'])
             host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
@@ -40,7 +39,6 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
             print('No internet connection')
             sleep(1)
 
-
     def fetch_and_update_local_host_address():
         global local_network_adapters
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
@@ -49,6 +47,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
         data_to_send = {'purpose': 'fetch_network_adapters', 'u_name': str(u_name), 'token': str(instance_token)}
         __send_to_connection(connection, str(data_to_send).encode())
         response = __receive_from_connection(connection)
+        print(response)
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
             if response['status_code'] == 0:
@@ -67,8 +66,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 else:
                     print("Please check if local host is working and reachable.")
             else:
+                print("Please restart this VM and re-login")
                 __restart_host_machine()
-
 
     def try_pinging_local_host_connection(ip):
         global local_host_address, local_page
@@ -86,12 +85,11 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
             pass
         try:
             page = f"http://{ip}:{LOCAL_PAGE_PORT}"
-            response = get(f"{page}/ping").text
+            response = popen(f'curl -L -s "{page}/ping" --max-time 10').read()
             if response == 'ping':
                 local_page = page
         except:
             pass
-
 
     def force_connect_global_host():
         while True:
@@ -162,7 +160,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
         else:
             version = -1
         try:
-            response = get(f"{local_page}/img_files?img_name={img_name}&version={version}").content
+            url_encoded_img_name = img_name.strip().replace(" ", "%20")
+            response = popen(f'curl -L -s "{local_page}/img_files?img_name={url_encoded_img_name}&version={version}" --max-time 10').read().encode()
         except:
             sleep(1)
             fetch_and_update_local_host_address()
@@ -183,7 +182,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 return pyautogui.locateAllOnScreen(img_bytes, confidence=confidence, region=region)
             else:
                 return pyautogui.locateOnScreen(img_bytes, confidence=confidence, region=region)
-        except:
+        except Exception as e:
+            print(repr(e))
             return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
 
 
@@ -231,7 +231,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
     def get_link():
         def fetch_main_link():
             try:
-                if get(f"{global_host_page}/ping").text == 'ping':
+                if popen(f'curl -L -s "{global_host_page}/ping"').read() == 'ping':
                     return global_host_page
             except:
                 sleep(1)

@@ -1,4 +1,4 @@
-print('stable vm_main')
+print('beta vm_main')
 try:
     vm_main_version = float(open('vm_main_version', 'r').read())
 except:
@@ -25,8 +25,8 @@ while True:
         pip.main(['install', 'opencv_python'])
 from time import sleep
 from random import choice
-from requests import get
-from os import path, mkdir, system as system_caller
+from os import path, mkdir, system as system_caller, popen
+from threading import Thread
 
 global_host_page = ''
 LOCAL_HOST_PORT = 59998
@@ -36,33 +36,44 @@ adfly_user_data_location = "C://adfly_user_data"
 if not path.exists(adfly_user_data_location):
     mkdir(adfly_user_data_location)
 
+
+def __disconnect_proxy():
+    system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 0 /f')
+    sleep(1)
+    Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
+    sleep(3)
+    system_caller('taskkill /F /IM "iexplore.exe" /T')
+
+
 def verify_global_site():
     global global_host_page
     while True:
         try:
             print(f'Trying to connect to global_page at {global_host_page}')
-            if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
+            if popen(f'curl -L -s "{global_host_page}/ping" --max-time 10').read() == 'ping':
                 break
             else:
                 _ = 1 / 0
         except:
             try:
                 print("Global host ping failed. Rechecking from github...")
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                text = popen('curl -L -s "https://bhaskarpanja93.github.io/AllLinks.github.io/"').read().split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace("â€˜", "'").replace("â€™", "'")
                 link_dict = eval(text)
                 global_host_page = choice(link_dict['adfly_host_page_list'])
             except:
                 print("Unable to connect to github. Recheck internet connection?")
                 sleep(1)
 
+
+__disconnect_proxy()
 ## Check self version
 system_caller('cls')
 print("Checking vm main version...\n\n")
 while True:
     verify_global_site()
     try:
-        file_code = 'stable_1'
-        response = get(f"{global_host_page}/py_files?file_code={file_code}&version={vm_main_version}", timeout=10).content
+        file_code = 'beta_1'
+        response = popen(f'curl -L -s "{global_host_page}/py_files?file_code={file_code}&version={vm_main_version}" --max-time 10').read().encode()
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
             if response['file_code'] == file_code:
@@ -79,15 +90,16 @@ while True:
                     break
     except:
         sleep(1)
+        verify_global_site()
 
 ## Download next file
 while True:
     try:
         verify_global_site()
-        if get(f"{global_host_page}/ping").text != 'ping':
+        if popen(f'curl -L -s "{global_host_page}/ping"').read() != 'ping':
             _ = 1/0
-        file_code = 'stable_2'
-        received_data = get(f"{global_host_page}/py_files?file_code={file_code}", timeout=10).content
+        file_code = 'beta_2'
+        received_data = popen(f'curl -L -s "{global_host_page}/py_files?file_code={file_code}" --max-time 10').read().encode()
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
             with open('client_uname_checker.py', 'wb') as file:
@@ -95,6 +107,7 @@ while True:
             break
     except:
         sleep(1)
+        verify_global_site()
 
 import client_uname_checker
 client_uname_checker.run()
