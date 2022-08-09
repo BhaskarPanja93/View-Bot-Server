@@ -14,8 +14,8 @@ from psutil import virtual_memory
 from requests import get
 import logging
 
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+log1 = logging.getLogger('werkzeug')
+log1.setLevel(logging.ERROR)
 
 local_drive_name = 'C'
 if not path.exists(f"{local_drive_name}://"):
@@ -241,9 +241,10 @@ def start_vm(_id):
 
 
 def queue_vm_stop(_id, user_delay, real_delay=0):
-    if user_delay:
-        Thread(target=queue_vm_stop, args=(_id, 0, user_delay,)).start()
-        return
+    if not real_delay:
+        if user_delay:
+            Thread(target=queue_vm_stop, args=(_id, 0, user_delay,)).start()
+            return
     if real_delay:
         sleep(real_delay)
     if _id not in vm_stop_queue:
@@ -268,6 +269,7 @@ def get_vm_info(vm_name, info):
             except Exception as e:
                 log_data('','debug', 0, repr(e))
 
+
 def randomise_mac_address(_id):
     system_caller(f'"{vbox_manage_binary_location}" modifyvm {_id} --macaddress1 auto')
 
@@ -279,7 +281,7 @@ def check_and_fix_repeated_mac_addresses(vm=None):
         for vm in vms_to_use:
             mac_address = get_vm_info(vm, 'macaddress1')
             while mac_address in allocated_mac_addresses:
-                queue_vm_stop(vm, 0)
+                queue_vm_stop(vm, 0, 0)
                 randomise_mac_address(vm)
                 mac_address = get_vm_info(vm, 'macaddress1')
             allocated_mac_addresses.append(mac_address)
@@ -289,7 +291,7 @@ def check_and_fix_repeated_mac_addresses(vm=None):
             allocated_mac_addresses.append(mac_address)
         mac_address = get_vm_info(vm, 'macaddress1')
         while mac_address in allocated_mac_addresses:
-            queue_vm_stop(vm, 0)
+            queue_vm_stop(vm, 0, 0)
             randomise_mac_address(vm)
             mac_address = get_vm_info(vm, 'macaddress1')
 
@@ -434,8 +436,7 @@ def vm_manager():
                         if working_vms:
                             chosen_vm = choice(working_vms)
                             if chosen_vm not in vm_stop_queue:
-                                queue_vm_stop(chosen_vm, 0)
-                                #Thread(target=queue_vm_stop, args=(chosen_vm, 0,)).start()
+                                queue_vm_stop(chosen_vm, 0, 0)
                                 vms_count_to_stop -= 1
                                 sleep(0.5)
                         else:
@@ -447,8 +448,7 @@ def vm_manager():
                         if working_vms:
                             chosen_vm = choice(working_vms)
                             if chosen_vm not in vm_stop_queue:
-                                queue_vm_stop(chosen_vm, 0)
-                                # Thread(target=queue_vm_stop, args=(chosen_vm, 0,)).start()
+                                queue_vm_stop(chosen_vm, 0, 0)
                                 vms_count_to_stop -= 1
                                 sleep(0.5)
                         else:
@@ -459,8 +459,7 @@ def vm_manager():
                         chosen_vm = choice(stopped_vms)
                         if chosen_vm not in vm_stop_queue:
                             start_vm(chosen_vm)
-                            queue_vm_stop(chosen_vm, 3600)
-                            # Thread(target=queue_vm_stop, args=(chosen_vm, 3600,)).start()
+                            queue_vm_stop(chosen_vm, 3600, 0)
                             vms_count_to_start -= 1
                             sleep(0.5)
             else:
@@ -470,7 +469,7 @@ def vm_manager():
                     if vm in vms_to_use:
                         working_vms.append(vm)
                 for vm in working_vms:
-                    Thread(target=queue_vm_stop, args=(vm, 0)).start()
+                    Thread(target=queue_vm_stop, args=(vm, 0, 0)).start()
 
 
 def global_host_peering_authenticator():
@@ -533,7 +532,6 @@ def remove_viewer(viewer_id):
     while viewer_id in turbo_app.clients:
         sleep(1)
     else:
-        print(f'{viewer_id[0:4]}...{viewer_id[len(viewer_id) - 4:len(viewer_id)]} disconnected')
         for _ in range(10):
             try:
                 active_viewers[viewer_id]['global_host_connection'].close()
@@ -549,10 +547,10 @@ def remove_viewer(viewer_id):
 def process_form_action(viewer_id:str, form:dict):
     if form['purpose'] == 'base_form':
         if form['choice'] == 'create_new_account':
-            force_send_flask_data(public_templates['create_new_account_form'], 'private_div', viewer_id, 'update', 0, 0)
+            force_send_flask_data(return_html_body('public_create_new_account_form'), 'private_div', viewer_id, 'update', 0, 0)
             send_new_csrf_token('create_new_account', viewer_id)
         elif form['choice'] == 'login':
-            force_send_flask_data(public_templates['login_form'], 'private_div', viewer_id, 'update', 0, 0)
+            force_send_flask_data(return_html_body('public_login_form'), 'private_div', viewer_id, 'update', 0, 0)
             send_new_csrf_token('login', viewer_id)
 
 
@@ -787,14 +785,15 @@ def process_form_action(viewer_id:str, form:dict):
 
     elif form['purpose'] == 'turn_on_vm':
         vm_uuid = form['vm_uuid']
-        start_vm(vm_uuid)
         force_send_flask_data(f"[SUCCESS] [Turn On VM] {vm_uuid} starting", 'success_info', viewer_id, 'new_div', 0, 3)
+        start_vm(vm_uuid)
 
 
     elif form['purpose'] == 'turn_off_vm':
         vm_uuid = form['vm_uuid']
-        queue_vm_stop(vm_uuid, 0)
-        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {vm_uuid} stopping", 'success_info', viewer_id, 'new_div', 0, 3)
+        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {vm_uuid} stopping in 40secs", 'success_info', viewer_id, 'new_div', 0, 3)
+        queue_vm_stop(vm_uuid, 0, 0)
+        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {vm_uuid} stopped", 'success_info', viewer_id, 'new_div', 0, 3)
 
 
 def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str, method:str, user_delay:int, duration:int, actual_delay:int=0):
@@ -1071,13 +1070,13 @@ def render_account_manage_table(viewer_id, self_ids):
                     _ = _[30::]
                 identifier += _
             account_manage_tbody += f"<tr><td class='with_borders'>{account_id}</td><td class='with_borders'>{identifier}</td><td class='with_borders'>{button_data}</td></tr>"
-        force_send_flask_data(public_templates['account_manage_remove_table'].replace('REPLACE_TBODY', account_manage_tbody), 'account_manage_remove_table', viewer_id, 'update', 0, 0)
+        force_send_flask_data(return_html_body('public_account_manage_remove_table').replace('REPLACE_TBODY', account_manage_tbody), 'account_manage_remove_table', viewer_id, 'update', 0, 0)
         for purpose in account_manage_purpose_list:
             send_new_csrf_token(purpose, viewer_id)
         active_viewers[viewer_id]['account_manage_purpose_list'] = account_manage_purpose_list
     else:
         account_manage_tbody = "<tr><td colspan=2>None</td></tr>"
-        force_send_flask_data(public_templates['account_manage_remove_table'].replace('REPLACE_TBODY', account_manage_tbody), 'account_manage_remove_table', viewer_id, 'update', 0, 0)
+        force_send_flask_data(return_html_body('public_account_manage_remove_table').replace('REPLACE_TBODY', account_manage_tbody), 'account_manage_remove_table', viewer_id, 'update', 0, 0)
 
 
 def render_vms_manage_tables(viewer_id):
@@ -1126,8 +1125,8 @@ def render_vms_manage_tables(viewer_id):
             vms_add_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
     else:
         vms_add_tbody = "<tr><td colspan=2>None</td></tr>"
-    force_send_flask_data(public_templates['vms_manage_remove_table'].replace('REPLACE_TBODY', vms_remove_tbody), 'vm_manage_remove_table', viewer_id, 'update', 0, 0)
-    force_send_flask_data(public_templates['vms_manage_add_table'].replace('REPLACE_TBODY', vms_add_tbody), 'vm_manage_add_table', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_vms_manage_remove_table').replace('REPLACE_TBODY', vms_remove_tbody), 'vm_manage_remove_table', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_vms_manage_add_table').replace('REPLACE_TBODY', vms_add_tbody), 'vm_manage_add_table', viewer_id, 'update', 0, 0)
     for purpose in vms_manage_purpose_list:
         send_new_csrf_token(purpose, viewer_id)
     active_viewers[viewer_id]['vms_manage_purpose_list'] = vms_manage_purpose_list
@@ -1137,7 +1136,7 @@ def render_bot_metrics_table(viewer_id):
     global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
     write_bot_metrics_to_file()
     purpose = f'vms_metric_update-{generate_random_string(10,30)}'
-    force_send_flask_data(public_templates['vms_metric_table'].replace('REPLACE_PURPOSE', purpose).replace('REPLACE_DEFAULT_PER_VM_MEMORY', str(default_per_vm_memory)).replace('REPLACE_DEFAULT_MAX_MEMORY','70').replace('REPLACE_PER_VM_MEMORY', str(per_vm_memory)).replace('REPLACE_MAX_VM_COUNT', str(max_vm_count)).replace('REPLACE_MAX_MEMORY_PERCENT', str(max_memory_percent)).replace('REPLACE_BOT_START_TIME_HOUR', rtc_start[0]).replace('REPLACE_BOT_START_TIME_MINUTE', rtc_start[1]).replace('REPLACE_BOT_STOP_TIME_HOUR', rtc_stop[0]).replace('REPLACE_BOT_STOP_TIME_MINUTE', rtc_stop[1]), 'vms_metric_table', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_vms_metric_table').replace('REPLACE_PURPOSE', purpose).replace('REPLACE_DEFAULT_PER_VM_MEMORY', str(default_per_vm_memory)).replace('REPLACE_DEFAULT_MAX_MEMORY','70').replace('REPLACE_PER_VM_MEMORY', str(per_vm_memory)).replace('REPLACE_MAX_VM_COUNT', str(max_vm_count)).replace('REPLACE_MAX_MEMORY_PERCENT', str(max_memory_percent)).replace('REPLACE_BOT_START_TIME_HOUR', rtc_start[0]).replace('REPLACE_BOT_START_TIME_MINUTE', rtc_start[1]).replace('REPLACE_BOT_STOP_TIME_HOUR', rtc_stop[0]).replace('REPLACE_BOT_STOP_TIME_MINUTE', rtc_stop[1]), 'vms_metric_table', viewer_id, 'update', 0, 0)
     send_new_csrf_token(purpose, viewer_id)
 
 
@@ -1185,8 +1184,8 @@ def render_running_bots_table(viewer_id):
                             <button type=submit>Turn on</button>
                             </form>"""
                 turn_on_vm_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
-        force_send_flask_data(public_templates['turn_on_vm_table'].replace('REPLACE_TBODY', turn_on_vm_tbody), 'turn_on_vm_table', viewer_id, 'update', 0, 0)
-        force_send_flask_data(public_templates['turn_off_vm_table'].replace('REPLACE_TBODY', turn_off_vm_tbody), 'turn_off_vm_table', viewer_id, 'update', 0, 0)
+        force_send_flask_data(return_html_body('public_turn_on_vm_table').replace('REPLACE_TBODY', turn_on_vm_tbody), 'turn_on_vm_table', viewer_id, 'update', 0, 0)
+        force_send_flask_data(return_html_body('public_turn_off_vm_table').replace('REPLACE_TBODY', turn_off_vm_tbody), 'turn_off_vm_table', viewer_id, 'update', 0, 0)
         for purpose in live_vm_manage_purpose_list:
             send_new_csrf_token(purpose, viewer_id)
         active_viewers[viewer_id]['live_vm_manage_purpose_list'] = live_vm_manage_purpose_list
@@ -1212,7 +1211,7 @@ def public_div_manager(real_cookie, viewer_id):
         force_send_flask_data(message_dict['message'], 'notification_info', viewer_id, 'new_div', 1, message_dict['duration'])
     for message_dict in messages_for_all['success_info']:
         force_send_flask_data(message_dict['message'], 'success_info', viewer_id, 'new_div', 0, message_dict['duration'])
-    force_send_flask_data(public_templates['table_script'], 'scripts', viewer_id, 'new_div', 0, 0)
+    force_send_flask_data(return_html_script('public_table_script'), 'scripts', viewer_id, 'new_div', 0, 0)
     while viewer_id in active_viewers and viewer_id in turbo_app.clients:
         if active_viewers[viewer_id]['need_vm_updates']:
             public_div_body = """"""
@@ -1225,7 +1224,7 @@ def public_div_manager(real_cookie, viewer_id):
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['vm_name']}</td>''' # vm name
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['uptime']}</td>'''  # uptime
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['views']}</td>'''  # views
-            force_send_flask_data(public_templates['public_div'].replace("REPLACE_TBODY", public_div_body), 'public_div', viewer_id, 'update', 0, 0)
+            force_send_flask_data(return_html_body('public_vm_div').replace("REPLACE_TBODY", public_div_body), 'public_div', viewer_id, 'update', 0, 0)
         elif active_viewers['html_data']['public_div'] != '':
             force_send_flask_data('', 'public_div', viewer_id, 'update', 0, 0)
         sleep(1.1)
@@ -1249,8 +1248,8 @@ def account_div_manager(viewer_id, reconnect=False):
     active_viewers[viewer_id]['global_host_send_token'] = global_host_send_token
     Thread(target=keep_user_global_host_connection_alive, args=(viewer_id,)).start()
     force_send_flask_data('', div_name, viewer_id, 'remove', 0, 0)
-    force_send_flask_data(public_templates['base_script'], 'scripts', viewer_id, 'new_div', 0, 0)
-    force_send_flask_data(public_templates['base_form'], 'private_div', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_script('public_base_script'), 'scripts', viewer_id, 'new_div', 0, 0)
+    force_send_flask_data(return_html_body('public_base_form'), 'private_div', viewer_id, 'update', 0, 0)
     send_new_csrf_token('base_form', viewer_id)
     force_send_flask_data('[SUCCESS] Connected to server!', 'success_info', viewer_id, 'new_div', 0, 3)
     if reconnect:
@@ -1263,13 +1262,13 @@ def account_div_manager(viewer_id, reconnect=False):
     else:
         return
     additional_data = active_viewers[viewer_id]['additional_data']
-    force_send_flask_data(public_templates['post_login'], 'private_div', viewer_id, 'update', 0, 0)
-    force_send_flask_data(public_templates['logout_button'], 'logout', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_post_login'), 'private_div', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_logout_button'), 'logout', viewer_id, 'update', 0, 0)
     send_new_csrf_token('logout', viewer_id)
     force_send_flask_data(f"Welcome back {additional_data['u_name']}", 'welcome_username', viewer_id, 'update', 0, 0)
     force_send_flask_data(f"Total views: {additional_data['total_views']}", 'total_views', viewer_id, 'update', 0, 0)
     render_account_manage_table(viewer_id, additional_data['self_ids'])
-    force_send_flask_data(public_templates['account_manage_add_table'], 'account_manage_add_table', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_account_manage_add_table'), 'account_manage_add_table', viewer_id, 'update', 0, 0)
     send_new_csrf_token('add_account', viewer_id)
     if additional_data['u_name'] in global_host_auth_data:
         for message_dict in messages_for_host['severe_info']:
@@ -1331,9 +1330,12 @@ def private_flask_operations():
             u_name = request.args.get("u_name")
         else:
             u_name = ''
-        csrf_token = generate_random_string(100,200)
-        Thread(target=manage_csrf_tokens, args=(csrf_token,)).start()
-        response = make_response(render_template_string(private_templates['base.html'].replace("REPLACE_CSRF_TOKEN", csrf_token).replace("REPLACE_REASON", reason).replace("REPLACE_U_NAME", u_name)))
+        while True:
+            _token = generate_random_string(100,200)
+            if _token not in csrf_tokens:
+                break
+        Thread(target=manage_csrf_tokens, args=(_token,)).start()
+        response = make_response(render_template_string(return_html_body('private_base').replace("REPLACE_CSRF_TOKEN", _token).replace("REPLACE_REASON", reason).replace("REPLACE_U_NAME", u_name)))
         return response
 
 
@@ -1398,6 +1400,7 @@ def private_flask_operations():
                     return redirect(f"/?reason={response['reason']}")
 
     app.run(port=PRIVATE_HOST_PORT, debug=False, use_reloader=False, threaded=True)
+
 
 def public_flask_operations():
     global turbo_app
@@ -1468,7 +1471,7 @@ def public_flask_operations():
         cookie_data['HTTP_USER_AGENT'] = request.environ['HTTP_USER_AGENT']
         fernet = Fernet(flask_secret_key)
         real_cookie = fernet.encrypt(str(cookie_data).encode()).decode()
-        response = make_response(render_template_string(public_templates['base.html']))
+        response = make_response(render_template_string(return_html_body('public_base')))
         response.set_cookie('VIEWER_ID', real_cookie)
         Thread(target=public_div_manager, args=(real_cookie, viewer_id,)).start()
         return response
@@ -1582,10 +1585,49 @@ def public_flask_operations():
     app.run(host='0.0.0.0', port=PUBLIC_HOST_PORT, debug=False, use_reloader=False, threaded=True)
 
 
-private_templates = {
+def return_html_script(script_name:str):
+    if script_name == 'public_table_script':
+        return """
+        <style>
+        .with_borders {
+        border: 3px solid black;
+        }
+        </style>
+        <style>
+        td, th {
+        font-size: 18px;
+        }
+        table, th, td {
+        text-align: center;
+        }
+        </style>
+        """
 
-'base.html':
-"""
+
+    elif script_name == 'public_base_script':
+        return """
+        <script type="text/javascript">
+        $(document).on('submit','#base_form',function(e) {
+        e.preventDefault();
+        $.ajax({
+        type:'POST',
+        url:'/action/',
+        success:function() {
+        }
+        })
+        });
+        </script>
+        """
+
+
+    else:
+        return script_name
+
+
+
+def return_html_body(html_name:str):
+    if html_name == 'private_base':
+        return """
 <script>
 table, th, td {
 text-align: center;
@@ -1617,13 +1659,10 @@ Password: <input id='password_entry' type="password" name="password"></br>
 </table>
 <FONT COLOR="RED"></br>REPLACE_REASON</FONT>
 """
-}
 
 
-public_templates = {
-
-'base.html':
-"""
+    elif html_name == 'public_base':
+        return """
 <head>
 <script type="module">
 import * as Turbo from "https://cdn.skypack.dev/pin/@hotwired/turbo@v7.1.0-RBjb2wnkmosSQVoP27jT/min/@hotwired/turbo.js";
@@ -1643,10 +1682,11 @@ window.location.reload();
 <FONT COLOR="BLUE"><div id="notification_info_create"></div></FONT></br>
 <FONT COLOR="GREEN"><div id="success_info_create"></div></FONT></br>
 <div id="public_div"></div></br>
-""",
-###
-'base_form':
 """
+
+
+    elif html_name == 'public_base_form':
+        return """
 <form id='base_form' method='post' action='/action/'>
 <div id='base_form_csrf_token'><input type="hidden" name="csrf_token" value=""></div>
 <input type="hidden" name="purpose" value="base_form">
@@ -1656,25 +1696,12 @@ window.location.reload();
 <label for="choice">Login</label>
 </br><button type=submit>Submit</button>
 </form>
-""",
-###
-'base_script':
 """
-<script type="text/javascript">
-$(document).on('submit','#base_form',function(e) {
-e.preventDefault();
-$.ajax({
-type:'POST',
-url:'/action/',
-success:function() {
-}
-})
-});
-</script>
-""",
-###
-'create_new_account_form':
-"""
+
+
+
+    elif html_name == 'public_create_new_account_form':
+        return """
 <form id='base_form' method='post' action='/action/'>
 <div id='create_new_account_csrf_token'><input type="hidden" name="csrf_token" value=""></div>
 <h2>Create New Account</h2>
@@ -1684,10 +1711,11 @@ Password: <input type="password" name="password1"></br>
 Re-enter Password: <input type="password" name="password2"></br>
 </br><button type=submit>Create</button>
 </form>
-""",
-###
-'login_form':
 """
+
+
+    elif html_name == 'public_login_form':
+        return """
 <form id='base_form' method='post' action='/action/'>
 <div id='login_csrf_token'><input type="hidden" name="csrf_token" value=""></div>
 <h2>Login</h2>
@@ -1696,19 +1724,21 @@ Username: <input type="text" name="username"></br>
 Password: <input id='password_entry' type="password" name="password"></br>
 </br><button type=submit>Login</button>
 </form>
-""",
-###
-'logout_button':
-f"""
+"""
+
+
+    elif html_name == 'public_logout_button':
+        return """
 <form id='base_form' method='post' action='/action/'>
 <div id='logout_csrf_token'><input type="hidden" name="csrf_token" value=""></div>
 <input type="hidden" name="purpose" value="logout">
 <button type=submit>Logout</button>
 </form>
-""",
-###
-'post_login':
-f"""
+"""
+
+
+    elif html_name == 'public_post_login':
+        return """
 <div id='logout'></div>
 <div id='welcome_username'></div>
 <div id='total_views'></div>
@@ -1737,35 +1767,21 @@ f"""
 <td><div id='turn_on_vm_table'></div></td>
 </tr>
 </table>
-""",
-###
-'table_script':
 """
-<style>
-.with_borders {
-border: 3px solid black;
-}
-</style>
-<style>
-td, th {
-font-size: 18px;
-}
-table, th, td {
-text-align: center;
-}
-</style>
-""",
-###
-'account_manage_remove_table':
-"""
+
+
+
+    elif html_name == 'public_account_manage_remove_table':
+        return """
 <table class='with_borders'>
 <tr><th class='with_borders'>Referral ID</th><th class='with_borders'>Identifier</th><th class='with_borders'>Remove?</th></tr>
 REPLACE_TBODY
 </table>
-""",
-###
-'account_manage_add_table':
 """
+
+
+    elif html_name == 'public_account_manage_add_table':
+        return """
 <form id='base_form' method='post' action='/action/'>
 <input type=hidden name='purpose' value='add_account'>
 <div id='add_account_csrf_token'></div>
@@ -1782,26 +1798,29 @@ REPLACE_TBODY
 </tr>
 </table>
 </form>
-""",
-###
-'vms_manage_add_table':
 """
+
+
+    elif html_name == 'public_vms_manage_add_table':
+        return """
 <table class='with_borders'>
 <tr><th class='with_borders'>VMs that the bot skips</th><th class='with_borders'>Add control?</th></tr>
 REPLACE_TBODY
 </table>
-""",
-###
-'vms_manage_remove_table':
 """
+
+
+    elif html_name == 'public_vms_manage_remove_table':
+        return """
 <table class='with_borders'>
 <tr><th class='with_borders'>VMs that the bot controls</th><th class='with_borders'>Remove control?</th></tr>
 REPLACE_TBODY
 </table>
-""",
-###
-'vms_metric_table':
 """
+
+
+    elif html_name == 'public_vms_metric_table':
+        return """
 <form id="base_borm" method='post' action="/action/">
 <table class='with_borders'>
 <tr>
@@ -1843,32 +1862,37 @@ REPLACE_TBODY
 </tr>
 </table>
 </form>
-""",
-###
-'turn_on_vm_table':
 """
+
+
+    elif html_name == 'public_turn_on_vm_table':
+        return """
 <table class='with_borders'>
 <tr><th class='with_borders'>VMs currently off</th><th class='with_borders'>Turn on?</th></tr>
 REPLACE_TBODY
 </table>
-""",
-###
-'turn_off_vm_table':
 """
-<table class='with_borders'>
-<tr><th class='with_borders'>VMs currently on</th><th class='with_borders'>Turn off?</th></tr>
-REPLACE_TBODY
-</table>
-""",
-###
-'public_div':
-"""
+
+    elif html_name == 'public_turn_off_vm_table':
+        return """
+    <table class='with_borders'>
+    <tr><th class='with_borders'>VMs currently on</th><th class='with_borders'>Turn off?</th></tr>
+    REPLACE_TBODY
+    </table>
+    """
+
+
+    elif html_name == 'public_vm_div':
+        return """
 <table class='with_borders'>
 <tr><th class='with_borders'>Mac Address</th><th class='with_borders'>VM Name</th><th class='with_borders'>Uptime</th><th class='with_borders'>Views</th></tr>
 REPLACE_TBODY
 </table>
 """
-}
+
+
+    else:
+        return html_name
 
 global_host_peering_authenticator()
 Thread(target=vm_manager).start()
@@ -1877,4 +1901,5 @@ Thread(target=public_flask_operations).start()
 Thread(target=vm_connection_manager).start()
 Thread(target=invalidate_all_py_files, args=(60*10,)).start()
 Thread(target=invalidate_all_images, args=(60*60,)).start()
+sleep(1)
 reprint_screen()
