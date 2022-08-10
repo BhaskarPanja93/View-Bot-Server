@@ -49,10 +49,10 @@ paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decod
 stable_file_location = 'stable_py_files'
 testing_py_files_location = 'testing_py_files'
 
-all_proxies_ever, waiting_proxy_list, working_proxy_list = [], [], []
-proxies_currently_checking = 0
-proxies_finished_checking = 0
-proxy_retries = 0
+current_proxy_batch_unique, waiting_proxies_unique, working_proxy_list_unique, all_proxies_unique = [], [], [], []
+proxies_currently_checking_count = 0
+all_proxies_checked_count = 0
+proxy_retries_count = 0
 
 host_cpu = 0.0
 host_ram = 0.0
@@ -188,18 +188,19 @@ def tcp_token_manager(ip, token):
             break
 
 
-def proxy_manager():
-    def check_proxy_working():
-        global proxies_currently_checking, proxies_finished_checking, proxy_retries
-        if not waiting_proxy_list:
-            return
+def check_proxy_with_api():
+    global proxies_currently_checking_count, all_proxies_checked_count, proxy_retries_count, all_proxies_unique
+    while True:
+        sleep(1)
+        if not waiting_proxies_unique:
+            continue
         proxy_text_to_send = ''
         temp_proxies_list = []
-        for _ in range(min(200, len(waiting_proxy_list))):
-            proxy = waiting_proxy_list.pop(0)
+        for _ in range(min(200, len(waiting_proxies_unique))):
+            proxy = waiting_proxies_unique.pop(0)
             temp_proxies_list.append(proxy)
             proxy_text_to_send += proxy + ','
-            proxies_currently_checking += 1
+            proxies_currently_checking_count += 1
         else:
             proxy_text_to_send += '35.234.248.49:3128'
         try:
@@ -213,50 +214,54 @@ def proxy_manager():
                         if proxy in temp_proxies_list:
                             if proxy_dict['failed']:
                                 temp_proxies_list.remove(proxy)
-                                proxies_currently_checking -= 1
-                                proxies_finished_checking += 1
+                                proxies_currently_checking_count -= 1
+                                all_proxies_checked_count += 1
                             else:
-                                if proxy not in working_proxy_list:
+                                if proxy not in working_proxy_list_unique:
                                     temp_proxies_list.remove(proxy)
-                                    working_proxy_list.append(proxy)
-                                    proxies_currently_checking -= 1
-                                    proxies_finished_checking += 1
+                                    working_proxy_list_unique.append(proxy)
+                                    proxies_currently_checking_count -= 1
+                                    all_proxies_checked_count += 1
                 except:
-                    proxy_retries += 1
+                    proxy_retries_count += 1
         except:
-            proxy_retries += 1
+            proxy_retries_count += 1
             for proxy in temp_proxies_list:
-                proxies_currently_checking -= 1
-                waiting_proxy_list.append(proxy)
+                proxies_currently_checking_count -= 1
+                waiting_proxies_unique.append(proxy)
             return
 
-    def reset_all_proxies_list():
-        global all_proxies_ever
-        while True:
-            sleep(60*60)
-            all_proxies_ever = []
+
+def reset_all_proxies_list():
+    global current_proxy_batch_unique
+    while True:
+        sleep(60*60)
+        current_proxy_batch_unique = []
 
 
-    def recheck_old_proxies():
-        while True:
-            sleep(60*10)
-            if len(working_proxy_list) > 50:
-                for _ in range(len(working_proxy_list)//2):
-                    waiting_proxy_list.append(working_proxy_list.pop(0))
+def recheck_old_proxies():
+    while True:
+        sleep(60*10)
+        if len(working_proxy_list_unique) > 50:
+            for _ in range(len(working_proxy_list_unique) // 2):
+                waiting_proxies_unique.append(working_proxy_list_unique.pop(0))
 
-    def fetch_proxies():
-        while True:
-            try:
-                response_html = get("https://free-proxy-list.net/").text.splitlines()
-                for _line in response_html:
-                    if _line.count(".") == 3 and _line.count(':') == 1:
-                        if _line not in all_proxies_ever:
-                            waiting_proxy_list.append(_line)
-                            all_proxies_ever.append(_line)
-            except:
-                pass
-            ### normal links (IP:PORT format)
-            normal_links = """https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
+def fetch_proxies():
+    while True:
+        ### special links
+        try:
+            response_html = get("https://free-proxy-list.net/").text.splitlines()
+            for _line in response_html:
+                if _line.count(".") == 3 and _line.count(':') == 1:
+                    if _line not in current_proxy_batch_unique:
+                        waiting_proxies_unique.append(_line)
+                        current_proxy_batch_unique.append(_line)
+                    if _line not in all_proxies_unique:
+                        waiting_proxies_unique.append(_line)
+        except:
+            pass
+        ### normal links (IP:PORT format)
+        normal_links = """https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
 https://raw.githubusercontent.com/HyperBeats/proxy-list/main/http.txt
 https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt
 https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt
@@ -275,24 +280,16 @@ https://www.proxy-list.download/api/v1/get?type=http&anon=elite
 https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=elite
 https://www.proxyscan.io/api/proxy?last_check=6000&limit=20&type=http,https&format=txt
 https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
-            for link in normal_links.splitlines():
-                try:
-                    html_data = get(link.strip()).text.splitlines()
-                    for _line in html_data:
-                        if _line not in all_proxies_ever:
-                            waiting_proxy_list.append(_line)
-                            all_proxies_ever.append(_line)
-                except:
-                    pass
-            sleep(10 * 60)
-
-    Thread(target=fetch_proxies).start()
-    Thread(target=recheck_old_proxies).start()
-    Thread(target=reset_all_proxies_list).start()
-    sleep(2)
-    while True:
-        Thread(target=check_proxy_working).start()
-        sleep(1)
+        for link in normal_links.splitlines():
+            try:
+                html_data = get(link.strip()).text.splitlines()
+                for _line in html_data:
+                    if _line not in current_proxy_batch_unique:
+                        waiting_proxies_unique.append(_line)
+                        current_proxy_batch_unique.append(_line)
+            except:
+                pass
+        sleep(10 * 60)
 
 
 def host_manager(ip, connection):
@@ -844,26 +841,27 @@ known_ips = {}
 def flask_operations(port):
     app = Flask(__name__, template_folder=getcwd() + '/templates/')
 
-    @app.route('/debug_data', methods=['GET'])
+    @app.route('/debug', methods=['GET'])
     def debug_data():
-        return_data = f"""<meta http-equiv = "refresh" content = "1; url = /debug_data" />
+        return f"""<meta http-equiv = "refresh" content = "1; url = /debug_data" />
 Hardware:</br>
-CPU: {host_cpu}</br>
-RAM: {host_ram}</br>
+CPU: {host_cpu}% (4 x 3.8GHz)</br>
+RAM: {host_ram}% (3.5GB)</br>
 </br></br>
 Network:</br>
-{network_out} mbps Out</br>
-{network_in} mbps In</br>
+{network_out} mbps Out (30mbps)</br>
+{network_in} mbps In (30mbps)</br>
 </br></br>
 Proxy:</br>
-No. of unique proxies found: {len(all_proxies_ever)}</br>
-No. of proxies waiting to be checked: {len(waiting_proxy_list)}</br>
-No. of working proxies: {len(working_proxy_list)}</br>
-No. of proxies currently checking: {proxies_currently_checking}</br>
-No. of proxies checked: {proxies_finished_checking}</br>
-Proxy check retries: {proxy_retries}</br>
+Total: {len(all_proxies_unique)}
+Current batch: {len(current_proxy_batch_unique)}</br>
+Wait list: {len(waiting_proxies_unique)}</br>
+Working: {len(working_proxy_list_unique)}</br>
+Currently checking: {proxies_currently_checking_count}</br>
+Total checked: {all_proxies_checked_count}</br>
+Retries: {proxy_retries_count}</br>
 """
-        return return_data
+
 
     @app.route('/')
     def _return_root_url():
@@ -871,24 +869,24 @@ Proxy check retries: {proxy_retries}</br>
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
-        return_data = f"""
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/', time() - request_start_time)
+        return f"""
 IP: {ip}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
 <a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
-<a href='/ping/'>=>  Ping Server  </a></br>
+<a href='/ping'>=>  Ping Server  </a></br>
 <a href='/favicon.ico'>=>  Icon  </a></br>
 <a href='/youtube_img'>=>  YT img  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
 <a href='/proxy'>=>  Working proxies  </a></br>
 <a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
-<a href='/debug_data'>=>  Developer debug data  </a></br>
+<a href='/debug'>=>  Developer debug data  </a></br>
 """
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/', time() - request_start_time)
-        return return_data
+
 
     @app.route('/ping', methods=['GET'])
     def _return_ping():
@@ -927,7 +925,7 @@ Links:</br>
         if version == current_version:
             return_data = str({'file_code': file_code, 'version': current_version})
         else:
-            return_data =  str({'file_code':file_code, 'version':current_version,'data':data})
+            return_data =  str({'file_code':file_code, 'version':current_version, 'data':data})
 
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
@@ -957,6 +955,7 @@ Links:</br>
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
         log_data(request_ip, '/other_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
+
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
@@ -1005,13 +1004,13 @@ Links:</br>
     @app.route('/proxy', methods=['GET'])
     def _return_proxy_list():
         request_start_time = time()
-        if not working_proxy_list:
+        if not working_proxy_list_unique:
             return ''
         if 'quantity' in request.args:
             quantity = int(request.args.get('quantity'))
-            quantity = min(quantity, len(working_proxy_list))
+            quantity = min(quantity, len(working_proxy_list_unique))
         else:
-            quantity = len(working_proxy_list)
+            quantity = len(working_proxy_list_unique)
         return_string = ''
         temp_list = []
         for _ in range(1000):
@@ -1020,7 +1019,7 @@ Links:</br>
             for __ in range(quantity):
                 if len(temp_list) == quantity:
                     break
-                proxy = choice(working_proxy_list)
+                proxy = choice(working_proxy_list_unique)
                 if proxy not in temp_list:
                     return_string += proxy +'</br>'
                     temp_list.append(proxy)
@@ -1028,7 +1027,7 @@ Links:</br>
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/proxy', time() - request_start_time, f"working proxies: {len(working_proxy_list)}")
+        log_data(request_ip, '/proxy', time() - request_start_time, f"working proxies: {len(working_proxy_list_unique)}")
         return return_string
 
 
@@ -1076,8 +1075,16 @@ Links:</br>
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
+### SELF STATUS
 Thread(target=server_stats_updater).start()
-Thread(target=proxy_manager).start()
+
+### PROXY OPERATIONS
+Thread(target=fetch_proxies).start()
+Thread(target=recheck_old_proxies).start()
+Thread(target=reset_all_proxies_list).start()
+Thread(target=check_proxy_with_api).start()
+
+### FLASK OPERATIONS
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=flask_operations, args=(port,)).start()
 for port in USER_CONNECTION_PORT_LIST:
