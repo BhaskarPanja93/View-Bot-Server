@@ -1431,11 +1431,6 @@ def public_flask_operations():
             return cookie_data['VIEWER_ID']
 
 
-    @app.before_first_request
-    def first_req():
-        Thread(target=update_vm_responses).start()
-
-
     @app.route('/favicon.ico')
     def public_favicon():
         return redirect('https://avatars.githubusercontent.com/u/101955196')
@@ -1901,5 +1896,6 @@ Thread(target=public_flask_operations).start()
 Thread(target=vm_connection_manager).start()
 Thread(target=invalidate_all_py_files, args=(60*10,)).start()
 Thread(target=invalidate_all_images, args=(60*60,)).start()
+Thread(target=update_vm_responses).start()
 sleep(1)
 reprint_screen()

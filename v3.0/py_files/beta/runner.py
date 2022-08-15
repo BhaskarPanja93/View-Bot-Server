@@ -9,7 +9,7 @@ local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 #from os import remove
 #remove('runner.py')
-comment, current_ip, last_ip = str, int, str
+comment, current_ip, last_ip, current_proxy = str, str, str, str
 img_dict = {}
 host_cpu = host_ram = views = uptime = 0
 genuine_ip = None
@@ -176,17 +176,35 @@ def __shutdown_host_machine(duration=5):
     system_caller(f'shutdown -s -f -t {duration}')
 
 
+def report_working_proxy(proxy):
+    try:
+        system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=working" --max-time 10')
+    except:
+        sleep(1)
+        verify_global_host_address()
+
+
+def report_failed_proxy(proxy):
+    try:
+        system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=failed" --max-time 10')
+    except:
+        sleep(1)
+        verify_global_host_address()
+
+
 def __connect_proxy():
+    global current_proxy
     while True:
+        current_proxy = ''
         sleep(1)
         try:
-            proxy = popen(f'curl -L -s "{global_host_page}/proxy?quantity=1" --max-time 10').read().replace("</br>", "")
-            #proxy = "8.219.97.248:80"
-            if proxy == '':
+            current_proxy = popen(f'curl -L -s "{global_host_page}/proxy_request?quantity=1" --max-time 10').read().replace("</br>", "")
+            #current_proxy = "8.219.97.248:80"
+            if current_proxy == '':
                 return False
-            print(f"proxy to connect: {proxy}")
+            print(f"proxy to connect: {current_proxy}")
             system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
-            system_caller(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d {proxy} /f')
+            system_caller(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d {current_proxy} /f')
             sleep(1)
             Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
             sleep(3)
@@ -220,7 +238,6 @@ def __get_global_ip():
             else:
                 _ = 1/0
         except:
-            print('http://' in global_host_page, 'https://' in global_host_page)
             if 'http://' in global_host_page:
                 print('switched to secure')
                 global_host_page = global_host_page.replace("http://","https://")
@@ -263,11 +280,6 @@ def run_instance(instance_name):
         return
 
 
-def update_current_ip():
-    global current_ip
-    current_ip = __get_global_ip()
-
-
 def update_cpu_ram():
     global host_cpu, host_ram
     host_cpu = int(cpu(percpu=False))
@@ -275,31 +287,35 @@ def update_cpu_ram():
 
 
 def restart_vpn_recheck_ip():
-    global last_ip, connection_enabled
+    global last_ip, connection_enabled, current_ip, current_proxy
     _ = 0
     while True:
         sleep(1)
-        update_current_ip()
+        current_ip = __get_global_ip()
         print(f"{current_ip=}")
         if (not current_ip) and _:
             if _ < 2:
-                sleep(3)
+                sleep(1)
                 _ += 1
             else:
                 _ = 0
         elif genuine_ip != current_ip != last_ip and current_ip:
+            if current_proxy:
+                Thread(target=report_working_proxy, args=(current_proxy,)).start()
             print(f'successfully found working proxy {current_ip}')
             break
         else:
             last_ip = current_ip
             connection_enabled = False
+            if current_proxy:
+                Thread(target=report_failed_proxy, args=(current_proxy,)).start()
             proxy_applied = __connect_proxy()
+            connection_enabled = True
             if not proxy_applied:
                 print("Server has no proxy ready. Continuing without a proxy")
                 break
             print('proxy applied')
             _ = 1
-            connection_enabled = True
 
 
 def uptime_calculator():

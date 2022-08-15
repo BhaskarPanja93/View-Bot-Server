@@ -49,28 +49,34 @@ paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decod
 stable_file_location = 'stable_py_files'
 testing_py_files_location = 'testing_py_files'
 
-current_proxy_batch_unique, waiting_proxies_unique, working_proxy_list_unique, all_proxies_unique = [], [], [], []
-proxies_currently_checking_count = 0
-all_proxies_checked_count = 0
-proxy_retries_count = 0
 
-host_cpu = 0.0
-host_ram = 0.0
-network_in = 0.000
-network_out = 0.000
+max_host_cpu = host_cpu = 0.0
+max_host_ram = host_ram = 0.0
+max_network_in = network_in = 0.0
+max_network_out = network_out = 0.0
+
 
 def server_stats_updater():
-    global host_ram, host_cpu, network_out, network_in
+    global host_ram, host_cpu, network_out, network_in, max_host_ram, max_host_cpu, max_network_out, max_network_in
     while True:
         host_cpu = cpu_percent()
+        if host_cpu > max_host_cpu:
+            max_host_cpu = host_cpu
         host_ram = virtual_memory()[2]
+        if host_ram > max_host_ram:
+            max_host_ram = host_ram
+
         old_net_stat = net_io_counters()
         sleep(1)
         new_net_stat = net_io_counters()
         bits_out = new_net_stat.bytes_sent - old_net_stat.bytes_sent
         bits_in = new_net_stat.bytes_recv - old_net_stat.bytes_recv
         network_in = round((bits_in * 8) / 1024 / 1024, 3)
+        if network_in > max_network_in:
+            max_network_in = network_in
         network_out = round((bits_out * 8) / 1024 / 1024, 3)
+        if network_out > max_network_out:
+            max_network_out = network_out
 
 
 def __send_to_connection(connection, data_bytes: bytes):
@@ -188,76 +194,30 @@ def tcp_token_manager(ip, token):
             break
 
 
-def check_proxy_with_api():
-    global proxies_currently_checking_count, all_proxies_checked_count, proxy_retries_count, all_proxies_unique
-    while True:
-        sleep(1)
-        if not waiting_proxies_unique:
-            continue
-        proxy_text_to_send = ''
-        temp_proxies_list = []
-        for _ in range(min(200, len(waiting_proxies_unique))):
-            proxy = waiting_proxies_unique.pop(0)
-            temp_proxies_list.append(proxy)
-            proxy_text_to_send += proxy + ','
-            proxies_currently_checking_count += 1
-        else:
-            proxy_text_to_send += '35.234.248.49:3128'
-        try:
-            _id = post('https://api.proxyscan.io', timeout=15, data={'proxies': proxy_text_to_send}).text.replace('"', '')
-            for _ in range(100):
-                sleep(10)
-                try:
-                    html_data = eval(get(f"https://api.proxyscan.io/?id={_id}", timeout=15).text.replace('null', 'None').replace('true', 'True').replace('false', 'False'))
-                    for proxy_dict in html_data:
-                        proxy = f"{proxy_dict['ip']}:{proxy_dict['port']}"
-                        if proxy in temp_proxies_list:
-                            if proxy_dict['failed']:
-                                temp_proxies_list.remove(proxy)
-                                proxies_currently_checking_count -= 1
-                                all_proxies_checked_count += 1
-                            else:
-                                if proxy not in working_proxy_list_unique:
-                                    temp_proxies_list.remove(proxy)
-                                    working_proxy_list_unique.append(proxy)
-                                    proxies_currently_checking_count -= 1
-                                    all_proxies_checked_count += 1
-                except:
-                    proxy_retries_count += 1
-        except:
-            proxy_retries_count += 1
-            for proxy in temp_proxies_list:
-                proxies_currently_checking_count -= 1
-                waiting_proxies_unique.append(proxy)
-            return
-
-
-def reset_all_proxies_list():
-    global current_proxy_batch_unique
-    while True:
-        sleep(60*60)
-        current_proxy_batch_unique = []
-
-
-def recheck_old_proxies():
+proxies_checked_count = 0
+all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = [], [], [], []
+def re_add_old_proxies():
     while True:
         sleep(60*10)
-        if len(working_proxy_list_unique) > 50:
-            for _ in range(len(working_proxy_list_unique) // 2):
-                waiting_proxies_unique.append(working_proxy_list_unique.pop(0))
+        if len(working_proxies_unique) > 50:
+            for _ in range(len(working_proxies_unique) // 2):
+                unchecked_proxies_unique.append(working_proxies_unique.pop(0))
 
-def fetch_proxies():
+        if len(failed_proxies_unique) > 30000:
+            for _ in range(len(failed_proxies_unique) // 100):
+                unchecked_proxies_unique.append(failed_proxies_unique.pop(0))
+
+
+def fetch_proxies_from_sources():
     while True:
         ### special links
         try:
             response_html = get("https://free-proxy-list.net/").text.splitlines()
             for _line in response_html:
                 if _line.count(".") == 3 and _line.count(':') == 1:
-                    if _line not in current_proxy_batch_unique:
-                        waiting_proxies_unique.append(_line)
-                        current_proxy_batch_unique.append(_line)
                     if _line not in all_proxies_unique:
-                        waiting_proxies_unique.append(_line)
+                        unchecked_proxies_unique.append(_line)
+                        all_proxies_unique.append(_line)
         except:
             pass
         ### normal links (IP:PORT format)
@@ -284,9 +244,9 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
             try:
                 html_data = get(link.strip()).text.splitlines()
                 for _line in html_data:
-                    if _line not in current_proxy_batch_unique:
-                        waiting_proxies_unique.append(_line)
-                        current_proxy_batch_unique.append(_line)
+                    if _line not in all_proxies_unique:
+                        unchecked_proxies_unique.append(_line)
+                        all_proxies_unique.append(_line)
             except:
                 pass
         sleep(10 * 60)
@@ -585,6 +545,7 @@ def accept_connections_from_users(port):
     sock.listen()
 
     def acceptor():
+        global proxies_checked_count
         connection, address = sock.accept()
         Thread(target=acceptor).start()
         try:
@@ -599,7 +560,7 @@ def accept_connections_from_users(port):
                 return
             purpose = received_data['purpose']
             db_connection.commit()
-            ###
+
             if purpose == 'ping':
                 data_to_be_sent = {'ping': 'ping'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -706,7 +667,7 @@ def accept_connections_from_users(port):
         Thread(target=acceptor).start()
 
 
-python_files = {'stable':{}, 'beta':{}, 'overwrite':{}}
+python_files = {'stable':{}, 'beta':{}, 'proxy_checker':{}, 'overwrite':{}}
 windows_img_files = {}
 text_files = {}
 exe_files = {}
@@ -735,6 +696,11 @@ BETA
 beta_1:'vm_main'
 beta_2:'client_uname_checker'
 beta_3:'runner'
+
+BETA
+beta_1:'vm_main'
+beta_2:'client_uname_checker'
+beta_3:'runner'
 """
 
 
@@ -743,6 +709,8 @@ def return_py_file(file_id):
         if ('vm_main_overwrite.py' not in python_files['overwrite']) or (path.getmtime(f'py_files/overwriter/vm_main_overwrite.py') != python_files['overwrite']['vm_main_overwrite.py']['version']):
             python_files['overwrite']['vm_main_overwrite.py'] = {'version': path.getmtime(f'py_files/overwriter/vm_main_overwrite.py'), 'file': open(f'py_files/overwriter/vm_main_overwrite.py', 'rb').read()}
         return python_files['overwrite']['vm_main_overwrite.py']['version'], python_files['overwrite']['vm_main_overwrite.py']['file']
+
+    ###
 
     elif file_id == 'stable_1':
         if ('vm_main.py' not in python_files['stable']) or (path.getmtime(f'py_files/stable/vm_main.py') != python_files['stable']['vm_main.py']['version']):
@@ -787,14 +755,19 @@ def return_py_file(file_id):
             python_files['beta'][f'ngrok_direct.py']['file'] = open(f'py_files/beta/ngrok_direct.py', 'rb').read()
         return python_files['beta'][f'ngrok_direct.py']['version'], python_files['beta'][f'ngrok_direct.py']['file']
 
+    ####
+
+    elif file_id == 'proxy_checker_1':
+        if ('vm_main.py' not in python_files['proxy_checker']) or (path.getmtime(f'py_files/proxy_checker/vm_main.py') != python_files['proxy_checker']['vm_main.py']['version']):
+            python_files['proxy_checker']['vm_main.py'] = {'version': path.getmtime(f'py_files/proxy_checker/vm_main.py'), 'file': open(f'py_files/proxy_checker/vm_main.py', 'rb').read()}
+        return python_files['proxy_checker']['vm_main.py']['version'], python_files['proxy_checker']['vm_main.py']['file']
+    elif file_id == 'proxy_checker_2':
+        if ('proxy_checker.py' not in python_files['proxy_checker']) or (path.getmtime(f'py_files/proxy_checker/proxy_checker.py') != python_files['proxy_checker']['proxy_checker.py']['version']):
+            python_files['proxy_checker']['proxy_checker.py'] = {'version': path.getmtime(f'py_files/proxy_checker/proxy_checker.py'), 'file': open(f'py_files/proxy_checker/proxy_checker.py', 'rb').read()}
+        return python_files['proxy_checker']['proxy_checker.py']['version'], python_files['proxy_checker']['proxy_checker.py']['file']
     else:
         return None, None
 
-
-"""
-STABLE
-8 or stable_user_host: 'user_host.exe'
-"""
 
 def recreate_user_host_exe():
     global exe_files
@@ -810,6 +783,12 @@ def recreate_user_host_exe():
     system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
     exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
     sleep(1)
+
+
+"""
+STABLE
+8 or stable_user_host: 'user_host.exe'
+"""
 
 
 def return_other_file(file_id):
@@ -837,29 +816,29 @@ def return_img_file(image_name):
         windows_img_files[image_name] = {'version': path.getmtime(f'{img_location}/{image_name}.PNG'), 'file': Image.open(f'{img_location}/{image_name}.PNG')}
     return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
 
+
 known_ips = {}
 def flask_operations(port):
     app = Flask(__name__, template_folder=getcwd() + '/templates/')
 
     @app.route('/debug', methods=['GET'])
     def debug_data():
-        return f"""<meta http-equiv = "refresh" content = "1; url = /debug_data" />
+        return f"""<meta http-equiv = "refresh" content = "1; url = /debug" />
+Server start time: {ctime(server_start_time)} IST</br></br>
 Hardware:</br>
-CPU: {host_cpu}% (4 x 3.8GHz)</br>
-RAM: {host_ram}% (3.5GB)</br>
+CPU(4 x 3.8GHz):</br>Current:{host_cpu}%</br>Max:{max_host_cpu}%</br>
+RAM(3.5GB):</br>Current:{host_ram}%</br>Max:{max_host_ram}%</br>
 </br></br>
 Network:</br>
-{network_out} mbps Out (30mbps)</br>
-{network_in} mbps In (30mbps)</br>
+Out(30mbps):</br>Current:{network_out}mbps</br>Max:{max_network_out}mbps</br>
+In(30mbps):</br>Current:{network_in}mbps</br>Max:{max_network_in}mbps</br>
 </br></br>
 Proxy:</br>
-Total: {len(all_proxies_unique)}
-Current batch: {len(current_proxy_batch_unique)}</br>
-Wait list: {len(waiting_proxies_unique)}</br>
-Working: {len(working_proxy_list_unique)}</br>
-Currently checking: {proxies_currently_checking_count}</br>
-Total checked: {all_proxies_checked_count}</br>
-Retries: {proxy_retries_count}</br>
+Uniques: {len(all_proxies_unique)}</br>
+Unchecked: {len(unchecked_proxies_unique)}</br>
+Working: {len(working_proxies_unique)}</br>
+Failed: {len(failed_proxies_unique)}</br>
+Total checked: {proxies_checked_count}</br>
 """
 
 
@@ -874,6 +853,7 @@ Retries: {proxy_retries_count}</br>
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
         log_data(request_ip, '/', time() - request_start_time)
         return f"""
+Server start time: {ctime(server_start_time)} IST</br>
 IP: {ip}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
@@ -882,7 +862,7 @@ Links:</br>
 <a href='/favicon.ico'>=>  Icon  </a></br>
 <a href='/youtube_img'>=>  YT img  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
-<a href='/proxy'>=>  Working proxies  </a></br>
+<a href='/proxy_request'>=>  Working proxies  </a></br>
 <a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
 <a href='/debug'>=>  Developer debug data  </a></br>
 """
@@ -1001,35 +981,80 @@ Links:</br>
         return token
 
 
-    @app.route('/proxy', methods=['GET'])
+    @app.route('/proxy_request', methods=['GET'])
     def _return_proxy_list():
         request_start_time = time()
-        if not working_proxy_list_unique:
+        if not all_proxies_unique:
             return ''
         if 'quantity' in request.args:
             quantity = int(request.args.get('quantity'))
-            quantity = min(quantity, len(working_proxy_list_unique))
+            quantity = min(quantity, len(all_proxies_unique))
         else:
-            quantity = len(working_proxy_list_unique)
-        return_string = ''
-        temp_list = []
-        for _ in range(1000):
-            if len(temp_list) == quantity:
-                break
-            for __ in range(quantity):
-                if len(temp_list) == quantity:
+            quantity = len(all_proxies_unique)
+
+        if quantity == 1:
+            if not unchecked_proxies_unique:
+                proxy = choice(working_proxies_unique)
+            else:
+                proxy = choice(all_proxies_unique)
+            return proxy
+        else:
+            return_string = ''
+            temp_list = []
+            for _ in range(1000):
+                if len(temp_list) >= quantity:
                     break
-                proxy = choice(working_proxy_list_unique)
-                if proxy not in temp_list:
-                    return_string += proxy +'</br>'
-                    temp_list.append(proxy)
+                for __ in range(quantity - len(temp_list)):
+                    proxy = choice(all_proxies_unique)
+                    if proxy not in temp_list:
+                        return_string += proxy +'</br>'
+                        temp_list.append(proxy)
 
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/proxy', time() - request_start_time, f"working proxies: {len(working_proxy_list_unique)}")
+        log_data(request_ip, '/proxy_request', time() - request_start_time, f"Quantity: {quantity}")
         return return_string
 
+
+    @app.route('/proxy_report', methods=['GET'])
+    def _return_blank_proxy_report():
+        global proxies_checked_count
+        request_start_time = time()
+        proxy = ''
+        status = ''
+        if 'proxy' in request.args:
+            if 'status' in request.args:
+                proxy = request.args.get('proxy')
+                status = request.args.get('status')
+                if status == 'working':
+                    proxies_checked_count += 1
+                    if proxy in unchecked_proxies_unique:
+                        unchecked_proxies_unique.remove(proxy)
+                    if proxy not in working_proxies_unique:
+                        working_proxies_unique.append(proxy)
+                    if proxy in failed_proxies_unique:
+                        failed_proxies_unique.remove(proxy)
+                elif status == 'failed':
+                    proxies_checked_count += 1
+                    if proxy in unchecked_proxies_unique:
+                        unchecked_proxies_unique.remove(proxy)
+                    if proxy in working_proxies_unique:
+                        working_proxies_unique.remove(proxy)
+                    if proxy not in failed_proxies_unique:
+                        failed_proxies_unique.append(proxy)
+                elif status == 'reset':
+                    if proxy not in unchecked_proxies_unique:
+                        unchecked_proxies_unique.append(proxy)
+                    if proxy in working_proxies_unique:
+                        working_proxies_unique.remove(proxy)
+                    if proxy in failed_proxies_unique:
+                        failed_proxies_unique.remove(proxy)
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        log_data(request_ip, '/proxy_request', time() - request_start_time, f"{proxy}: {status}")
+        return f'{proxy} {status}'
 
     @app.route('/current_user_host_main_version', methods=['GET'])
     def _return_user_host_main_version():
@@ -1037,7 +1062,7 @@ Links:</br>
 
 
     @app.route('/user_load_links', methods=['GET'])
-    def _user_load_links():
+    def _return_user_load_links():
         u_name = ""
         if "u_name" in request.args:
             u_name = request.args.get("u_name")
@@ -1063,29 +1088,117 @@ Links:</br>
                         break
                     elif u_name != my_u_name:
                         u_name = my_u_name
+                    elif u_name == my_u_name and not self_ids:
+                        u_name = request.args.get('u_name')
                     else:
                         id_to_serve = '1'
                         break
                 else:
                     u_name = my_u_name
         except:
-            id_to_serve = 1
+            id_to_serve = '1'
         adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{request.root_url}youtube_img?random={generate_random_string(1, 10)}"
         return redirect(adf_link)
+
+
+    @app.route('/all_user_data', methods=['GET'])
+    def _return_all_user_data():
+        request_start_time = time()
+        request_ip = request.remote_addr
+        if not request_ip or request_ip == '127.0.0.1':
+            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
+        if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
+            log_data(request_ip, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
+            return f"You are not authorised to visit this page"
+        all_data = {}
+        all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+        for u_name in all_u_names:
+            all_data[u_name.upper()] = {}
+            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+            fernet = Fernet(key)  ###
+            encoded_old_acc_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+            ids = eval(fernet.decrypt(encoded_old_acc_data).decode())
+            all_data[u_name.upper()]["_ids"] = ids
+            total_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
+            all_data[u_name.upper()]["total_views"] = total_views
+            encoded_network_adapters_data = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0])
+            network_adapters = 0
+            try:
+                network_adapters = eval(fernet.decrypt(encoded_network_adapters_data.encode()).decode())
+            except:
+                pass
+            all_data[u_name.upper()]["network_adapters"] = network_adapters
+            instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
+            all_data[u_name.upper()]["instance_token"] = f'{instance_token[0:6]}...{instance_token[len(instance_token) - 6:len(instance_token)]}'
+
+        table_data = ""
+        for u_name in all_data:
+            _id_data = ""
+            network_adapter_data = ""
+
+            for _id in all_data[u_name]["_ids"]:
+                _id_data += f"{_id} : {all_data[u_name]['_ids'][_id]}</br>"
+            if all_data[u_name]["network_adapters"] != 0:
+                for adapter in all_data[u_name]["network_adapters"]:
+                    network_adapter_data += f"{adapter}</br>"
+            else:
+                network_adapter_data += f"{all_data[u_name]['network_adapters']}</br>"
+
+            table_data += f"""
+                <tr>
+                <th class=with_borders>{u_name}
+                <td class=with_borders>{_id_data}
+                <td class=with_borders>{all_data[u_name]["total_views"]}
+                <td class=with_borders>{network_adapter_data}
+                <td class=with_borders>{all_data[u_name]["instance_token"]}
+                </tr>"""
+
+        html = f"""
+            <html>
+            <head>
+            <style>
+            .with_borders {{
+            border: 3px solid black;
+            }}
+            </style>
+            <style>
+            td, th {{
+            font-size: 18px;
+            }}
+            table, th, td {{
+            text-align: center;
+            }}
+            </style>
+            </head>
+            <body>
+            <table class=with_borders>
+            <tr>
+            <th>U_Name
+            <th>IDs
+            <th>Total Views
+            <th>Network Adapter
+            <th>Instance Token
+            </tr>
+            {table_data}
+            </table>
+            </body>
+            </html>
+            """
+        log_data(request_ip, '/all_user_data', time() - request_start_time, )
+        return html
+
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
 ### SELF STATUS
 Thread(target=server_stats_updater).start()
 
-### PROXY OPERATIONS
-Thread(target=fetch_proxies).start()
-Thread(target=recheck_old_proxies).start()
-Thread(target=reset_all_proxies_list).start()
-Thread(target=check_proxy_with_api).start()
-
 ### FLASK OPERATIONS
 for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=flask_operations, args=(port,)).start()
 for port in USER_CONNECTION_PORT_LIST:
     Thread(target=accept_connections_from_users, args=(port,)).start()
+
+### PROXY OPERATIONS
+Thread(target=fetch_proxies_from_sources).start()
+Thread(target=re_add_old_proxies).start()
