@@ -198,12 +198,8 @@ proxies_checked_count = 0
 all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = [], [], [], []
 def re_add_old_proxies():
     while True:
-        sleep(60*10)
-        if len(working_proxies_unique) > 50:
-            for _ in range(len(working_proxies_unique) // 2):
-                unchecked_proxies_unique.append(working_proxies_unique.pop(0))
-
-        if len(failed_proxies_unique) > 30000:
+        sleep(60*20)
+        if not unchecked_proxies_unique:
             for _ in range(len(failed_proxies_unique) // 100):
                 unchecked_proxies_unique.append(failed_proxies_unique.pop(0))
 
@@ -888,7 +884,7 @@ Links:</br>
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = request.environ['HTTP_X_FORWARDED_FOR']
-        return ip
+        return f"Current_Visitor_IP:{ip}"
 
 
     @app.route('/py_files', methods=["GET"])
@@ -990,25 +986,55 @@ Links:</br>
             quantity = int(request.args.get('quantity'))
             quantity = min(quantity, len(all_proxies_unique))
         else:
-            quantity = len(all_proxies_unique)
+            quantity = 0
+        if 'worker' in request.args:
+            worker = int(request.args.get('worker'))
+        else:
+            worker = 0
 
         if quantity == 1:
-            if not unchecked_proxies_unique:
-                proxy = choice(working_proxies_unique)
+            if worker:
+                if unchecked_proxies_unique:
+                    proxy = choice(unchecked_proxies_unique)
+                else:
+                    proxy = choice(all_proxies_unique)
+
             else:
-                proxy = choice(all_proxies_unique)
+                if choice([0,1]): #working
+                    if working_proxies_unique:
+                        proxy = choice(working_proxies_unique)
+                    elif unchecked_proxies_unique:
+                        proxy = choice(unchecked_proxies_unique)
+                    else:
+                        proxy = choice(all_proxies_unique)
+                else: #unchecked
+                    if unchecked_proxies_unique:
+                        proxy = choice(unchecked_proxies_unique)
+                    else:
+                        proxy = choice(all_proxies_unique)
             return proxy
+
+        elif quantity == 0:
+            working_proxy_string = f"</br><h2>Working({len(working_proxies_unique)}):</h2></br>"
+            failed_proxy_string = f"</br><h2>Failed({len(failed_proxies_unique)}):</h2></br>"
+            unchecked_proxy_string = f"</br><h2>Unchecked({len(unchecked_proxies_unique)}):</h2></br>"
+            for proxy in working_proxies_unique:
+                working_proxy_string += f"{proxy}</br>"
+            for proxy in failed_proxies_unique:
+                failed_proxy_string += f"{proxy}</br>"
+            for proxy in unchecked_proxies_unique:
+                unchecked_proxy_string += f"{proxy}</br>"
+            return working_proxy_string + failed_proxy_string + unchecked_proxy_string
+
         else:
             return_string = ''
             temp_list = []
-            for _ in range(1000):
-                if len(temp_list) >= quantity:
-                    break
-                for __ in range(quantity - len(temp_list)):
-                    proxy = choice(all_proxies_unique)
-                    if proxy not in temp_list:
-                        return_string += proxy +'</br>'
-                        temp_list.append(proxy)
+            for __ in range(quantity - len(temp_list)):
+                proxy = choice(all_proxies_unique)
+                if proxy not in temp_list:
+                    return_string += proxy +'</br>'
+                    temp_list.append(proxy)
+            return_string = f"Total:{len(temp_list)}</br>{return_string}"
 
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
@@ -1023,11 +1049,13 @@ Links:</br>
         request_start_time = time()
         proxy = ''
         status = ''
+        ip = ''
         if 'proxy' in request.args:
             if 'status' in request.args:
                 proxy = request.args.get('proxy')
                 status = request.args.get('status')
                 if status == 'working':
+                    ip = request.args.get('ip')
                     proxies_checked_count += 1
                     if proxy in unchecked_proxies_unique:
                         unchecked_proxies_unique.remove(proxy)
@@ -1040,9 +1068,10 @@ Links:</br>
                     if proxy in unchecked_proxies_unique:
                         unchecked_proxies_unique.remove(proxy)
                     if proxy in working_proxies_unique:
-                        working_proxies_unique.remove(proxy)
-                    if proxy not in failed_proxies_unique:
-                        failed_proxies_unique.append(proxy)
+                        pass
+                    else:
+                        if proxy not in failed_proxies_unique:
+                            failed_proxies_unique.append(proxy)
                 elif status == 'reset':
                     if proxy not in unchecked_proxies_unique:
                         unchecked_proxies_unique.append(proxy)
@@ -1053,7 +1082,7 @@ Links:</br>
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/proxy_request', time() - request_start_time, f"{proxy}: {status}")
+        log_data(request_ip, '/proxy_request', time() - request_start_time, f"{proxy}: {status} {ip}")
         return f'{proxy} {status}'
 
     @app.route('/current_user_host_main_version', methods=['GET'])

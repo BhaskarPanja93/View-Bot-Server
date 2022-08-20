@@ -176,7 +176,7 @@ def ngrok_user_connection(port):
     while True:
         try:
             if not tcp_checker(check_frequency=1, url=f"127.0.0.1:{port}"):
-                pass
+                print(f"ngrok_user_connection unable to ping")
             from pyngrok import ngrok, conf
             ngrok.set_auth_token(choice(ngrok_tokens))
             conf.get_default().region = 'in'
@@ -186,15 +186,15 @@ def ngrok_user_connection(port):
             final_dict_to_show_on_github['adfly_user_tcp_connection_list'].append(user_connection)
             Thread(target=update_github).start()
             tcp_checker(ngrok, 0, user_connection, 'adfly_user_tcp_connection_list')
-        except:
-            pass
+        except Exception as e:
+            print(f"ngrok_user_connection \n{repr(e)}")
 
 
 def ngrok_host_page(port):
     while True:
         try:
             if not url_checker(check_frequency=1, url=f"http://127.0.0.1:{port}"):
-                pass
+                print(f"ngrok_host_page unable to ping")
             from pyngrok import ngrok, conf
             ngrok.set_auth_token(choice(ngrok_tokens))
             conf.get_default().region = 'in'
@@ -204,8 +204,8 @@ def ngrok_host_page(port):
             final_dict_to_show_on_github['adfly_host_page_list'].append(host_url)
             Thread(target=update_github).start()
             url_checker(ngrok, 0, host_url, 'adfly_host_page_list')
-        except:
-            pass
+        except Exception as e:
+            print(f"ngrok_host_page \n{repr(e)}")
 
 
 def ngrok_minecraft_connection(port):
@@ -220,8 +220,9 @@ def ngrok_minecraft_connection(port):
             final_dict_to_show_on_github['minecraft_connection_list'].append(minecraft_connection)
             Thread(target=update_github).start()
             break
-        except:
-            pass
+        except Exception as e:
+            print(f"ngrok_minecraft_connection \n{repr(e)}")
+
 
 for port in MINECRAFT_CONNECTION_PORT_LIST:
     Thread(target=ngrok_minecraft_connection, args=(port,)).start()

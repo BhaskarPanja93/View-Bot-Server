@@ -13,7 +13,6 @@ from threading import Thread
 from requests import get
 
 
-
 def verify_global_site():
     global global_host_page
     while True:
@@ -34,29 +33,14 @@ def verify_global_site():
                 sleep(1)
 
 
-def restart_if_connection_missing():
-    counter = 1
-    while True:
-        if connection_enabled:
-            sleep(1)
-            counter = 1
-        else:
-            sleep(1)
-            counter += 1
-            if counter >= 180:
-                __restart_host_machine()
-                input('waiting for restart')
-
-
 def __restart_host_machine(duration=5):
     system_caller(f'shutdown -r -f -t {duration}')
 
 
-def report_working_proxy(proxy):
+def report_working_proxy(proxy, current_ip):
     try:
-        system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=working" --max-time 10')
+        system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=working&ip={current_ip}" --max-time 10')
     except:
-        sleep(1)
         verify_global_site()
 
 
@@ -64,7 +48,6 @@ def report_failed_proxy(proxy):
     try:
         system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=failed" --max-time 10')
     except:
-        sleep(1)
         verify_global_site()
 
 
@@ -72,7 +55,7 @@ def __connect_proxy():
     global current_proxy
     while True:
         current_proxy = ''
-        sleep(1)
+        sleep(0.1)
         try:
             current_proxy = popen(f'curl -L -s "{global_host_page}/proxy_request?quantity=1" --max-time 10').read().replace("</br>", "")
             # current_proxy = "8.219.97.248:80"
@@ -81,39 +64,37 @@ def __connect_proxy():
             print(f"proxy to connect: {current_proxy}")
             system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f')
             system_caller(f'reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d {current_proxy} /f')
-            sleep(1)
-            Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
-            sleep(3)
-            system_caller('taskkill /F /IM "iexplore.exe" /T')
+            restart_ie()
             return True
         except:
             __disconnect_proxy()
             verify_global_site()
 
 
+def restart_ie():
+    sleep(0.1)
+    Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
+    sleep(2)
+    system_caller('taskkill /F /IM "iexplore.exe" /T')
+
+
 def __disconnect_proxy():
     system_caller('reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 0 /f')
-    sleep(1)
-    Thread(target=system_caller, args=(' "C:\\Program Files\\internet explorer\\iexplore.exe" ',)).start()
-    sleep(3)
-    system_caller('taskkill /F /IM "iexplore.exe" /T')
+    restart_ie()
 
 
 def __get_global_ip():
     global global_host_page
+    verify_global_site()
     for _ in range(2):
         try:
-            if global_host_page:
-                if popen(f'curl -L -s "{global_host_page}/ping" --max-time 5').read() == 'ping':
-                    ip = get(f"{global_host_page}/ip", timeout=5).text
-                    if ip.count('.') == 3:
-                        return ip
-                else:
-                    print("Unable to ping global host")
-                    _ = 1 / 0
+            response = get(f"{global_host_page}/ip", timeout=10).text
+            if "Current_Visitor_IP:" in response:
+                return response.replace("Current_Visitor_IP:", '')
             else:
-                _ = 1 / 0
-        except:
+                raise ZeroDivisionError
+        except Exception as e:
+            print(repr(e))
             if 'http://' in global_host_page:
                 print('switched to secure')
                 global_host_page = global_host_page.replace("http://", "https://")
@@ -122,9 +103,9 @@ def __get_global_ip():
                 global_host_page = global_host_page.replace("https://", "http://")
             else:
                 print('fetching new')
-                sleep(1)
+                sleep(0.1)
                 verify_global_site()
-        sleep(3)
+        sleep(1)
     else:
         return ""
 
@@ -133,7 +114,7 @@ def restart_vpn_recheck_ip():
     global last_ip, connection_enabled, current_ip, current_proxy
     _ = 0
     while True:
-        sleep(1)
+        sleep(0.1)
         current_ip = __get_global_ip()
         print(f"{current_ip=}")
         if (not current_ip) and _:
@@ -144,7 +125,7 @@ def restart_vpn_recheck_ip():
                 _ = 0
         elif genuine_ip != current_ip != last_ip and current_ip:
             if current_proxy:
-                Thread(target=report_working_proxy, args=(current_proxy,)).start()
+                Thread(target=report_working_proxy, args=(current_proxy, current_ip)).start()
             print(f'successfully found working proxy {current_ip}')
             break
         else:
@@ -161,9 +142,8 @@ def restart_vpn_recheck_ip():
             _ = 1
 
 
-__disconnect_proxy()
-sleep(3)
 while not genuine_ip:
+    __disconnect_proxy()
     genuine_ip = __get_global_ip()
 
 def run():

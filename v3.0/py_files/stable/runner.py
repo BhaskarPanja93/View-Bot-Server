@@ -196,7 +196,11 @@ def __get_global_ip(trial = 0):
     for _ in range(3):
         try:
             if get(f"{global_host_page}/ping").text == 'ping':
-                return popen(f"curl {global_host_page}/ip").read()
+                response = popen(f"curl {global_host_page}/ip").read()
+                if "Current_Visitor_IP:" in response:
+                    return response.replace("Current_Visitor_IP:",'')
+                else:
+                    _ = 1/0
         except:
             sleep(1)
             verify_global_host_address()
