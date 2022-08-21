@@ -2,7 +2,6 @@ import socket
 import webbrowser
 from os import popen, system as system_caller, path
 from random import randrange
-from subprocess import call
 from time import time, localtime, ctime
 from random import choice
 from time import sleep
@@ -35,14 +34,15 @@ updates_location = f"{local_drive_name}://adfly_files/updates"
 user_host_version = ctime(float(open(f"{data_location}/version", 'r').read()))
 
 vbox_binary_idle = True
-vbox_manage_binary_location = "VBoxManage.exe"
+vbox_binary_location = ''
 possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
                            "D://Programas/Virtual Box/VBoxManage.exe",]
 
 for location in possible_vbox_locations:
     if path.exists(location):
-        vbox_manage_binary_location = location
+        vbox_binary_location = location
         break
+
 else:
     print("VirtualBox path not found, \nMake sure you have Oracle Virtualbox installed, \nElse create a github issue here: \nhttps://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
     input("You can ignore this warning by pressing 'Enter' but you will be missing out on features like automatic VM Manage, VM activities, VM uptimes, Per VM View etc.")
@@ -83,6 +83,7 @@ messages_for_host = {'severe_info':[{'message':"If you want to host this page gl
 def write_vms_to_be_used():
     dict_to_write = {"vms_to_use": vms_to_use}
     open(f"{data_location}/adfly_vm_manager", 'w').write(str(dict_to_write))
+
 
 def write_vm_metrics():
     dict_to_write = {'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}
@@ -215,7 +216,7 @@ def fetch_all_vm_info():
         if not vbox_binary_idle:
             sleep(0.1)
     vbox_binary_idle = False
-    statement_lines = popen(f'"{vbox_manage_binary_location}" list --long vms').readlines()
+    statement_lines = popen(f'\"{vbox_binary_location}\" list --long vms').readlines()
     vbox_binary_idle = True
     name = ''
     for _line in statement_lines:
@@ -280,7 +281,7 @@ def return_all_vms():
         if not vbox_binary_idle:
             sleep(0.1)
     vbox_binary_idle = False
-    statement_lines = popen(f'"{vbox_manage_binary_location}" list vms').readlines()
+    statement_lines = popen(f'\"{vbox_binary_location}\" list vms').readlines()
     vbox_binary_idle = True
     return_set = set()
     for _line in statement_lines:
@@ -299,7 +300,7 @@ def return_running_vms():
         if not vbox_binary_idle:
             sleep(0.1)
     vbox_binary_idle = False
-    statement_lines = popen(f'"{vbox_manage_binary_location}" list runningvms').readlines()
+    statement_lines = popen(f'\"{vbox_binary_location}\" list runningvms').readlines()
     vbox_binary_idle = True
     return_set = set()
     for _line in statement_lines:
@@ -322,29 +323,30 @@ def queue_vm_stop(uuid, delay=0.0, block=False):
         Thread(target=queue_vm_stop, args=(uuid, delay, True,)).start()
         return
     sleep(delay)
-    for _ in range(200):
-        if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
-            vm_stop_queue.append(uuid)
+    if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
+        for _ in range(200):
+            if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
+                vm_stop_queue.append(uuid)
+                for _ in range(10):
+                    if not vbox_binary_idle:
+                        sleep(0.1)
+                vbox_binary_idle = False
+                system_caller(f'\"{vbox_binary_location}\" controlvm {uuid} acpipowerbutton')
+                vbox_binary_idle = True
+            sleep(0.1)
+            if uuid not in return_running_vms():
+                if uuid in vm_stop_queue:
+                    vm_stop_queue.remove(uuid)
+                break
+        else:
             for _ in range(10):
                 if not vbox_binary_idle:
                     sleep(0.1)
             vbox_binary_idle = False
-            call(('cmd', '/c', f'{vbox_manage_binary_location} controlvm {uuid} acpipowerbutton'))
+            system_caller(f'\"{vbox_binary_location}\" controlvm {uuid} poweroff')
             vbox_binary_idle = True
-        sleep(0.1)
-        if uuid not in return_running_vms():
             if uuid in vm_stop_queue:
                 vm_stop_queue.remove(uuid)
-            break
-    else:
-        for _ in range(10):
-            if not vbox_binary_idle:
-                sleep(0.1)
-        vbox_binary_idle = False
-        call(('cmd', '/c', f'{vbox_manage_binary_location} controlvm {uuid} poweroff'))
-        vbox_binary_idle = True
-        if uuid in vm_stop_queue:
-            vm_stop_queue.remove(uuid)
 
 
 def queue_vm_start(uuid, delay=0.0, block=False):
@@ -360,7 +362,7 @@ def queue_vm_start(uuid, delay=0.0, block=False):
                 if not vbox_binary_idle:
                     sleep(0.1)
             vbox_binary_idle = False
-            call(('cmd', '/c', f'{vbox_manage_binary_location} startvm {uuid} --type headless'))
+            system_caller(f'\"{vbox_binary_location}\" startvm {uuid} --type headless')
             vbox_binary_idle = True
             sleep(0.1)
             if uuid in return_running_vms():
@@ -377,7 +379,7 @@ def randomise_vm_mac(uuid):
         if not vbox_binary_idle:
             sleep(0.1)
     vbox_binary_idle = False
-    call(('cmd', '/c', f'{vbox_manage_binary_location} modifyvm {uuid} --macaddress1 auto'))
+    system_caller(f'\"{vbox_binary_location}\" modifyvm {uuid} --macaddress1 auto')
     vbox_binary_idle = True
     fetch_all_vm_info()
 
