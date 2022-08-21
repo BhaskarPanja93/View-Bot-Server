@@ -366,7 +366,6 @@ def host_manager(ip, connection):
 
 
 def user_manager(ip, connection):
-    s_time = time()
     u_name = None
     login_success = False
     expected_token = generate_random_string(10, 20)
@@ -381,6 +380,7 @@ def user_manager(ip, connection):
                     token = response_dict['token']
                 else:
                     token = ""
+                s_time = time()
                 if token == expected_token:
                     purpose = response_dict['purpose']
                     if purpose == 'create_new_account':
@@ -1084,6 +1084,7 @@ Links:</br>
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
         log_data(request_ip, '/proxy_request', time() - request_start_time, f"{proxy}: {status} {ip}")
         return f'{proxy} {status}'
+
 
     @app.route('/current_user_host_main_version', methods=['GET'])
     def _return_user_host_main_version():

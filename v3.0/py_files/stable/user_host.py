@@ -2,6 +2,7 @@ import socket
 import webbrowser
 from os import popen, system as system_caller, path
 from random import randrange
+from subprocess import call
 from time import time, localtime, ctime
 from random import choice
 from time import sleep
@@ -31,8 +32,9 @@ if not path.exists(f"{local_drive_name}://"):
 
 data_location = f"{local_drive_name}://adfly_files"
 updates_location = f"{local_drive_name}://adfly_files/updates"
-user_host_version = open(f"{data_location}/version", 'r').read()
+user_host_version = ctime(float(open(f"{data_location}/version", 'r').read()))
 
+vbox_binary_idle = True
 vbox_manage_binary_location = "VBoxManage.exe"
 possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
                            "D://Programas/Virtual Box/VBoxManage.exe",]
@@ -45,12 +47,8 @@ else:
     print("VirtualBox path not found, \nMake sure you have Oracle Virtualbox installed, \nElse create a github issue here: \nhttps://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
     input("You can ignore this warning by pressing 'Enter' but you will be missing out on features like automatic VM Manage, VM activities, VM uptimes, Per VM View etc.")
 
-start_time = time()
-bot_metrics_written = False
-vms_to_use_written = False
 vm_manager_start_vm = True
-vm_manager_working = True
-per_vm_memory = default_per_vm_memory = 1228
+default_per_vm_memory = 1228
 max_vm_count = default_max_vm_count = 0
 max_memory_percent = default_max_memory_percent = 70
 rtc_start = default_rtc_start = ['00','00']
@@ -63,9 +61,10 @@ global_host_address = ()
 global_host_page = ''
 host_cpu_percent, host_ram_percent = 0, 0
 vm_stop_queue = []
-vms_to_use = []
-all_vms = []
-vm_to_mac_address = {}
+vm_start_queue = []
+vm_long_data = {}  ## {Name:{key:value}}
+vm_short_data = {}  ## {UUID:{Name:value, MAC:value}}
+vm_mac_to_name = {} ##{MAC:[name1, name2]}
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
 reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/']
 public_vm_data = {}
@@ -79,6 +78,16 @@ messages_for_all = {'severe_info':[],
 messages_for_host = {'severe_info':[{'message':"If you want to host this page globally, only use <a href='https://ngrok.com/'>> ngrok <</a> else it can be a security risk!!", 'duration':10}],
                      'notification_info':[],
                      'success_info':[]}
+
+
+def write_vms_to_be_used():
+    dict_to_write = {"vms_to_use": vms_to_use}
+    open(f"{data_location}/adfly_vm_manager", 'w').write(str(dict_to_write))
+
+def write_vm_metrics():
+    dict_to_write = {'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}
+    open(f"{data_location}/adfly_vm_metrics", 'w').write(str(dict_to_write))
+
 
 def reprint_screen():
     adapters = [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
@@ -200,100 +209,203 @@ def __try_closing_connection(connection):
             pass
 
 
+def fetch_all_vm_info():
+    global vbox_binary_idle
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    statement_lines = popen(f'"{vbox_manage_binary_location}" list --long vms').readlines()
+    vbox_binary_idle = True
+    name = ''
+    for _line in statement_lines:
+        line = _line.strip()
+        if not line:
+            pass
+        key, value = '', ''
+        splitter_reached = False
+        for character in line:
+            if not splitter_reached:
+                key += character
+            else:
+                value += character
+            if character == ':':
+                splitter_reached = True
+        key, value = key.strip(), value.strip()
+        if key == 'Name:':
+            name = value
+            vm_long_data[name] = {}
+        if 'MAC:' in value:
+            network_data = value.split(',')
+            for data_pair in network_data:
+                if 'MAC:' in data_pair:
+                    vm_long_data[name]['MAC:'] = data_pair.split(':')[-1].strip()
+        else:
+            vm_long_data[name][key]=value
+    for name in vm_long_data:
+        uuid = vm_long_data[name]["UUID:"]
+        mac = vm_long_data[name]["MAC:"]
+        if mac in vm_mac_to_name:
+            vm_mac_to_name[mac].append(name)
+        else:
+            vm_mac_to_name[mac] = [name]
+        vm_short_data[uuid] = {'Name:': name, 'MAC:': mac}
+
+
+def get_vm_info(vm_info, info):
+    try:
+        if vm_info in return_all_vms():
+            vm_uuid = vm_info
+            if vm_uuid not in vm_short_data:
+                fetch_all_vm_info()
+            vm_name = vm_short_data[vm_uuid]['Name:']
+        else:
+            vm_name = vm_info
+
+        if vm_name not in vm_long_data or info not in vm_long_data[vm_name]:
+            fetch_all_vm_info()
+
+        if vm_name not in vm_long_data or info not in vm_long_data[vm_name]:
+            return ''
+
+        return vm_long_data[vm_name][info]
+
+    except:
+        return ''
+
+
 def return_all_vms():
-    return_list = []
-    return_dict = {}
-    for line in popen(f'"{vbox_manage_binary_location}" list vms').readlines():
-        if line:
-            line = line.split()
-            line.pop()
-            name = ''
-            for _ in line:
-                name += _ + ' '
-            uuid = get_vm_info(eval(name), 'UUID')
-            return_list.append(uuid)
-            return_dict[eval(name)] = get_vm_info(eval(name), 'macaddress1')
-    #global vm_to_mac_address
-    #vm_to_mac_address = return_dict
-    return return_list
+    global vbox_binary_idle
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    statement_lines = popen(f'"{vbox_manage_binary_location}" list vms').readlines()
+    vbox_binary_idle = True
+    return_set = set()
+    for _line in statement_lines:
+        line = _line.split()
+        for word in line:
+            if len(word)>2:
+                if word[0] == '{' and word[-1] == '}':
+                    word = word.replace('{','').replace('}','')
+                    return_set.add(word)
+    return return_set
 
 
 def return_running_vms():
-    return_list = []
-    for line in popen(f'"{vbox_manage_binary_location}" list runningvms').readlines():
-        if line:
-            line = line.split()
-            line.pop()
-            name = ''
-            for _ in line:
-                name += _ + ' '
-            return_list.append(get_vm_info(eval(name), 'UUID'))
-    return sorted(return_list)
+    global vbox_binary_idle
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    statement_lines = popen(f'"{vbox_manage_binary_location}" list runningvms').readlines()
+    vbox_binary_idle = True
+    return_set = set()
+    for _line in statement_lines:
+        line = _line.split()
+        for word in line:
+            if len(word)>2:
+                if word[0] == '{' and word[-1] == '}':
+                    word = word.replace('{','').replace('}','')
+                    return_set.add(word)
+    return return_set
 
 
 def return_stopped_vms():
-    return sorted((set(return_all_vms()) - set(return_running_vms())))
+    return return_all_vms() - return_running_vms()
 
 
-def start_vm(_id):
-    if _id not in vm_stop_queue:
-        system_caller(f'"{vbox_manage_binary_location}" startvm {_id} --type headless')
-
-
-def queue_vm_stop(_id, user_delay, real_delay=0):
-    if not real_delay:
-        if user_delay:
-            Thread(target=queue_vm_stop, args=(_id, 0, user_delay,)).start()
-            return
-    if real_delay:
-        sleep(real_delay)
-    if _id not in vm_stop_queue:
-        vm_stop_queue.append(_id)
-        for _ in range(40):
-            system_caller(f'"{vbox_manage_binary_location}" controlvm {_id} acpipowerbutton')
-            sleep(1)
-            if _id not in return_running_vms():
-                vm_stop_queue.remove(_id)
-                break
-        else:
-            system_caller(f'"{vbox_manage_binary_location}" controlvm {_id} poweroff')
-            vm_stop_queue.remove(_id)
-
-
-def get_vm_info(vm_name, info):
-    for line in popen(f'"{vbox_manage_binary_location}" showvminfo "{vm_name}" --machinereadable').readlines():
-        if info in line:
-            try:
-                key, value = line.split('=')
-                return value.replace('\n','').replace('\"','').replace('\'','')
-            except Exception as e:
-                log_data('','debug', 0, repr(e))
-
-
-def randomise_mac_address(_id):
-    system_caller(f'"{vbox_manage_binary_location}" modifyvm {_id} --macaddress1 auto')
-
-
-def check_and_fix_repeated_mac_addresses(vm=None):
-    write_vms_to_use()
-    allocated_mac_addresses = []
-    if not vm:
-        for vm in vms_to_use:
-            mac_address = get_vm_info(vm, 'macaddress1')
-            while mac_address in allocated_mac_addresses:
-                queue_vm_stop(vm, 0, 0)
-                randomise_mac_address(vm)
-                mac_address = get_vm_info(vm, 'macaddress1')
-            allocated_mac_addresses.append(mac_address)
+def queue_vm_stop(uuid, delay=0.0, block=False):
+    global vbox_binary_idle
+    if not block:
+        Thread(target=queue_vm_stop, args=(uuid, delay, True,)).start()
+        return
+    sleep(delay)
+    for _ in range(200):
+        if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
+            vm_stop_queue.append(uuid)
+            for _ in range(10):
+                if not vbox_binary_idle:
+                    sleep(0.1)
+            vbox_binary_idle = False
+            call(('cmd', '/c', f'{vbox_manage_binary_location} controlvm {uuid} acpipowerbutton'))
+            vbox_binary_idle = True
+        sleep(0.1)
+        if uuid not in return_running_vms():
+            if uuid in vm_stop_queue:
+                vm_stop_queue.remove(uuid)
+            break
     else:
-        for _ in vms_to_use:
-            mac_address = get_vm_info(_, 'macaddress1')
-            allocated_mac_addresses.append(mac_address)
-        mac_address = get_vm_info(vm, 'macaddress1')
-        while mac_address in allocated_mac_addresses:
-            queue_vm_stop(vm, 0, 0)
-            randomise_mac_address(vm)
-            mac_address = get_vm_info(vm, 'macaddress1')
+        for _ in range(10):
+            if not vbox_binary_idle:
+                sleep(0.1)
+        vbox_binary_idle = False
+        call(('cmd', '/c', f'{vbox_manage_binary_location} controlvm {uuid} poweroff'))
+        vbox_binary_idle = True
+        if uuid in vm_stop_queue:
+            vm_stop_queue.remove(uuid)
+
+
+def queue_vm_start(uuid, delay=0.0, block=False):
+    global vbox_binary_idle
+    if not block:
+        Thread(target=queue_vm_start, args=(uuid, delay, True,)).start()
+        return
+    sleep(delay)
+    for _ in range(100):
+        if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid not in return_running_vms():
+            vm_start_queue.append(uuid)
+            for _ in range(10):
+                if not vbox_binary_idle:
+                    sleep(0.1)
+            vbox_binary_idle = False
+            call(('cmd', '/c', f'{vbox_manage_binary_location} startvm {uuid} --type headless'))
+            vbox_binary_idle = True
+            sleep(0.1)
+            if uuid in return_running_vms():
+                vm_start_queue.remove(uuid)
+                break
+
+
+def randomise_vm_mac(uuid):
+    global vbox_binary_idle
+    for _ in range(40):
+        if uuid in return_running_vms():
+            queue_vm_stop(uuid, 0, True)
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    call(('cmd', '/c', f'{vbox_manage_binary_location} modifyvm {uuid} --macaddress1 auto'))
+    vbox_binary_idle = True
+    fetch_all_vm_info()
+
+
+def check_and_fix_repeated_mac_addresses(vm_to_check=None):
+    if not vm_to_check:
+        for _ in range(100):
+            allocated_mac_addresses = []
+            for uuid in vms_to_use:
+                mac_address = get_vm_info(uuid, 'MAC:')
+                if mac_address in allocated_mac_addresses:
+                    randomise_vm_mac(uuid)
+                    break
+                else:
+                    allocated_mac_addresses.append(mac_address)
+            else:
+                break
+    else:
+        for _ in range(100):
+            allocated_mac_addresses = []
+            for uuid in vms_to_use:
+                mac_address = get_vm_info(uuid, 'MAC:')
+                allocated_mac_addresses.append(mac_address)
+            mac_address = get_vm_info(vm_to_check, 'MAC:')
+            if mac_address in allocated_mac_addresses:
+                Thread(target=randomise_vm_mac, args=(vm_to_check,)).start()
+            else:
+                break
 
 
 def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
@@ -331,45 +443,6 @@ def generate_random_string(_min, _max):
     return string
 
 
-def write_bot_metrics_to_file():
-    global bot_metrics_written
-    if bot_metrics_written:
-        return
-    global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
-    try:
-        last_vm_metrics = eval(open(f'{data_location}/adfly_vm_metrics', 'r').read())
-        per_vm_memory = last_vm_metrics['per_vm_memory']
-        max_vm_count = last_vm_metrics['max_vm_count']
-        max_memory_percent = last_vm_metrics['max_memory_percent']
-        rtc_start = last_vm_metrics['rtc_start']
-        rtc_stop = last_vm_metrics['rtc_stop']
-    except:
-        per_vm_memory = default_per_vm_memory
-        max_vm_count = default_max_vm_count
-        max_memory_percent = default_max_memory_percent
-        rtc_start = default_rtc_start
-        rtc_stop = default_rtc_stop
-        open(f'{data_location}/adfly_vm_metrics', 'w').write(str({'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}))
-    bot_metrics_written = True
-
-
-def write_vms_to_use():
-    global all_vms, vms_to_use, vms_to_use_written
-    if vms_to_use_written:
-        return
-    all_vms = return_all_vms()
-    try:
-        vms_to_use = []
-        last_vms_to_use = eval(open(f'{data_location}/adfly_vm_manager', 'r').read())['vms_to_use']
-        for vm_uuid in all_vms:
-            if vm_uuid in last_vms_to_use:
-                vms_to_use.append(vm_uuid)
-    except:
-        vms_to_use = []
-        open(f'{data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
-    vms_to_use_written = True
-
-
 def vm_manager_time_manager():
     global vm_manager_start_vm
     current = [int(localtime()[3]), int(localtime()[4])]
@@ -404,8 +477,11 @@ def vm_manager_time_manager():
                 vm_manager_start_vm = False
 
     elif stop[0] == start[0]:
-        if stop[1] < current[1] >= start[1]:
-            vm_manager_start_vm = True
+        if stop[0] == current[0] == start[0]:
+            if stop[1] > current[1] >= start[1]:
+                vm_manager_start_vm = True
+            else:
+                vm_manager_start_vm = False
         else:
             vm_manager_start_vm = False
 
@@ -413,63 +489,57 @@ def vm_manager_time_manager():
 def vm_manager():
     check_and_fix_repeated_mac_addresses()
     while True:
-        sleep(5)
-        if vm_manager_working:
-            vm_manager_time_manager()
-            if vm_manager_start_vm:
-                total_system_memory, current_memory_percent = virtual_memory()[0], virtual_memory()[2]
-                per_vm_memory_percent = int((per_vm_memory*1024*1024/total_system_memory)*100)+1
-                _ = return_running_vms()
-                working_vms = []
-                write_vms_to_use()
-                for vm in _:
-                    if vm in vms_to_use:
-                        working_vms.append(vm)
-                _ = return_stopped_vms()
-                stopped_vms = []
-                for vm in _:
-                    if vm in vms_to_use:
-                        stopped_vms.append(vm)
-                if working_vms and len(working_vms) > max_vm_count:
-                    vms_count_to_stop = len(working_vms) - max_vm_count
-                    while vms_count_to_stop:
-                        if working_vms:
-                            chosen_vm = choice(working_vms)
-                            if chosen_vm not in vm_stop_queue:
-                                queue_vm_stop(chosen_vm, 0, 0)
-                                vms_count_to_stop -= 1
-                                sleep(0.5)
-                        else:
-                            break
+        sleep(2)
+        vm_manager_time_manager()
+        if vm_manager_start_vm:
+            total_system_memory, current_memory_percent = virtual_memory()[0], virtual_memory()[2]
+            per_vm_memory_percent = int((per_vm_memory*1024*1024/total_system_memory)*100)+2
+            all_running_vms = return_running_vms()
+            running_adfly_vms = []
+            for uuid in all_running_vms:
+                if uuid in vms_to_use:
+                    running_adfly_vms.append(uuid)
+            all_stopped_vms = return_stopped_vms()
+            stopped_adfly_vms = []
+            for uuid in all_stopped_vms:
+                if uuid in vms_to_use:
+                    stopped_adfly_vms.append(uuid)
 
-                elif working_vms and current_memory_percent > max_memory_percent:
-                    vms_count_to_stop = ((current_memory_percent - max_memory_percent)//per_vm_memory_percent) + 1
-                    while vms_count_to_stop:
-                        if working_vms:
-                            chosen_vm = choice(working_vms)
-                            if chosen_vm not in vm_stop_queue:
-                                queue_vm_stop(chosen_vm, 0, 0)
-                                vms_count_to_stop -= 1
-                                sleep(0.5)
-                        else:
-                            break
-                else:
-                    vms_count_to_start = min((max_memory_percent - current_memory_percent)//per_vm_memory_percent, max_vm_count - len(working_vms))
-                    while stopped_vms and vms_count_to_start:
-                        chosen_vm = choice(stopped_vms)
-                        if chosen_vm not in vm_stop_queue:
-                            start_vm(chosen_vm)
-                            queue_vm_stop(chosen_vm, 3600, 0)
-                            vms_count_to_start -= 1
-                            sleep(0.5)
+            if running_adfly_vms and (len(running_adfly_vms) + len(vm_start_queue) - len(vm_stop_queue)) > max_vm_count:
+                vms_to_stop_count = int((len(running_adfly_vms) - len(vm_stop_queue)) - max_vm_count)
+                if vms_to_stop_count:
+                    sleep(1)
+                    chosen_vm = choice(running_adfly_vms)
+                    if chosen_vm not in vm_stop_queue:
+                        queue_vm_stop(chosen_vm, 0)
+                        vms_to_stop_count -= 1
+
+            elif running_adfly_vms and current_memory_percent + (len(vm_start_queue)*per_vm_memory_percent) - (len(vm_stop_queue)*per_vm_memory_percent)  >= max_memory_percent:
+                vms_to_stop_count = int((current_memory_percent + (len(vm_start_queue)*per_vm_memory_percent) - (len(vm_stop_queue)*per_vm_memory_percent) - max_memory_percent)/per_vm_memory_percent)+1
+                if vms_to_stop_count:
+                    sleep(1)
+                    chosen_vm = choice(running_adfly_vms)
+                    if chosen_vm not in vm_stop_queue:
+                        queue_vm_stop(chosen_vm, 0)
+                        vms_to_stop_count -= 1
             else:
-                _ = return_running_vms()
-                working_vms = []
-                for vm in _:
-                    if vm in vms_to_use:
-                        working_vms.append(vm)
-                for vm in working_vms:
-                    Thread(target=queue_vm_stop, args=(vm, 0, 0)).start()
+                vms_to_start_count = int(min(((max_memory_percent - current_memory_percent) // per_vm_memory_percent) + len(vm_stop_queue) - len(vm_start_queue), max_vm_count - len(vm_start_queue) - len(running_adfly_vms), len(vms_to_use) - len(vm_start_queue) - len(running_adfly_vms)))
+                if stopped_adfly_vms and vms_to_start_count:
+                    sleep(1)
+                    chosen_vm = choice(stopped_adfly_vms)
+                    if chosen_vm not in vm_stop_queue:
+                        queue_vm_start(chosen_vm, 0)
+                        vms_to_start_count -= 1
+                        #queue_vm_stop(chosen_vm, 3600)
+
+        else:
+            all_running_vms = return_running_vms()
+            running_adfly_vms = []
+            for uuid in all_running_vms:
+                if uuid in vms_to_use:
+                    running_adfly_vms.append(uuid)
+            for uuid in running_adfly_vms:
+                queue_vm_stop(uuid, 0)
 
 
 def global_host_peering_authenticator():
@@ -732,20 +802,19 @@ def process_form_action(viewer_id:str, form:dict):
 
 
     elif form['purpose'] == 'add_vm':
-        vm_uuid = form['vm_uuid']
-        check_and_fix_repeated_mac_addresses()
-        if vm_uuid not in vms_to_use:
-            vms_to_use.append(vm_uuid)
-            open(f'{data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
+        uuid = form['vm_uuid']
+        Thread(target=check_and_fix_repeated_mac_addresses, args=(uuid,)).start()
+        if uuid not in vms_to_use:
+            vms_to_use.append(uuid)
+            write_vms_to_be_used()
         render_vms_manage_tables(viewer_id)
 
 
     elif form['purpose'] == 'remove_vm':
-        vm_uuid = form['vm_uuid']
-        write_vms_to_use()
-        if vm_uuid in vms_to_use:
-            vms_to_use.remove(vm_uuid)
-            open(f'{data_location}/adfly_vm_manager', 'w').write(str({'vms_to_use': vms_to_use}))
+        uuid = form['vm_uuid']
+        if uuid in vms_to_use:
+            vms_to_use.remove(uuid)
+            write_vms_to_be_used()
         render_vms_manage_tables(viewer_id)
 
 
@@ -779,21 +848,22 @@ def process_form_action(viewer_id:str, form:dict):
                         time_format_correct = True
         if not time_format_correct:
             force_send_flask_data(f"[ERROR] [Bot Time Set] Time format wrong. Allowed range: 00:00 - 23:59", 'severe_info', viewer_id, 'new_div', 0, 3)
-        open(f'{data_location}/adfly_vm_metrics', 'w').write(str({'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}))
+        write_vm_metrics()
         render_bot_metrics_table(viewer_id)
 
 
     elif form['purpose'] == 'turn_on_vm':
-        vm_uuid = form['vm_uuid']
-        force_send_flask_data(f"[SUCCESS] [Turn On VM] {vm_uuid} starting", 'success_info', viewer_id, 'new_div', 0, 3)
-        start_vm(vm_uuid)
+        uuid = form['vm_uuid']
+        force_send_flask_data(f"[SUCCESS] [Turn On VM] {uuid} will start soon", 'success_info', viewer_id, 'new_div', 0, 3)
+        queue_vm_start(uuid, 0, True)
+        force_send_flask_data(f"[SUCCESS] [Turn On VM] {uuid} Started", 'success_info', viewer_id, 'new_div', 0, 3)
 
 
     elif form['purpose'] == 'turn_off_vm':
-        vm_uuid = form['vm_uuid']
-        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {vm_uuid} stopping in 40secs", 'success_info', viewer_id, 'new_div', 0, 3)
-        queue_vm_stop(vm_uuid, 0, 0)
-        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {vm_uuid} stopped", 'success_info', viewer_id, 'new_div', 0, 3)
+        uuid = form['vm_uuid']
+        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {uuid} will stop in 20secs", 'success_info', viewer_id, 'new_div', 0, 3)
+        queue_vm_stop(uuid, 0, True)
+        force_send_flask_data(f"[SUCCESS] [Turn Off VM] {uuid} stopped", 'success_info', viewer_id, 'new_div', 0, 3)
 
 
 def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str, method:str, user_delay:int, duration:int, actual_delay:int=0):
@@ -878,7 +948,7 @@ def __fetch_image_from_global_host(img_name):
                 version = 0
             verify_global_host_site()
             s_time = time()
-            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=20).content
+            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=10).content
             response_time = time() - s_time
             log_data('', 'Global Host Image Request', response_time, img_name)
             if response[0] == 123 and response[-1] == 125:
@@ -909,7 +979,7 @@ def __fetch_py_file_from_global_host(file_code):
                 version = 0
             verify_global_host_site()
             s_time = time()
-            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=20).content
+            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=10).content
             response_time = time() - s_time
             log_data('', 'Global Host Py File Request', response_time, file_code)
             if response[0] == 123 and response[-1] == 125:
@@ -967,8 +1037,8 @@ def vm_connection_manager():
 
         elif purpose == 'stat_connection_establish':
             mac_address = request_data['mac_address']
-            mac_address = f"{mac_address}-{generate_random_string(10,20)}"
-            vm_stat_connections[mac_address] = connection
+            mac_address_encrypted = f"{mac_address}-{generate_random_string(10,20)}".upper()
+            vm_stat_connections[mac_address_encrypted] = connection
             log_data(address, 'Vm Started sending Data', time() - s_time)
 
         else:
@@ -1018,18 +1088,15 @@ def update_vm_responses():
                     Thread(target=receive_data, args=(mac_address,)).start()
                 last_data_sent = time()
                 sleep(1)
-                while time() - last_data_sent < 5 and len(current_vm_response_data) < len(targets):
+                while time() - last_data_sent < 3 and len(current_vm_response_data) < len(targets):
                     sleep(0.1)
-                return_all_vms()
-                for mac_address in current_vm_response_data:
-                    if mac_address in vm_to_mac_address.values():
-                        for vm_name in vm_to_mac_address:
-                            mac_address0 = vm_to_mac_address[vm_name]
-                            if mac_address == mac_address0:
-                                current_vm_response_data[mac_address]['vm_name'] = vm_name
-                                break
+                for mac_address_encrypted in current_vm_response_data:
+                    mac_address = mac_address_encrypted.split('-')[0]
+                    if mac_address in vm_mac_to_name:
+                        name = str(vm_mac_to_name[mac_address])
+                        current_vm_response_data[mac_address_encrypted]['vm_name'] = name
                     else:
-                        current_vm_response_data[mac_address]['vm_name'] = '--'
+                        current_vm_response_data[mac_address_encrypted]['vm_name'] = '--'
                 public_vm_data = current_vm_response_data
             except:
                 pass
@@ -1080,17 +1147,15 @@ def render_account_manage_table(viewer_id, self_ids):
 
 
 def render_vms_manage_tables(viewer_id):
-    global all_vms, vms_to_use
     vms_manage_purpose_list = active_viewers[viewer_id]['vms_manage_purpose_list']
     for purpose in vms_manage_purpose_list:
         invalidate_csrf_token(purpose, viewer_id)
-    write_vms_to_use()
-    vms_to_skip = list(set(all_vms) - set(vms_to_use))
+    vms_to_skip = list(set(vm_short_data) - set(vms_to_use))
     vms_manage_purpose_list = []
     if vms_to_use:
         vms_remove_tbody = ""
         for vm_uuid in vms_to_use:
-            vm_name = get_vm_info(vm_uuid, 'name')
+            vm_name = get_vm_info(vm_uuid, 'Name:')
             while True:
                 purpose = f'remove_vm-{generate_random_string(20, 30)}'
                 if purpose not in vms_manage_purpose_list:
@@ -1109,7 +1174,7 @@ def render_vms_manage_tables(viewer_id):
     if vms_to_skip:
         vms_add_tbody = ""
         for vm_uuid in vms_to_skip:
-            vm_name = get_vm_info(vm_uuid, 'name')
+            vm_name = get_vm_info(vm_uuid, 'Name:')
             while True:
                 purpose = f'add_vm-{generate_random_string(20, 30)}'
                 if purpose not in vms_manage_purpose_list:
@@ -1134,7 +1199,6 @@ def render_vms_manage_tables(viewer_id):
 
 def render_bot_metrics_table(viewer_id):
     global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
-    write_bot_metrics_to_file()
     purpose = f'vms_metric_update-{generate_random_string(10,30)}'
     force_send_flask_data(return_html_body('public_vms_metric_table').replace('REPLACE_PURPOSE', purpose).replace('REPLACE_DEFAULT_PER_VM_MEMORY', str(default_per_vm_memory)).replace('REPLACE_DEFAULT_MAX_MEMORY','70').replace('REPLACE_PER_VM_MEMORY', str(per_vm_memory)).replace('REPLACE_MAX_VM_COUNT', str(max_vm_count)).replace('REPLACE_MAX_MEMORY_PERCENT', str(max_memory_percent)).replace('REPLACE_BOT_START_TIME_HOUR', rtc_start[0]).replace('REPLACE_BOT_START_TIME_MINUTE', rtc_start[1]).replace('REPLACE_BOT_STOP_TIME_HOUR', rtc_stop[0]).replace('REPLACE_BOT_STOP_TIME_MINUTE', rtc_stop[1]), 'vms_metric_table', viewer_id, 'update', 0, 0)
     send_new_csrf_token(purpose, viewer_id)
@@ -1152,7 +1216,7 @@ def render_running_bots_table(viewer_id):
         if running_vms:
             turn_off_vm_tbody = ""
             for vm_uuid in running_vms:
-                vm_name = get_vm_info(vm_uuid, 'name')
+                vm_name = get_vm_info(vm_uuid, 'Name:')
                 while True:
                     purpose = f'turn_off_vm-{generate_random_string(20, 30)}'
                     if purpose not in live_vm_manage_purpose_list:
@@ -1170,7 +1234,7 @@ def render_running_bots_table(viewer_id):
         if stopped_vms:
             turn_on_vm_tbody = ""
             for vm_uuid in stopped_vms:
-                vm_name = get_vm_info(vm_uuid, 'name')
+                vm_name = get_vm_info(vm_uuid, 'Name:')
                 while True:
                     purpose = f'turn_on_vm-{generate_random_string(20, 30)}'
                     if purpose not in live_vm_manage_purpose_list:
@@ -1300,7 +1364,7 @@ def invalidate_csrf_token(purpose, viewer_id):
 
 active_viewers = {}
 flask_secret_key = Fernet.generate_key()
-turbo_app : Turbo()
+turbo_app = Turbo()
 
 
 def private_flask_operations():
@@ -1436,11 +1500,6 @@ def public_flask_operations():
         return redirect('https://avatars.githubusercontent.com/u/101955196')
 
 
-    @app.route('/start_time')
-    def return_start_time():
-        return str(start_time)
-
-
     @app.route('/action/', methods=['GET'])
     def public_wrong_path():
         return redirect('/')
@@ -1557,7 +1616,7 @@ def public_flask_operations():
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
         request_ip = request.remote_addr
-        request_type = '/py_files'
+        request_type = '/img_files'
         request_start_time = time()
 
         if "img_name" not in request.args:
@@ -1889,7 +1948,31 @@ REPLACE_TBODY
     else:
         return html_name
 
+
+## Take data from storage
+try:
+    vms_to_use = eval(open(f"{data_location}/adfly_vm_manager").read())['vms_to_use']
+except:
+    vms_to_use = []
+    write_vms_to_be_used()
+
+try:
+    dict_data = eval(open(f"{data_location}/adfly_vm_metrics").read())
+    per_vm_memory = dict_data['per_vm_memory']
+    max_vm_count = dict_data['max_vm_count']
+    max_memory_percent = dict_data['max_memory_percent']
+    rtc_start = dict_data['rtc_start']
+    rtc_stop = dict_data['rtc_stop']
+except:
+    per_vm_memory = default_per_vm_memory
+    max_vm_count = default_max_vm_count
+    max_memory_percent = default_max_memory_percent
+    rtc_start = default_rtc_start
+    rtc_stop = default_rtc_stop
+    write_vm_metrics()
+
 global_host_peering_authenticator()
+fetch_all_vm_info()
 Thread(target=vm_manager).start()
 Thread(target=private_flask_operations).start()
 Thread(target=public_flask_operations).start()
@@ -1897,5 +1980,5 @@ Thread(target=vm_connection_manager).start()
 Thread(target=invalidate_all_py_files, args=(60*10,)).start()
 Thread(target=invalidate_all_images, args=(60*60,)).start()
 Thread(target=update_vm_responses).start()
-sleep(1)
+sleep(0.5)
 reprint_screen()

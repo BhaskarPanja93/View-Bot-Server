@@ -25,7 +25,13 @@ ngrok_tokens = [
     '28oH7jQPeXTDGWXs8oyIhb5KxUY_385T8rqtT1q1r2LAGYbb',
     '28oHShvU9VUXOCY6aQWDpVNi8pG_3nU1hBpDQPMTqPxyrEtaK',
     '28oHkoKDASJjfSf0syqJdxdaHr7_37w7EA9CMpmc33qr4Qgbi',
-    '290jya1L09pGA9FWgtA2hOoSAqv_3EThNYcewPYoikLEexFEH'
+    '290jya1L09pGA9FWgtA2hOoSAqv_3EThNYcewPYoikLEexFEH',
+    '2DcEjq3TBJGAzc3N3bHtscnIqS1_4CFoSJtWdDGQ2T7wwUL9t',
+    '2DcEw2SNo1b7gtrI8F3Nvqn0BXV_2RovXkJDK8V7mP5zFRkps',
+    '2DcF4xgpB8NR8RicbmRk3HsLSgB_J1TffcJApwCcZ5fSoDfp',
+    '2DcFDbjSWoONL9wPpqR7TrzRkG0_691tmp39xLpAJn25FiaC5',
+    '2DcFLz4kDWgTfkoacSGOSPwzrCL_7iVhooTMGr8QqfiD5A995',
+    '2DcFZvIBBfSxHswi1uEilJiOCgM_W5xTFuKVMuqdB8ToSbJk'
 ]
 
 
@@ -172,7 +178,7 @@ def tcp_checker(ngrok_obj=None, check_frequency=0, url='', dict_key=''):
                 return
 
 
-def ngrok_user_connection(port):
+def pyngrok_user_connection(port):
     while True:
         try:
             if not tcp_checker(check_frequency=1, url=f"127.0.0.1:{port}"):
@@ -190,7 +196,7 @@ def ngrok_user_connection(port):
             print(f"ngrok_user_connection \n{repr(e)}")
 
 
-def ngrok_host_page(port):
+def pyngrok_host_page(port):
     while True:
         try:
             if not url_checker(check_frequency=1, url=f"http://127.0.0.1:{port}"):
@@ -201,6 +207,7 @@ def ngrok_host_page(port):
             tunnel = ngrok.connect(port)
             host_url = tunnel.public_url.replace('http://', 'https://')
             print(f"{host_url=}")
+            input('waiting')
             final_dict_to_show_on_github['adfly_host_page_list'].append(host_url)
             Thread(target=update_github).start()
             url_checker(ngrok, 0, host_url, 'adfly_host_page_list')
@@ -208,7 +215,7 @@ def ngrok_host_page(port):
             print(f"ngrok_host_page \n{repr(e)}")
 
 
-def ngrok_minecraft_connection(port):
+def pyngrok_minecraft_connection(port):
     while True:
         try:
             from pyngrok import ngrok, conf
@@ -223,13 +230,23 @@ def ngrok_minecraft_connection(port):
         except Exception as e:
             print(f"ngrok_minecraft_connection \n{repr(e)}")
 
+def ngrok_user_connection():
+    with open(r"C:\Users\Administrator\.ngrok2\ngrok.yml", 'w') as file:
+        file.write(f"""
+    authtoken: {choice(ngrok_tokens)}
+    region: in
+    version: "2"
+    """)
 
-for port in MINECRAFT_CONNECTION_PORT_LIST:
-    Thread(target=ngrok_minecraft_connection, args=(port,)).start()
-    sleep(2)
+
+
+"""for port in MINECRAFT_CONNECTION_PORT_LIST:
+    Thread(target=pyngrok_minecraft_connection, args=(port,)).start()
+    sleep(2)"""
 for port in HOST_MAIN_WEB_PORT_LIST:
-    Thread(target=ngrok_host_page, args=(port,)).start()
+    Thread(target=pyngrok_host_page, args=(port,)).start()
     sleep(2)
+input()
 for port in USER_CONNECTION_PORT_LIST:
-    Thread(target=ngrok_user_connection, args=(port,)).start()
+    Thread(target=pyngrok_user_connection, args=(port,)).start()
     sleep(2)
