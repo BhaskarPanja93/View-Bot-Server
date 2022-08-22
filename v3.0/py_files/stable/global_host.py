@@ -883,7 +883,7 @@ Links:</br>
     def _return_global_ip():
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
-            ip = request.environ['HTTP_X_FORWARDED_FOR']
+            ip = choice(list(set(request.environ['HTTP_X_FORWARDED_FOR'].split(','))))
         return f"Current_Visitor_IP:{ip}"
 
 

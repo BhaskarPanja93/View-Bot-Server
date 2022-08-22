@@ -109,10 +109,10 @@ def __get_global_ip():
     else:
         return ""
 
-
-def restart_vpn_recheck_ip():
+def restart_vpn_recheck_ip(_=0):
     global last_ip, connection_enabled, current_ip, current_proxy
-    _ = 0
+    __disconnect_proxy()
+    sleep(2)
     while True:
         sleep(0.1)
         current_ip = __get_global_ip()
@@ -148,4 +148,5 @@ while not genuine_ip:
 
 def run():
     while True:
-        restart_vpn_recheck_ip()
+        print('\n\n\n\nTriggered new restart_vpn_recheck_ip')
+        restart_vpn_recheck_ip(1)

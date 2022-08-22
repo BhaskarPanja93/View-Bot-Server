@@ -244,13 +244,15 @@ def fetch_all_vm_info():
         else:
             vm_long_data[name][key]=value
     for name in vm_long_data:
-        uuid = vm_long_data[name]["UUID:"]
-        mac = vm_long_data[name]["MAC:"]
-        if mac in vm_mac_to_name:
-            vm_mac_to_name[mac].append(name)
-        else:
-            vm_mac_to_name[mac] = [name]
-        vm_short_data[uuid] = {'Name:': name, 'MAC:': mac}
+        if "UUID:" in vm_long_data[name] and "MAC:" in vm_long_data[name]:
+            uuid = vm_long_data[name]["UUID:"]
+            mac = vm_long_data[name]["MAC:"]
+            if mac in vm_mac_to_name:
+                if name not in vm_mac_to_name[mac]:
+                    vm_mac_to_name[mac].append(name)
+            else:
+                vm_mac_to_name[mac] = [name]
+            vm_short_data[uuid] = {'Name:': name, 'MAC:': mac}
 
 
 def get_vm_info(vm_info, info):
@@ -451,7 +453,7 @@ def vm_manager_time_manager():
     start = [int(rtc_start[0]), int(rtc_start[1])]
     stop = [int(rtc_stop[0]), int(rtc_stop[1])]
     if stop[0] > start[0]:
-        if stop[0] > current[0] > start[0]:
+        if stop[0] > current[0] >= start[0]:
             vm_manager_start_vm = True
         elif stop[0] == current[0]:
             if stop[1] > current[1]:
@@ -463,6 +465,8 @@ def vm_manager_time_manager():
                 vm_manager_start_vm = True
             else:
                 vm_manager_start_vm = False
+        else:
+            vm_manager_start_vm = False
 
     elif stop[0] < start [0]:
         if stop[0] > current[0] > 0 or 24 > current[0] > start[0]:
@@ -477,6 +481,8 @@ def vm_manager_time_manager():
                 vm_manager_start_vm = True
             else:
                 vm_manager_start_vm = False
+        else:
+            vm_manager_start_vm = False
 
     elif stop[0] == start[0]:
         if stop[0] == current[0] == start[0]:
@@ -1974,7 +1980,10 @@ except:
     write_vm_metrics()
 
 global_host_peering_authenticator()
-fetch_all_vm_info()
+try:
+    fetch_all_vm_info()
+except:
+    pass
 Thread(target=vm_manager).start()
 Thread(target=private_flask_operations).start()
 Thread(target=public_flask_operations).start()

@@ -249,9 +249,10 @@ def __get_global_ip():
         return ""
 
 
-def restart_vpn_recheck_ip():
+def restart_vpn_recheck_ip(_=0):
     global last_ip, connection_enabled, current_ip, current_proxy
-    _ = 0
+    __disconnect_proxy()
+    sleep(2)
     while True:
         sleep(0.1)
         current_ip = __get_global_ip()
@@ -384,7 +385,7 @@ next_ip_reset = 0
 while True:
     while True:
         if (views >= next_ip_reset) or comment == 'change_ip':
-            restart_vpn_recheck_ip()
+            restart_vpn_recheck_ip(1)
             #sleep(5)
             comment = ''
             next_ip_reset += randrange(1, 3)
