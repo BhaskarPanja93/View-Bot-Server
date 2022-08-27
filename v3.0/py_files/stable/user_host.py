@@ -357,7 +357,7 @@ def queue_vm_start(uuid, delay=0.0, block=False):
         Thread(target=queue_vm_start, args=(uuid, delay, True,)).start()
         return
     sleep(delay)
-    for _ in range(100):
+    for _ in range(10):
         if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid not in return_running_vms():
             vm_start_queue.append(uuid)
             for _ in range(10):
@@ -366,9 +366,10 @@ def queue_vm_start(uuid, delay=0.0, block=False):
             vbox_binary_idle = False
             system_caller(f'\"{vbox_binary_location}\" startvm {uuid} --type headless')
             vbox_binary_idle = True
-            sleep(0.1)
+            sleep(1)
             if uuid in return_running_vms():
-                vm_start_queue.remove(uuid)
+                if uuid in vm_start_queue:
+                    vm_start_queue.remove(uuid)
                 break
 
 
@@ -1960,6 +1961,7 @@ REPLACE_TBODY
 ## Take data from storage
 try:
     vms_to_use = eval(open(f"{data_location}/adfly_vm_manager").read())['vms_to_use']
+    vms_to_use = list(set(vms_to_use))
 except:
     vms_to_use = []
     write_vms_to_be_used()

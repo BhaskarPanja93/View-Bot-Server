@@ -1,6 +1,0 @@
-<h2>Login</h2>
-<form>
-Username: <input type="text" name="username"></br>
-Password: <input id='password_entry' type="password" name="password"></br>
-<button type=submit>Login</button>
-</form>
