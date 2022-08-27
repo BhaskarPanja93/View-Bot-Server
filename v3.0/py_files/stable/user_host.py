@@ -538,7 +538,7 @@ def vm_manager():
                     if chosen_vm not in vm_stop_queue:
                         queue_vm_start(chosen_vm, 0)
                         vms_to_start_count -= 1
-                        #queue_vm_stop(chosen_vm, 3600)
+                        queue_vm_stop(chosen_vm, 3600)
 
         else:
             all_running_vms = return_running_vms()

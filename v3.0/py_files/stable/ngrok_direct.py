@@ -267,7 +267,6 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
 
 
     pyautogui.FAILSAFE = False
-
     os_type = system()
     start_time = time()
     link = ''

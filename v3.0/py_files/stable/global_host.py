@@ -693,12 +693,10 @@ beta_1:'vm_main'
 beta_2:'client_uname_checker'
 beta_3:'runner'
 
-BETA
-beta_1:'vm_main'
-beta_2:'client_uname_checker'
-beta_3:'runner'
+PROXY_CHECKER
+proxy_checker_1:'vm_main'
+proxy_checker_2:'proxy_checker'
 """
-
 
 def return_py_file(file_id):
     if file_id == '3' or file_id == '5':
@@ -761,6 +759,16 @@ def return_py_file(file_id):
         if ('proxy_checker.py' not in python_files['proxy_checker']) or (path.getmtime(f'py_files/proxy_checker/proxy_checker.py') != python_files['proxy_checker']['proxy_checker.py']['version']):
             python_files['proxy_checker']['proxy_checker.py'] = {'version': path.getmtime(f'py_files/proxy_checker/proxy_checker.py'), 'file': open(f'py_files/proxy_checker/proxy_checker.py', 'rb').read()}
         return python_files['proxy_checker']['proxy_checker.py']['version'], python_files['proxy_checker']['proxy_checker.py']['file']
+
+    ###
+
+    elif file_id == 'testing_1':
+        if ('testing_1.py' not in python_files['testing_1']) or (path.getmtime(f'py_files/testing_1/testing_1.py') != python_files['testing_1']['testing_1.py']['version']):
+            python_files['testing_1']['testing_1.py'] = {'version': path.getmtime(f'py_files/testing_1/testing_1.py'), 'file': open(f'py_files/testing_1/testing_1.py', 'rb').read()}
+        return python_files['testing_1']['testing_1.py']['version'], python_files['testing_1']['testing_1.py']['file']
+
+    ###
+
     else:
         return None, None
 
