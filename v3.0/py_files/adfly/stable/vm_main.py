@@ -1,4 +1,6 @@
-print('stable vm_main')
+self_file_code = 'adfly_stable_1'
+next_file_code = 'adfly_stable_2'
+print(self_file_code)
 try:
     vm_main_version = float(open('vm_main_version', 'r').read())
 except:
@@ -61,11 +63,10 @@ print("Checking vm main version...\n\n")
 while True:
     verify_global_site()
     try:
-        file_code = 'stable_1'
-        response = get(f"{global_host_page}/py_files?file_code={file_code}&version={vm_main_version}", timeout=10).content
+        response = get(f"{global_host_page}/py_files?file_code={self_file_code}&version={vm_main_version}", timeout=10).content
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
-            if response['file_code'] == file_code:
+            if response['file_code'] == self_file_code:
                 if response['version'] != vm_main_version:
                     print("Writing new file")
                     with open('vm_main.py', 'wb') as file:
@@ -86,8 +87,7 @@ while True:
         verify_global_site()
         if get(f"{global_host_page}/ping").text != 'ping':
             _ = 1/0
-        file_code = 'stable_2'
-        received_data = get(f"{global_host_page}/py_files?file_code={file_code}", timeout=10).content
+        received_data = get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=10).content
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
             with open('client_uname_checker.py', 'wb') as file:

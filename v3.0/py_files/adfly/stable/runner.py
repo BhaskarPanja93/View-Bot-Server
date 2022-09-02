@@ -1,4 +1,4 @@
-print('stable runner')
+next_file_code = 'adfly_stable_4'
 global_host_address = ()
 global_host_page = ''
 local_page = ""
@@ -210,13 +210,12 @@ def __get_global_ip(trial = 0):
 def run_instance(instance_name):
     global views, comment, img_dict
     try:
-        file_code = 'stable_4'
         while True:
             try:
-                response = get(f"{local_page}/py_files?file_code={file_code}", timeout=10).content
+                response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10).content
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
-                    if response['file_code'] == file_code:
+                    if response['file_code'] == next_file_code:
                         with open('instance.py', 'wb') as file:
                             file.write(response['py_file_data'])
                         import instance

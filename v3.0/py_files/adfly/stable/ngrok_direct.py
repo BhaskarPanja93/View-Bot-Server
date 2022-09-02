@@ -156,17 +156,18 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                     break
 
 
-    def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
+    def __fetch_image_from_host(img_name, timeout=10):
         if img_name in img_dict:
             version = img_dict[img_name]['version']
         else:
             version = -1
         try:
-            response = get(f"{local_page}/img_files?img_name={img_name}&version={version}").content
-        except:
+            response = get(f"{local_page}/img_files?img_name={img_name}&version={version}", timeout=timeout).content
+        except Exception as e:
+            print(repr(e))
             sleep(1)
             fetch_and_update_local_host_address()
-            return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
+            return __fetch_image_from_host(img_name)
         try:
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
@@ -175,6 +176,14 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                         img_dict[img_name] = {'img_data': response['image_data'], 'version': response['version'], 'img_size': response['image_size']}
                     else:
                         pass
+        except Exception as e:
+            print(repr(e))
+            __fetch_image_from_host(img_name)
+
+
+    def __find_image_on_screen(img_name, all_findings=False, confidence=1.0, region=None, img_dict=img_dict):
+        try:
+            __fetch_image_from_host(img_name)
             try:
                 img_bytes = Image.frombytes(mode="RGBA", size=img_dict[img_name]['img_size'], data=img_dict[img_name]['img_data'], decoder_name='raw')
             except:
@@ -183,7 +192,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 return pyautogui.locateAllOnScreen(img_bytes, confidence=confidence, region=region)
             else:
                 return pyautogui.locateOnScreen(img_bytes, confidence=confidence, region=region)
-        except:
+        except Exception as e:
+            print(repr(e))
             return __find_image_on_screen(img_name, all_findings, confidence, region, img_dict)
 
 
@@ -299,6 +309,13 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
             'chrome_restore': ['chrome restore 1'],
             'nothing_opened': ['chrome icon'],
         }
+        thread_name = Thread()
+        for condition_name in possible_screen_conditions:
+            for img_name in possible_screen_conditions[condition_name]:
+                thread_name = Thread(target=__fetch_image_from_host, args=(img_name,))
+                thread_name.start()
+        thread_name.join()
+        sleep(2)
         nothing_opened_counter = 1
         while not success and not failure:
             sleep(randrange(0, 5))
@@ -329,7 +346,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                             finish_counter += 1
                             pyautogui.scroll(-500)
                     __close_chrome_safe()
-                    link = 'chrome://settings/content/popups'
+                    #link = 'chrome://settings/content/popups'
+                    link = 'chrome://settings/content/ads'
                     start_time = time()
                 elif current_screen_condition == 'enable_popups':
                     __click(coordinates)
@@ -398,6 +416,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                                 available_links.append(link_coords)
                     if len(available_links) > 0:
                         __click(choice(available_links))
+                        sleep(randrange(5, 10))
                 elif current_screen_condition == 'adfly_skip':
                     __click(coordinates)
                     sleep(10)

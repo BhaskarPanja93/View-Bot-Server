@@ -2,16 +2,17 @@ from subprocess import Popen
 from time import sleep
 from sys import executable
 from threading import Thread
-from os import stat
+from os import stat, getcwd
 
 
 class Updater(Thread):
     _process = None
     check_interval = 1
-    program_to_rerun = file_to_check = r"py_files/stable/global_host.py"
 
-    def __init__(self):
+
+    def __init__(self, file_name):
         Thread.__init__(self)
+        self.program_to_rerun = self.file_to_check = file_name
         self.last_file_stat = self.get_files()
         self.start_program()
 
@@ -41,4 +42,4 @@ class Updater(Thread):
         print("Restarting...")
         self._process = Popen([executable, self.program_to_rerun])
 
-Updater().start()
+Updater(getcwd() + "/py_files/host/global_host.py").start()

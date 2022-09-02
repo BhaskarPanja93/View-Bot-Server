@@ -946,11 +946,12 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
 
 
 def __fetch_image_from_global_host(img_name):
-    for trial_count in range(500):
+    if img_name in windows_img_files and 'version' in windows_img_files[img_name]:
+        if windows_img_files[img_name]['verified'] is None:
+            return
+    for trial_count in range(1):
         try:
             if img_name in windows_img_files and 'version' in windows_img_files[img_name]:
-                if windows_img_files[img_name]['verified'] is None:
-                    return
                 version = windows_img_files[img_name]['version']
             else:
                 windows_img_files[img_name]={'verified': None, 'version': 0}
@@ -977,11 +978,12 @@ def __fetch_image_from_global_host(img_name):
 
 
 def __fetch_py_file_from_global_host(file_code):
-    for trial_count in range(500):
+    if file_code in py_files and 'version' in py_files[file_code]:
+        if py_files[file_code]['verified'] is None:
+            return
+    for trial_count in range(1):
         try:
             if file_code in py_files and 'version' in py_files[file_code]:
-                if py_files[file_code]['verified'] is None:
-                    return
                 version = py_files[file_code]['version']
             else:
                 py_files[file_code]={'verified': None, 'version': 0}

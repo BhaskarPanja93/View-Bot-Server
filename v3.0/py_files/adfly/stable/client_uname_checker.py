@@ -1,4 +1,4 @@
-print("stable u name checker")
+next_file_code = 'adfly_stable_3'
 global_host_address = ()
 global_host_page = ''
 local_host_address = ()
@@ -191,13 +191,12 @@ def run():
     else:
         try_username_password()
     fetch_and_update_local_host_address()
-    file_code = 'stable_3'
     while True:
         try:
-            response = get(f"{local_page}/py_files?file_code={file_code}", timeout=10).content
+            response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10).content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
-                if response['file_code'] == file_code:
+                if response['file_code'] == next_file_code:
                     with open('runner.py', 'wb') as file:
                         file.write(response['py_file_data'])
                     break

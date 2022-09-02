@@ -1,4 +1,4 @@
-from random import choice
+'''from random import choice
 from threading import Thread
 from time import sleep
 import socket
@@ -181,8 +181,8 @@ def tcp_checker(ngrok_obj=None, check_frequency=0, url='', dict_key=''):
 def pyngrok_user_connection(port):
     while True:
         try:
-            if not tcp_checker(check_frequency=1, url=f"127.0.0.1:{port}"):
-                print(f"ngrok_user_connection unable to ping")
+            #if not tcp_checker(check_frequency=1, url=f"127.0.0.1:{port}"):
+                #print(f"ngrok_user_connection unable to ping")
             from pyngrok import ngrok, conf
             ngrok.set_auth_token(choice(ngrok_tokens))
             conf.get_default().region = 'in'
@@ -199,8 +199,8 @@ def pyngrok_user_connection(port):
 def pyngrok_host_page(port):
     while True:
         try:
-            if not url_checker(check_frequency=1, url=f"http://127.0.0.1:{port}"):
-                print(f"ngrok_host_page unable to ping")
+            #if not url_checker(check_frequency=1, url=f"http://127.0.0.1:{port}"):
+                #print(f"ngrok_host_page unable to ping")
             from pyngrok import ngrok, conf
             ngrok.set_auth_token(choice(ngrok_tokens))
             conf.get_default().region = 'in'
@@ -250,3 +250,4 @@ input()
 for port in USER_CONNECTION_PORT_LIST:
     Thread(target=pyngrok_user_connection, args=(port,)).start()
     sleep(2)
+'''

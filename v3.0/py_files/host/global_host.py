@@ -43,11 +43,13 @@ img_location = path.join(parent, 'req_imgs/Windows')
 HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1))
 USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1))
 
-
 db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False)
 paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.')
-stable_file_location = 'stable_py_files'
-testing_py_files_location = 'testing_py_files'
+host_files_location = getcwd() + '/py_files/host'
+adfly_stable_file_location = getcwd() + '/py_files/adfly/stable'
+adfly_beta_file_location = getcwd() + '/py_files/adfly/beta'
+proxy_checker_file_location = getcwd() +'/py_files/common/proxy_checker'
+testing_py_files_location = getcwd() + '/py_files/common/test'
 
 
 max_host_cpu = host_cpu = 0.0
@@ -128,7 +130,7 @@ def log_data(ip:str, request_type:str, processing_time: float,additional_data:st
 
 def debug_data(data:str):
     data_to_write = f"[{ctime()}] {data}\n"
-    with open("other_files/debug.txt", "a") as debug_file:
+    with open("../../other_files/debug.txt", "a") as debug_file:
         debug_file.write(data_to_write)
 
 
@@ -663,7 +665,9 @@ def accept_connections_from_users(port):
         Thread(target=acceptor).start()
 
 
-python_files = {'stable':{}, 'beta':{}, 'proxy_checker':{}, 'overwrite':{}}
+python_files = {'host':{},
+                'common':{'proxy_checker':{}, 'test':{}},
+                'adfly':{'stable':{}, 'beta':{}, 'proxy_checker':{}}}
 windows_img_files = {}
 text_files = {}
 exe_files = {}
@@ -678,94 +682,65 @@ def return_adfly_link_page(u_name):
     return html_data
 
 
-"""
-OVERWRITE
-3 or 5: overwrite
-
-STABLE
-stable_1:'vm_main'
-stable_2:'client_uname_checker'
-stable_3:'runner'
-stable_4:'ngrok_instance'
-
-BETA
-beta_1:'vm_main'
-beta_2:'client_uname_checker'
-beta_3:'runner'
-
-PROXY_CHECKER
-proxy_checker_1:'vm_main'
-proxy_checker_2:'proxy_checker'
-"""
-
 def return_py_file(file_id):
-    if file_id == '3' or file_id == '5':
-        if ('vm_main_overwrite.py' not in python_files['overwrite']) or (path.getmtime(f'py_files/overwriter/vm_main_overwrite.py') != python_files['overwrite']['vm_main_overwrite.py']['version']):
-            python_files['overwrite']['vm_main_overwrite.py'] = {'version': path.getmtime(f'py_files/overwriter/vm_main_overwrite.py'), 'file': open(f'py_files/overwriter/vm_main_overwrite.py', 'rb').read()}
-        return python_files['overwrite']['vm_main_overwrite.py']['version'], python_files['overwrite']['vm_main_overwrite.py']['file']
 
-    ###
-
-    elif file_id == 'stable_1':
-        if ('vm_main.py' not in python_files['stable']) or (path.getmtime(f'py_files/stable/vm_main.py') != python_files['stable']['vm_main.py']['version']):
-            python_files['stable']['vm_main.py'] = {'version': path.getmtime(f'py_files/stable/vm_main.py'), 'file': open(f'py_files/stable/vm_main.py', 'rb').read()}
-        return python_files['stable']['vm_main.py']['version'], python_files['stable']['vm_main.py']['file']
-
-    elif file_id == 'stable_2':
-        if ('client_uname_checker.py' not in python_files['stable']) or (path.getmtime(f'py_files/stable/client_uname_checker.py') != python_files['stable']['client_uname_checker.py']['version']):
-            python_files['stable']['client_uname_checker.py'] = {'version': path.getmtime(f'py_files/stable/client_uname_checker.py'), 'file': open(f'py_files/stable/client_uname_checker.py', 'rb').read()}
-        return python_files['stable']['client_uname_checker.py']['version'], python_files['stable']['client_uname_checker.py']['file']
-
-    elif file_id == 'stable_3':
-        if ('runner.py' not in python_files['stable']) or (path.getmtime('py_files/stable/runner.py') != python_files['stable']['runner.py']['version']):
-            python_files['stable']['runner.py'] = {'version': path.getmtime('py_files/stable/runner.py'), 'file': open('py_files/stable/runner.py', 'rb').read()}
-        return python_files['stable']['runner.py']['version'], python_files['stable']['runner.py']['file']
-
-    elif file_id == 'stable_4':
-        if f'ngrok_direct.py' not in python_files['stable'] or (path.getmtime(f'py_files/stable/ngrok_direct.py') != python_files['stable'][f'ngrok_direct.py']['version']):
-            python_files['stable'][f'ngrok_direct.py'] = {'version': path.getmtime(f'py_files/stable/ngrok_direct.py'), 'file': open(f'py_files/stable/ngrok_direct.py', 'rb').read()}
-            python_files['stable'][f'ngrok_direct.py']['version'] = path.getmtime(f'py_files/stable/ngrok_direct.py')
-            python_files['stable'][f'ngrok_direct.py']['file'] = open(f'py_files/stable/ngrok_direct.py', 'rb').read()
-        return python_files['stable'][f'ngrok_direct.py']['version'], python_files['stable'][f'ngrok_direct.py']['file']
+    if file_id == 'adfly_stable_1' or file_id == 'stable_1':
+        if ('vm_main.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/vm_main.py') != python_files['adfly']['stable']['vm_main.py']['version']):
+            python_files['adfly']['stable']['vm_main.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/vm_main.py'), 'file': open(f'{adfly_stable_file_location}/vm_main.py', 'rb').read()}
+        return python_files['adfly']['stable']['vm_main.py']['version'], python_files['adfly']['stable']['vm_main.py']['file']
+    elif file_id == 'adfly_stable_2' or file_id == 'stable_2':
+        if ('client_uname_checker.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/client_uname_checker.py') != python_files['adfly']['stable']['client_uname_checker.py']['version']):
+            python_files['adfly']['stable']['client_uname_checker.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/client_uname_checker.py'), 'file': open(f'{adfly_stable_file_location}/client_uname_checker.py', 'rb').read()}
+        return python_files['adfly']['stable']['client_uname_checker.py']['version'], python_files['adfly']['stable']['client_uname_checker.py']['file']
+    elif file_id == 'adfly_stable_3' or file_id == 'stable_3':
+        if ('runner.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/runner.py') != python_files['adfly']['stable']['runner.py']['version']):
+            python_files['adfly']['stable']['runner.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/runner.py'), 'file': open(f'{adfly_stable_file_location}/runner.py', 'rb').read()}
+        return python_files['adfly']['stable']['runner.py']['version'], python_files['adfly']['stable']['runner.py']['file']
+    elif file_id == 'adfly_stable_4' or file_id == 'stable_4':
+        if ('ngrok_direct.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/ngrok_direct.py') != python_files['adfly']['stable'][f'ngrok_direct.py']['version']):
+            python_files['adfly']['stable'][f'ngrok_direct.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/ngrok_direct.py'), 'file': open(f'{adfly_stable_file_location}/ngrok_direct.py', 'rb').read()}
+            python_files['adfly']['stable'][f'ngrok_direct.py']['version'] = path.getmtime(f'{adfly_stable_file_location}/ngrok_direct.py')
+            python_files['adfly']['stable'][f'ngrok_direct.py']['file'] = open(f'{adfly_stable_file_location}/ngrok_direct.py', 'rb').read()
+        return python_files['adfly']['stable'][f'ngrok_direct.py']['version'], python_files['adfly']['stable'][f'ngrok_direct.py']['file']
 
     ####
 
-    elif file_id == 'beta_1':
-        if ('vm_main.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/vm_main.py') != python_files['beta']['vm_main.py']['version']):
-            python_files['beta']['vm_main.py'] = {'version': path.getmtime(f'py_files/beta/vm_main.py'), 'file': open(f'py_files/beta/vm_main.py', 'rb').read()}
-        return python_files['beta']['vm_main.py']['version'], python_files['beta']['vm_main.py']['file']
-    elif file_id == 'beta_2':
-        if ('client_uname_checker.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/client_uname_checker.py') != python_files['beta']['client_uname_checker.py']['version']):
-            python_files['beta']['client_uname_checker.py'] = {'version': path.getmtime(f'py_files/beta/client_uname_checker.py'), 'file': open(f'py_files/beta/client_uname_checker.py', 'rb').read()}
-        return python_files['beta']['client_uname_checker.py']['version'], python_files['beta']['client_uname_checker.py']['file']
-    elif file_id == 'beta_3':
-        if ('runner.py' not in python_files['beta']) or (path.getmtime(f'py_files/beta/runner.py') != python_files['beta']['runner.py']['version']):
-            python_files['beta']['runner.py'] = {'version': path.getmtime(f'py_files/beta/runner.py'), 'file': open(f'py_files/beta/runner.py', 'rb').read()}
-        return python_files['beta']['runner.py']['version'], python_files['beta']['runner.py']['file']
-    elif file_id == 'beta_4':
-        if f'ngrok_direct.py' not in python_files['beta'] or (path.getmtime(f'py_files/beta/ngrok_direct.py') != python_files['beta'][f'ngrok_direct.py']['version']):
-            python_files['beta'][f'ngrok_direct.py'] = {'version': path.getmtime(f'py_files/beta/ngrok_direct.py'), 'file': open(f'py_files/beta/ngrok_direct.py', 'rb').read()}
-            python_files['beta'][f'ngrok_direct.py']['version'] = path.getmtime(f'py_files/beta/ngrok_direct.py')
-            python_files['beta'][f'ngrok_direct.py']['file'] = open(f'py_files/beta/ngrok_direct.py', 'rb').read()
-        return python_files['beta'][f'ngrok_direct.py']['version'], python_files['beta'][f'ngrok_direct.py']['file']
+    elif file_id == 'adfly_beta_1' or file_id == 'beta_1':
+        if ('vm_main.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/vm_main.py') != python_files['adfly']['beta']['vm_main.py']['version']):
+            python_files['adfly']['beta']['vm_main.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/vm_main.py'), 'file': open(f'{adfly_beta_file_location}/vm_main.py', 'rb').read()}
+        return python_files['adfly']['beta']['vm_main.py']['version'], python_files['adfly']['beta']['vm_main.py']['file']
+    elif file_id == 'adfly_beta_2' or file_id == 'beta_2':
+        if ('client_uname_checker.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/client_uname_checker.py') != python_files['adfly']['beta']['client_uname_checker.py']['version']):
+            python_files['adfly']['beta']['client_uname_checker.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/client_uname_checker.py'), 'file': open(f'{adfly_beta_file_location}/client_uname_checker.py', 'rb').read()}
+        return python_files['adfly']['beta']['client_uname_checker.py']['version'], python_files['adfly']['beta']['client_uname_checker.py']['file']
+    elif file_id == 'adfly_beta_3' or file_id == 'beta_3':
+        if ('runner.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/runner.py') != python_files['adfly']['beta']['runner.py']['version']):
+            python_files['adfly']['beta']['runner.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/runner.py'), 'file': open(f'{adfly_beta_file_location}/runner.py', 'rb').read()}
+        return python_files['adfly']['beta']['runner.py']['version'], python_files['adfly']['beta']['runner.py']['file']
+    elif file_id == 'adfly_beta_4' or file_id == 'beta_4':
+        if ('ngrok_direct.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/ngrok_direct.py') != python_files['adfly']['beta'][f'ngrok_direct.py']['version']):
+            python_files['adfly']['beta'][f'ngrok_direct.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/ngrok_direct.py'), 'file': open(f'{adfly_beta_file_location}/ngrok_direct.py', 'rb').read()}
+            python_files['adfly']['beta'][f'ngrok_direct.py']['version'] = path.getmtime(f'{adfly_beta_file_location}/ngrok_direct.py')
+            python_files['adfly']['beta'][f'ngrok_direct.py']['file'] = open(f'{adfly_beta_file_location}/ngrok_direct.py', 'rb').read()
+        return python_files['adfly']['beta'][f'ngrok_direct.py']['version'], python_files['adfly']['beta'][f'ngrok_direct.py']['file']
 
     ####
 
     elif file_id == 'proxy_checker_1':
-        if ('vm_main.py' not in python_files['proxy_checker']) or (path.getmtime(f'py_files/proxy_checker/vm_main.py') != python_files['proxy_checker']['vm_main.py']['version']):
-            python_files['proxy_checker']['vm_main.py'] = {'version': path.getmtime(f'py_files/proxy_checker/vm_main.py'), 'file': open(f'py_files/proxy_checker/vm_main.py', 'rb').read()}
-        return python_files['proxy_checker']['vm_main.py']['version'], python_files['proxy_checker']['vm_main.py']['file']
+        if ('vm_main.py' not in python_files['common']['proxy_checker']) or (path.getmtime(f'{proxy_checker_file_location}/vm_main.py') != python_files['common']['proxy_checker']['vm_main.py']['version']):
+            python_files['common']['proxy_checker']['vm_main.py'] = {'version': path.getmtime(f'{proxy_checker_file_location}/vm_main.py'), 'file': open(f'{proxy_checker_file_location}/vm_main.py', 'rb').read()}
+        return python_files['common']['proxy_checker']['vm_main.py']['version'], python_files['common']['proxy_checker']['vm_main.py']['file']
     elif file_id == 'proxy_checker_2':
-        if ('proxy_checker.py' not in python_files['proxy_checker']) or (path.getmtime(f'py_files/proxy_checker/proxy_checker.py') != python_files['proxy_checker']['proxy_checker.py']['version']):
-            python_files['proxy_checker']['proxy_checker.py'] = {'version': path.getmtime(f'py_files/proxy_checker/proxy_checker.py'), 'file': open(f'py_files/proxy_checker/proxy_checker.py', 'rb').read()}
-        return python_files['proxy_checker']['proxy_checker.py']['version'], python_files['proxy_checker']['proxy_checker.py']['file']
+        if ('proxy_checker.py' not in python_files['common']['proxy_checker']) or (path.getmtime(f'{proxy_checker_file_location}proxy_checker.py') != python_files['common']['proxy_checker']['proxy_checker.py']['version']):
+            python_files['common']['proxy_checker']['proxy_checker.py'] = {'version': path.getmtime(f'{proxy_checker_file_location}/proxy_checker.py'), 'file': open(f'{proxy_checker_file_location}/proxy_checker.py', 'rb').read()}
+        return python_files['common']['proxy_checker']['proxy_checker.py']['version'], python_files['common']['proxy_checker']['proxy_checker.py']['file']
 
     ###
 
     elif file_id == 'testing_1':
-        if ('testing_1.py' not in python_files['testing_1']) or (path.getmtime(f'py_files/testing_1/testing_1.py') != python_files['testing_1']['testing_1.py']['version']):
-            python_files['testing_1']['testing_1.py'] = {'version': path.getmtime(f'py_files/testing_1/testing_1.py'), 'file': open(f'py_files/testing_1/testing_1.py', 'rb').read()}
-        return python_files['testing_1']['testing_1.py']['version'], python_files['testing_1']['testing_1.py']['file']
+        if ('testing_1.py' not in python_files['common']['test']) or (path.getmtime(f'{testing_py_files_location}/testing_1.py') != python_files['common']['test']['testing_1']['version']):
+            python_files['common']['test']['testing_1'] = {'version': path.getmtime(f'{testing_py_files_location}/testing_1.py'), 'file': open(f'{testing_py_files_location}/testing_1.py', 'rb').read()}
+        return python_files['common']['test']['testing_1']['version'], python_files['common']['test']['testing_1']['file']
 
     ###
 
@@ -780,12 +755,12 @@ def recreate_user_host_exe():
             sleep(1)
         return
     exe_files['user_host.exe'] = {'version': None}
-    with open('other_files/requirements.txt', 'r') as requirement_file:
+    with open(f'{getcwd()}/other_files/requirements.txt', 'r') as requirement_file:
         import pip
         for item in requirement_file.readlines():
             pip.main(['install', item.strip()])
-    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/other_files/image.png" --distpath "{getcwd()}/other_files" "{getcwd()}/py_files/stable/user_host.py"')
-    exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
+    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/other_files/image.png" --distpath "{getcwd()}/other_files" "{host_files_location}/user_host.py"')
+    exe_files['user_host.exe'] = {'version': path.getmtime(f"{getcwd()}/other_files/user_host.exe"), 'file': open(f"{getcwd()}/other_files/user_host.exe", 'rb').read()}
     sleep(1)
 
 
@@ -797,8 +772,8 @@ STABLE
 
 def return_other_file(file_id):
     if file_id == '8' or file_id == 'stable_user_host':
-        if ('user_host.py' not in python_files) or (path.getmtime(f'py_files/stable/user_host.py') != python_files['user_host.py']['version']):
-            python_files['user_host.py'] = {'version': path.getmtime('py_files/stable/user_host.py'), 'file': open('py_files/stable/user_host.py', 'rb').read()}
+        if ('user_host.py' not in python_files['common']) or (path.getmtime(f'{host_files_location}/user_host.py') != python_files['common']['user_host.py']['version']):
+            python_files['common']['user_host.py'] = {'version': path.getmtime(f'{host_files_location}/user_host.py'), 'file': open(f'{host_files_location}/user_host.py', 'rb').read()}
             recreate_user_host_exe()
         while 'user_host.exe' not in exe_files and exe_files['user_host.exe']['version'] is None:
             sleep(0.5)
@@ -823,7 +798,7 @@ def return_img_file(image_name):
 
 known_ips = {}
 def flask_operations(port):
-    app = Flask(__name__, template_folder=getcwd() + '/templates/')
+    app = Flask(__name__)
 
     @app.route('/debug', methods=['GET'])
     def debug_data():

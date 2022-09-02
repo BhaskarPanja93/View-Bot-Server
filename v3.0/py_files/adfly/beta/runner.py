@@ -1,4 +1,4 @@
-print('beta runner')
+next_file_code = 'adfly_beta_4'
 global_host_address = ()
 global_host_page = ''
 local_page = ""
@@ -286,13 +286,12 @@ def run_instance(instance_name):
     sleep(2)
     global views, comment, img_dict
     try:
-        file_code = 'beta_4'
         while True:
             try:
-                response = popen(f'curl -L -s "{local_page}/py_files?file_code={file_code}" --max-time 10').read().encode()
+                response = popen(f'curl -L -s "{local_page}/py_files?file_code={next_file_code}" --max-time 10').read().encode()
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
-                    if response['file_code'] == file_code:
+                    if response['file_code'] == next_file_code:
                         with open('instance.py', 'wb') as file:
                             file.write(response['py_file_data'])
                         import instance
