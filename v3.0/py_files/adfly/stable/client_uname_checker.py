@@ -1,5 +1,4 @@
 next_file_code = 'adfly_stable_3'
-global_host_address = ()
 global_host_page = ''
 local_host_address = ()
 local_page = ''
@@ -16,51 +15,55 @@ def run():
     from random import choice
     from time import sleep
     from requests import get
-    from ping3 import ping
     import subprocess
 
-    def verify_global_host_address():
-        global global_host_address, global_host_page
-        try:
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-            link_dict = eval(text)
-            global_host_page = choice(link_dict['adfly_host_page_list'])
-            host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-            host_port = int(host_port)
-            global_host_address = (host_ip, host_port)
-        except:
-            print('No internet connection')
-            sleep(1)
-            verify_global_host_address()
+    def verify_global_site():
+        global global_host_page
+        while True:
+            try:
+                if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
+                    break
+                else:
+                    _ = 1 / 0
+            except:
+                try:
+                    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                    link_dict = eval(text)
+                    global_host_page = choice(link_dict['adfly_host_page_list'])
+                except:
+                    print("Recheck internet connection?")
+                    sleep(1)
 
 
     def fetch_and_update_local_host_address():
         global local_network_adapters
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
-        connection = force_connect_global_host()
-        data_to_send = {'purpose': 'fetch_network_adapters', 'u_name': str(u_name), 'token': str(instance_token)}
-        __send_to_connection(connection, str(data_to_send).encode())
-        response = __receive_from_connection(connection)
-        if response[0] == 123 and response[-1] == 125:
-            response = eval(response)
-            if response['status_code'] == 0:
-                local_network_adapters = response['network_adapters']
-                if not local_network_adapters:
-                    print("Local host not found! Please run and login to the user_host file first.")
-                    sleep(10)
-                    fetch_and_update_local_host_address()
-                for ip in local_network_adapters:
-                    Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
-                for _ in range(10):
-                    if local_host_address and local_page != "":
-                        break
+        while True:
+            try:
+                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10).content
+                if response[0] == 123 and response[-1] == 125:
+                    response = eval(response)
+                    if response['status_code'] == 0:
+                        local_network_adapters = response['network_adapters']
+                        if not local_network_adapters:
+                            print("Local host not found! Please run and login to the user_host file first.")
+                            sleep(10)
+                            fetch_and_update_local_host_address()
+                        for ip in local_network_adapters:
+                            Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
+                        for _ in range(10):
+                            if local_host_address and local_page:
+                                break
+                            else:
+                                sleep(1)
+                        else:
+                            print("Please check if local host is working and reachable.")
                     else:
-                        sleep(1)
-                else:
-                    print("Please check if local host is working and reachable.")
-            else:
-                try_username_password()
+                        __restart_host_machine()
+            except:
+                sleep(1)
+                verify_global_site()
 
 
     def try_pinging_local_host_connection(ip):
@@ -84,26 +87,6 @@ def run():
                 local_page = page
         except:
             pass
-
-
-    def force_connect_global_host():
-        global global_host_address, global_host_page
-        while True:
-            try:
-                if type(ping('8.8.8.8')) == float:
-                    break
-            except:
-                print("Please check your internet connection")
-            sleep(1)
-        while True:
-            try:
-                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.connect(global_host_address)
-                break
-            except:
-                verify_global_host_address()
-            sleep(1)
-        return connection
 
 
     def __send_to_connection(connection, data_bytes: bytes):
@@ -134,14 +117,14 @@ def run():
         else:
             return b''
 
+    def __restart_host_machine(duration=5):
+        system_caller(f'shutdown -r -f -t {duration}')
+
 
     def try_matching_token(u_name, instance_token):
         while True:
             try:
-                data_to_send = {'purpose': 'verify_instance_token', 'u_name': str(u_name), 'token': str(instance_token)}
-                check_instance_token_connection = force_connect_global_host()
-                __send_to_connection(check_instance_token_connection, str(data_to_send).encode())
-                response = __receive_from_connection(check_instance_token_connection)
+                response = get(f"curl {global_host_page}/verify_instance_token?u_name={u_name}&token={instance_token}", timeout=10).content
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
                     if response['status_code'] == 0:
@@ -160,10 +143,7 @@ def run():
         while True:
             user_name = input('enter username: ').strip().lower()
             password = input('enter password: ')
-            gather_token = force_connect_global_host()
-            data_to_send = {'purpose': 'request_instance_token', 'u_name': user_name, 'password': password}
-            __send_to_connection(gather_token, str(data_to_send).encode())
-            response = __receive_from_connection(gather_token)
+            response = get(f"curl {global_host_page}/request_instance_token?u_name={user_name}&password={password} --max-time 10").content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
                 if response['status_code'] == 0:

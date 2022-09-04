@@ -1,5 +1,4 @@
 print('stable instance')
-global_host_address = ()
 global_host_page = ''
 local_page = ''
 local_host_address = ()
@@ -22,52 +21,57 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
     from os import system as system_caller
     from PIL import Image
     import pyautogui
-    from ping3 import ping
     from requests import get
     local_page = _local_page
     global_host_page = _global_host_page
 
-    def verify_global_host_address():
-        global global_host_address, global_host_page
-        try:
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-            link_dict = eval(text)
-            global_host_page = choice(link_dict['adfly_host_page_list'])
-            host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-            host_port = int(host_port)
-            global_host_address = (host_ip, host_port)
-        except:
-            print('No internet connection')
-            sleep(1)
+    def verify_global_site():
+        global global_host_page
+        while True:
+            try:
+                if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
+                    break
+                else:
+                    _ = 1 / 0
+            except:
+                try:
+                    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
+                    link_dict = eval(text)
+                    global_host_page = choice(link_dict['adfly_host_page_list'])
+                except:
+                    print("Recheck internet connection?")
+                    sleep(0.1)
 
 
     def fetch_and_update_local_host_address():
         global local_network_adapters
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
-        connection = force_connect_global_host()
-        data_to_send = {'purpose': 'fetch_network_adapters', 'u_name': str(u_name), 'token': str(instance_token)}
-        __send_to_connection(connection, str(data_to_send).encode())
-        response = __receive_from_connection(connection)
-        if response[0] == 123 and response[-1] == 125:
-            response = eval(response)
-            if response['status_code'] == 0:
-                local_network_adapters = response['network_adapters']
-                if not local_network_adapters:
-                    print("Local host not found! Please run and login to the user_host file first.")
-                    sleep(10)
-                    fetch_and_update_local_host_address()
-                for ip in local_network_adapters:
-                    Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
-                for _ in range(10):
-                    if local_host_address and local_page:
-                        break
+        while True:
+            try:
+                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10).content
+                if response[0] == 123 and response[-1] == 125:
+                    response = eval(response)
+                    if response['status_code'] == 0:
+                        local_network_adapters = response['network_adapters']
+                        if not local_network_adapters:
+                            print("Local host not found! Please run and login to the user_host file first.")
+                            sleep(10)
+                            fetch_and_update_local_host_address()
+                        for ip in local_network_adapters:
+                            Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
+                        for _ in range(10):
+                            if local_host_address and local_page:
+                                break
+                            else:
+                                sleep(0.1)
+                        else:
+                            print("Please check if local host is working and reachable.")
                     else:
-                        sleep(1)
-                else:
-                    print("Please check if local host is working and reachable.")
-            else:
-                __restart_host_machine()
+                        __restart_host_machine()
+            except:
+                sleep(0.1)
+                verify_global_site()
 
 
     def try_pinging_local_host_connection(ip):
@@ -91,23 +95,6 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 local_page = page
         except:
             pass
-
-
-    def force_connect_global_host():
-        while True:
-            try:
-                if type(ping('8.8.8.8')) == float:
-                    break
-            except:
-                print("Please check your internet connection")
-        while True:
-            try:
-                connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                connection.connect(global_host_address)
-                break
-            except:
-                verify_global_host_address()
-        return connection
 
 
     def __send_to_connection(connection, data_bytes: bytes):
@@ -165,7 +152,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
             response = get(f"{local_page}/img_files?img_name={img_name}&version={version}", timeout=timeout).content
         except Exception as e:
             print(repr(e))
-            sleep(1)
+            sleep(0.1)
             fetch_and_update_local_host_address()
             return __fetch_image_from_host(img_name)
         try:
@@ -222,10 +209,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
 
 
     def __restart_host_machine(duration=5):
-        if os_type == 'Linux':
-            system_caller('systemctl reboot -i')
-        elif os_type == 'Windows':
-            system_caller(f'shutdown -r -f -t {duration}')
+        system_caller(f'shutdown -r -f -t {duration}')
 
 
     def restart_if_slow_instance():
@@ -244,15 +228,12 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 if get(f"{global_host_page}/ping").text == 'ping':
                     return global_host_page
             except:
-                sleep(1)
-                verify_global_host_address()
+                sleep(0.1)
+                verify_global_site()
         def fetch_side_link():
             global link_viewer_token
             instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-            sock = force_connect_global_host()
-            data_to_send = {'purpose': 'link_fetch', 'token': instance_token}
-            __send_to_connection(sock, str(data_to_send).encode())
-            received_data = __receive_from_connection(sock)
+            received_data = get(f"{global_host_page}/suffix_link?token={instance_token}", timeout=10).content
             if received_data[0] == 123 and received_data[-1] == 125:
                 received_data = eval(received_data)
                 link_viewer_token = received_data['link_viewer_token']
@@ -318,7 +299,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
         sleep(2)
         nothing_opened_counter = 1
         while not success and not failure:
-            sleep(randrange(0, 5))
+            sleep(randrange(0, 2))
             coordinates = [0, 0, 0, 0]
             condition_found = False
             if 'force_close_chrome' not in current_screen_condition:
@@ -370,20 +351,20 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 elif current_screen_condition == 'nothing_opened':
                     if nothing_opened_counter>=1:
                         pyautogui.press('f5')
-                        sleep(1)
+                        sleep(0.1)
                         __click(coordinates)
                         nothing_opened_counter = 0
                     else:
                         nothing_opened_counter += 1
                 elif current_screen_condition == 'blank_chrome':
                     __click(coordinates)
-                    sleep(1)
+                    sleep(0.1)
                     if clear_chrome:
                         link = 'chrome://settings/resetProfileSettings'
                     elif not link:
                         link = get_link()
                     pyautogui.typewrite(link, typing_speed)
-                    sleep(1)
+                    sleep(0.1)
                     pyautogui.press('enter')
                     if clear_chrome:
                         while True:
@@ -416,10 +397,10 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                                 available_links.append(link_coords)
                     if len(available_links) > 0:
                         __click(choice(available_links))
-                        sleep(randrange(5, 10))
+                        sleep(randrange(1,5))
                 elif current_screen_condition == 'adfly_skip':
                     __click(coordinates)
-                    sleep(10)
+                    sleep(randrange(1,5))
                 elif current_screen_condition == 'click_allow_to_continue':
                     for sign in ['popup allow 1', 'popup allow 2']:
                         coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
@@ -434,9 +415,10 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                     success = True
                     start_time = time()
                     if link_viewer_token:
-                        success_ack_con = force_connect_global_host()
-                        data_to_send = {'purpose': 'view_accomplished', 'link_view_token':str(link_viewer_token)}
-                        __send_to_connection(success_ack_con, str(data_to_send).encode())
+                        try:
+                            get(f"{global_host_page}/view_accomplished?view_token={link_viewer_token}", timeout=10)
+                        except:
+                            pass
                     start_time = time()
                     break
                 elif current_screen_condition == 'force_close_chrome_failure':

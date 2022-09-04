@@ -150,7 +150,7 @@ def link_view_token_add(token, u_name):
             del pending_link_view_token[token]
 
 
-def link_view_token_remove(token):
+def add_new_view(token):
     if token in pending_link_view_token:
         u_name_to_feed = pending_link_view_token[token]
         old_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name_to_feed}'")][0][0])
@@ -563,6 +563,7 @@ def accept_connections_from_users(port):
                 data_to_be_sent = {'ping': 'ping'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
+            ### Remove from here
             elif purpose == 'link_fetch':
                 u_name = 'invalid_uname'
                 received_token = received_data['token']
@@ -576,7 +577,7 @@ def accept_connections_from_users(port):
 
             elif purpose == 'view_accomplished':
                 link_view_token = received_data['link_view_token']
-                link_view_token_remove(link_view_token)
+                add_new_view(link_view_token)
 
             elif purpose == 'all_user_agents':
                 if ('user_agents.txt' not in text_files) or (path.getmtime(f'{read_only_location}/user_agents.txt') != text_files['user_agents.txt']['version']):
@@ -584,25 +585,6 @@ def accept_connections_from_users(port):
                 data_to_be_sent = {'all_user_agents': bytes(text_files['user_agents.txt']['file'])}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
-            elif purpose == 'host_authentication':
-                binding_token = received_data['binding_token']
-                if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
-                    public_ip = active_tcp_tokens[binding_token][0]
-                    log_data(public_ip, 'Login Req (Host)', 0.0)
-                    active_tcp_tokens[binding_token][1] = True
-                else:
-                    return
-                host_manager(public_ip, connection)
-
-            elif purpose == 'user_authentication':
-                binding_token = received_data['binding_token']
-                if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
-                    public_ip = active_tcp_tokens[binding_token][0]
-                    log_data(public_ip, 'Login Req (User)', 0.0)
-                    active_tcp_tokens[binding_token][1] = True
-                else:
-                    return
-                user_manager(public_ip, connection)
 
             elif purpose == 'fetch_network_adapters':
                 received_u_name = received_data['u_name'].lower().strip()
@@ -656,12 +638,34 @@ def accept_connections_from_users(port):
                 else:
                     data_to_be_sent = {'status_code': -1}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
+            ### Remove upto here
+
+            elif purpose == 'host_authentication':
+                binding_token = received_data['binding_token']
+                if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
+                    public_ip = active_tcp_tokens[binding_token][0]
+                    log_data(public_ip, 'Login Req (Host)', 0.0)
+                    active_tcp_tokens[binding_token][1] = True
+                else:
+                    return
+                host_manager(public_ip, connection)
+
+            elif purpose == 'user_authentication':
+                binding_token = received_data['binding_token']
+                if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
+                    public_ip = active_tcp_tokens[binding_token][0]
+                    log_data(public_ip, 'Login Req (User)', 0.0)
+                    active_tcp_tokens[binding_token][1] = True
+                else:
+                    return
+                user_manager(public_ip, connection)
+
             else:
                 __try_closing_connection(connection)
         except:
             __try_closing_connection(connection)
 
-    for _ in range(100):
+    for _ in range(10):
         Thread(target=acceptor).start()
 
 
@@ -1068,11 +1072,92 @@ Links:</br>
         log_data(request_ip, '/proxy_request', time() - request_start_time, f"{proxy}: {status} {ip}")
         return f'{proxy} {status}'
 
+    @app.route('/suffix_link', methods=['GET'])
+    def _return_suffix_link():
+        u_name = 'invalid_uname'
+        if 'token' in request.args:
+            received_token = request.args.get('token')
+            all_u_name = [row[0] for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
+            if all_u_name and all_u_name[0]:
+                u_name = all_u_name[0]
+            link_view_token = generate_random_string(100, 500)
+            Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
+            data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}', 'link_viewer_token': str(link_view_token)}
+            return str(data_to_be_sent)
+
+    @app.route('/view_accomplished', methods=['GET'])
+    def _view_accomplished():
+        link_view_token = ''
+        if 'view_token' in request.args:
+            link_view_token = request.args.get('view_token')
+        add_new_view(link_view_token)
+
+    @app.route('/network_adapters', methods=['GET'])
+    def _return_network_adapters():
+        received_u_name = ''
+        received_token = ''
+        if 'u_name' in request.args:
+            received_u_name = request.args.get('u_name')
+        if 'token' in request.args:
+            received_token = request.args.get('token')
+        instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
+        if received_token == instance_token:
+            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
+            fernet = Fernet(key)
+            try:
+                network_adapters_encrypted = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
+                network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
+            except:
+                network_adapters = []
+            data_to_be_sent = {'status_code': 0, 'network_adapters': network_adapters}
+        else:
+            data_to_be_sent = {'status_code': -1}
+        return str(data_to_be_sent)
+
+    @app.route('/verify_instance_token', methods=['GET'])
+    def _verify_instance_token():
+        received_u_name = ''
+        received_token = ''
+        if 'u_name' in request.args:
+            received_u_name = request.args.get('u_name')
+        if 'token' in request.args:
+            received_token = request.args.get('token')
+        all_u_name = []
+        for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
+            all_u_name.append(row[0])
+        if all_u_name and all_u_name[0]:
+            u_name = all_u_name[0]
+            if u_name and u_name == received_u_name:
+                data_to_be_sent = {'status_code': 0}
+            else:
+                data_to_be_sent = {'status_code': -1}
+        else:
+            data_to_be_sent = {'status_code': -1}
+        return str(data_to_be_sent)
+
+    @app.route('/request_instance_token', methods=['GET'])
+    def _return_instance_token():
+        u_name = ''
+        password = ''
+        if 'u_name' in request.args:
+            u_name = request.args.get('u_name')
+        if 'password' in request.args:
+            password = request.args.get('password')
+        all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+        if u_name in all_u_names:
+            user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
+            if check_password_hash(user_pw_hash, password):
+                instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
+                data_to_be_sent = {'status_code': 0, 'u_name': u_name, 'token': instance_token}
+            else:
+                data_to_be_sent = {'status_code': -1}
+        else:
+            data_to_be_sent = {'status_code': -1}
+        return str(data_to_be_sent)
 
     @app.route('/current_user_host_main_version', methods=['GET'])
     def _return_user_host_main_version():
         return current_user_host_main_version
-
 
     @app.route('/user_load_links', methods=['GET'])
     def _return_user_load_links():

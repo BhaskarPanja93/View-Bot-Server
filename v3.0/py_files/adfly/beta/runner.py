@@ -24,65 +24,55 @@ from ping3 import ping
 from psutil import virtual_memory, cpu_percent as cpu
 from getmac import get_mac_address
 
-def force_connect_global_host():
-    global global_host_address
+
+def verify_global_site():
+    global global_host_page
     while True:
         try:
-            if type(ping('8.8.8.8')) == float:
+            if popen(f"curl -L -s {global_host_page}/ping --max-time 10").read() == 'ping':
                 break
+            else:
+                _ = 1 / 0
         except:
-            print("Please check your internet connection")
-    while True:
-        try:
-            connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            connection.connect(global_host_address)
-            break
-        except:
-            verify_global_host_address()
-    return connection
+            try:
+                text = popen('curl -L -s https://bhaskarpanja93.github.io/AllLinks.github.io/ --max-time 10').read().split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace("â€˜", "'").replace("â€™", "'")
+                link_dict = eval(text)
+                global_host_page = choice(link_dict['adfly_host_page_list'])
+            except:
+                print("Recheck internet connection?")
+                sleep(1)
 
-
-def verify_global_host_address():
-    global global_host_address, global_host_page
-    try:
-        text = popen('curl -L -s "https://bhaskarpanja93.github.io/AllLinks.github.io/"').read().split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace("â€˜", "'").replace("â€™", "'")
-        link_dict = eval(text)
-        global_host_page = choice(link_dict['adfly_host_page_list'])
-        host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-        host_port = int(host_port)
-        global_host_address = (host_ip, host_port)
-    except:
-        print('No internet connection')
-        sleep(1)
 
 def fetch_and_update_local_host_address():
     global local_network_adapters
     instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
     u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
-    connection = force_connect_global_host()
-    data_to_send = {'purpose': 'fetch_network_adapters', 'u_name': str(u_name), 'token': str(instance_token)}
-    __send_to_connection(connection, str(data_to_send).encode())
-    response = __receive_from_connection(connection)
-    if response[0] == 123 and response[-1] == 125:
-        response = eval(response)
-        if response['status_code'] == 0:
-            local_network_adapters = response['network_adapters']
-            if not local_network_adapters:
-                print("Local host not found! Please run and login to the user_host file first.")
-                sleep(10)
-                fetch_and_update_local_host_address()
-            for ip in local_network_adapters:
-                Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
-            for _ in range(10):
-                if local_host_address and local_page:
-                    break
+    while True:
+        try:
+            response = popen(f"curl -L -s {global_host_page}/network_adapters?u_name={u_name}&token={instance_token} --max-time 10").read().encode()
+            if response[0] == 123 and response[-1] == 125:
+                response = eval(response)
+                if response['status_code'] == 0:
+                    local_network_adapters = response['network_adapters']
+                    if not local_network_adapters:
+                        print("Local host not found! Please run and login to the user_host file first.")
+                        sleep(10)
+                        fetch_and_update_local_host_address()
+                    for ip in local_network_adapters:
+                        Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
+                    for _ in range(10):
+                        if local_host_address and local_page:
+                            break
+                        else:
+                            sleep(1)
+                    else:
+                        print("Please check if local host is working and reachable.")
                 else:
-                    sleep(1)
-            else:
-                print("Please check if local host is working and reachable.")
-        else:
-            print("Please restart this VM and re-login")
-            __restart_host_machine()
+                    __restart_host_machine()
+        except:
+            sleep(1)
+            verify_global_site()
+
 
 def try_pinging_local_host_connection(ip):
     global local_host_address, local_page
@@ -116,6 +106,7 @@ def force_connect_local_host():
             fetch_and_update_local_host_address()
             sleep(1)
     return connection
+
 
 def __send_to_connection(connection, data_bytes: bytes):
     connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
@@ -180,14 +171,14 @@ def report_working_proxy(proxy, current_ip):
     try:
         system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=working&ip={current_ip}" --max-time 10')
     except:
-        verify_global_host_address()
+        verify_global_site()
 
 
 def report_failed_proxy(proxy):
     try:
         system_caller(f'curl -L -s "{global_host_page}/proxy_report?proxy={proxy}&status=failed" --max-time 10')
     except:
-        verify_global_host_address()
+        verify_global_site()
 
 
 def __connect_proxy():
@@ -207,7 +198,7 @@ def __connect_proxy():
             return True
         except:
             __disconnect_proxy()
-            verify_global_host_address()
+            verify_global_site()
 
 
 def restart_ie():
@@ -224,7 +215,6 @@ def __disconnect_proxy():
 
 def __get_global_ip():
     global global_host_page
-    verify_global_host_address()
     for _ in range(2):
         try:
             response = get(f"{global_host_page}/ip", timeout=10).text
@@ -243,7 +233,7 @@ def __get_global_ip():
             else:
                 print('fetching new')
                 sleep(0.1)
-                verify_global_host_address()
+                verify_global_site()
         sleep(1)
     else:
         return ""
