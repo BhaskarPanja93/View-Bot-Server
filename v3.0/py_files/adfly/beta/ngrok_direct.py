@@ -46,7 +46,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
         global local_network_adapters
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
-        while True:
+        addresses_matched = False
+        while not addresses_matched:
             try:
                 response = popen(f"curl -L -s {global_host_page}/network_adapters?u_name={u_name}&token={instance_token} --max-time 10").read().encode()
                 if response[0] == 123 and response[-1] == 125:
@@ -60,16 +61,17 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                         for ip in local_network_adapters:
                             Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
                         for _ in range(10):
-                            if local_host_address and local_page:
+                            if local_host_address != () and local_page != '':
+                                addresses_matched = True
                                 break
                             else:
-                                sleep(0.1)
+                                sleep(1)
                         else:
                             print("Please check if local host is working and reachable.")
                     else:
                         __restart_host_machine()
             except:
-                sleep(0.1)
+                sleep(1)
                 verify_global_site()
 
 
@@ -309,7 +311,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 for condition in possible_screen_conditions:
                     if not condition_found:
                         for sign in possible_screen_conditions[condition]:
-                            coordinates = __find_image_on_screen(img_name=sign, confidence=0.8)
+                            coordinates = __find_image_on_screen(img_name=sign, confidence=0.85)
                             if coordinates:
                                 current_screen_condition = condition
                                 condition_found = True
@@ -400,7 +402,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                                 available_links.append(link_coords)
                     if len(available_links) > 0:
                         __click(choice(available_links))
-                        sleep(randrange(1,5))
+                        sleep(10)
                 elif current_screen_condition == 'adfly_skip':
                     __click(coordinates)
                     sleep(randrange(1,5))

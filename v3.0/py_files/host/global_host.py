@@ -1091,13 +1091,14 @@ Links:</br>
         if 'view_token' in request.args:
             link_view_token = request.args.get('view_token')
         add_new_view(link_view_token)
+        return ""
 
     @app.route('/network_adapters', methods=['GET'])
     def _return_network_adapters():
         received_u_name = ''
         received_token = ''
         if 'u_name' in request.args:
-            received_u_name = request.args.get('u_name')
+            received_u_name = request.args.get('u_name').strip().lower()
         if 'token' in request.args:
             received_token = request.args.get('token')
         instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
@@ -1119,7 +1120,7 @@ Links:</br>
         received_u_name = ''
         received_token = ''
         if 'u_name' in request.args:
-            received_u_name = request.args.get('u_name')
+            received_u_name = request.args.get('u_name').strip().lower()
         if 'token' in request.args:
             received_token = request.args.get('token')
         all_u_name = []
@@ -1140,9 +1141,9 @@ Links:</br>
         u_name = ''
         password = ''
         if 'u_name' in request.args:
-            u_name = request.args.get('u_name')
+            u_name = request.args.get('u_name').strip().lower()
         if 'password' in request.args:
-            password = request.args.get('password')
+            password = request.args.get('password').strip().swapcase()
         all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
         if u_name in all_u_names:
             user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]

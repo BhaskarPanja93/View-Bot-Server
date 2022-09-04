@@ -102,7 +102,7 @@ while True:
         received_data = popen(f'curl -L -s "{global_host_page}/py_files?file_code={next_file_code}" --max-time 10').read().encode()
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
-            if response['file_code'] == next_file_code:
+            if received_data['file_code'] == next_file_code:
                 with open('client_uname_checker.py', 'wb') as file:
                     file.write(received_data['data'])
                 break

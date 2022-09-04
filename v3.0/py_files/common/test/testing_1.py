@@ -2,9 +2,8 @@ from os import system as system_caller
 from threading import Thread
 from time import sleep
 
-system_caller("ngrok authtoken 2DcFZvIBBfSxHswi1uEilJiOCgM_W5xTFuKVMuqdB8ToSbJk")
-print(1)
-Thread(target=system_caller, args=("ngrok tcp 5000 --region=in --log-level=crit",)).start()
-sleep(1)
-
-print(2)
+from requests import get
+global_host_page = "https://36ab-103-27-2-163.in.ngrok.io"
+next_file_code = "adfly_stable_2"
+s=get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=10).content
+print(s)

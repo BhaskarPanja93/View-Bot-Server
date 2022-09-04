@@ -1032,27 +1032,30 @@ def vm_connection_manager():
 
     def acceptor():
         connection, address = sock.accept()
-        s_time = time()
-        Thread(target=acceptor).start()
-        request_data = __receive_from_connection(connection)
-        if request_data[0] == 123 and request_data[-1] == 125:
-            request_data = eval(request_data)
-        else:
-            __try_closing_connection(connection)
-            return
-        purpose = request_data['purpose']
+        try:
+            s_time = time()
+            Thread(target=acceptor).start()
+            request_data = __receive_from_connection(connection)
+            if request_data[0] == 123 and request_data[-1] == 125:
+                request_data = eval(request_data)
+            else:
+                __try_closing_connection(connection)
+                return
+            purpose = request_data['purpose']
 
-        if purpose == 'ping':
-            data_to_be_sent = {'ping': 'ping'}
-            __send_to_connection(connection, str(data_to_be_sent).encode())
+            if purpose == 'ping':
+                data_to_be_sent = {'ping': 'ping'}
+                __send_to_connection(connection, str(data_to_be_sent).encode())
 
-        elif purpose == 'stat_connection_establish':
-            mac_address = request_data['mac_address']
-            mac_address_encrypted = f"{mac_address}-{generate_random_string(10,20)}".upper()
-            vm_stat_connections[mac_address_encrypted] = connection
-            log_data(address, 'Vm Started sending Data', time() - s_time)
+            elif purpose == 'stat_connection_establish':
+                mac_address = request_data['mac_address']
+                mac_address_encrypted = f"{mac_address}-{generate_random_string(10,20)}".upper()
+                vm_stat_connections[mac_address_encrypted] = connection
+                log_data(address, 'Vm Started sending Data', time() - s_time)
 
-        else:
+            else:
+                __try_closing_connection(connection)
+        except:
             __try_closing_connection(connection)
 
     for _ in range(10):

