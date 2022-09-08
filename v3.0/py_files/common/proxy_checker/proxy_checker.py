@@ -93,8 +93,7 @@ def __get_global_ip():
                 return response.replace("Current_Visitor_IP:", '')
             else:
                 raise ZeroDivisionError
-        except Exception as e:
-            print(repr(e))
+        except:
             if 'http://' in global_host_page:
                 print('switched to secure')
                 global_host_page = global_host_page.replace("http://", "https://")

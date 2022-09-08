@@ -1107,7 +1107,7 @@ def update_vm_responses():
                 for mac_address_encrypted in current_vm_response_data:
                     mac_address = mac_address_encrypted.split('-')[0]
                     if mac_address in vm_mac_to_name:
-                        name = str(vm_mac_to_name[mac_address])
+                        name = vm_mac_to_name[mac_address]
                         current_vm_response_data[mac_address_encrypted]['vm_name'] = name
                     else:
                         current_vm_response_data[mac_address_encrypted]['vm_name'] = '--'
@@ -1298,8 +1298,11 @@ def public_div_manager(real_cookie, viewer_id):
             else:
                 for mac_address in sorted(public_vm_data):
                     real_mac_address = mac_address.split('-')[0]
+                    vm_name_list = ""
+                    for name in public_vm_data[mac_address]['vm_name']:
+                        vm_name_list += f"{name}</br>"
                     public_div_body += f'''<tr><td class='with_borders'>{real_mac_address}</td>'''  # mac address
-                    public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['vm_name']}</td>''' # vm name
+                    public_div_body += f'''<td class='with_borders'>{vm_name_list}</td>''' # vm name
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['uptime']}</td>'''  # uptime
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['views']}</td>'''  # views
             force_send_flask_data(return_html_body('public_vm_div').replace("REPLACE_TBODY", public_div_body), 'public_div', viewer_id, 'update', 0, 0)
@@ -1692,7 +1695,6 @@ def return_html_script(script_name:str):
         return script_name
 
 
-
 def return_html_body(html_name:str):
     if html_name == 'private_base':
         return """
@@ -1953,7 +1955,7 @@ REPLACE_TBODY
     elif html_name == 'public_vm_div':
         return """
 <table class='with_borders'>
-<tr><th class='with_borders'>Mac Address</th><th class='with_borders'>VM Name</th><th class='with_borders'>Uptime</th><th class='with_borders'>Views</th></tr>
+<tr><th class='with_borders'>Mac Address</th><th class='with_borders'>Possible Name(s)</th><th class='with_borders'>Uptime</th><th class='with_borders'>Views</th></tr>
 REPLACE_TBODY
 </table>
 """

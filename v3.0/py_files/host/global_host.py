@@ -735,7 +735,7 @@ def return_py_file(file_id):
             python_files['common']['proxy_checker']['vm_main.py'] = {'version': path.getmtime(f'{proxy_checker_file_location}/vm_main.py'), 'file': open(f'{proxy_checker_file_location}/vm_main.py', 'rb').read()}
         return python_files['common']['proxy_checker']['vm_main.py']['version'], python_files['common']['proxy_checker']['vm_main.py']['file']
     elif file_id == 'proxy_checker_2':
-        if ('proxy_checker.py' not in python_files['common']['proxy_checker']) or (path.getmtime(f'{proxy_checker_file_location}proxy_checker.py') != python_files['common']['proxy_checker']['proxy_checker.py']['version']):
+        if ('proxy_checker.py' not in python_files['common']['proxy_checker']) or (path.getmtime(f'{proxy_checker_file_location}/proxy_checker.py') != python_files['common']['proxy_checker']['proxy_checker.py']['version']):
             python_files['common']['proxy_checker']['proxy_checker.py'] = {'version': path.getmtime(f'{proxy_checker_file_location}/proxy_checker.py'), 'file': open(f'{proxy_checker_file_location}/proxy_checker.py', 'rb').read()}
         return python_files['common']['proxy_checker']['proxy_checker.py']['version'], python_files['common']['proxy_checker']['proxy_checker.py']['file']
 
@@ -894,7 +894,7 @@ Links:</br>
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
         log_data(request_ip, '/py_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
-        return  return_data
+        return return_data
 
 
     @app.route('/other_files', methods=["GET"])
