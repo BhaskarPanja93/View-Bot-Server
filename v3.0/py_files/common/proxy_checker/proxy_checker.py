@@ -125,8 +125,9 @@ def restart_vpn_recheck_ip(_=0):
         elif genuine_ip != current_ip != last_ip and current_ip:
             if current_proxy:
                 Thread(target=report_working_proxy, args=(current_proxy, current_ip)).start()
+                last_ip = genuine_ip
             print(f'successfully found working proxy {current_ip}')
-            break
+            return
         else:
             last_ip = current_ip
             connection_enabled = False
@@ -136,7 +137,7 @@ def restart_vpn_recheck_ip(_=0):
             connection_enabled = True
             if not proxy_applied:
                 print("Server has no proxy ready. Continuing without a proxy")
-                break
+                return
             print('proxy applied')
             _ = 1
 

@@ -275,7 +275,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
             'enable_popups': ['sites can send popups'],
             'allow_ads':['sites can show ads'],
             'google_captcha': ['google captcha'],
-            'blank_chrome': ['search box 1', 'search box 2', 'search box 3', 'search box 4', 'search box 5', 'search box 6'],
+            'blank_chrome': ['search box 1', 'search box 2'],
             'ngrok_direct_open': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
             'force_click_bottom_right': ['click ok to continue 1', 'wants to send notifications 1', 'wants to send notifications 2', 'wants to send notifications 3', 'wants to send notifications 4'],
             'force_click_bottom_center': ['click ok to continue 2'],
@@ -327,8 +327,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                             finish_counter += 1
                             pyautogui.scroll(-500)
                     __close_chrome_safe()
-                    #link = 'chrome://settings/content/popups'
-                    link = 'chrome://settings/content/ads'
+                    link = 'chrome://settings/content/popups'
                     start_time = time()
                 elif current_screen_condition == 'enable_popups':
                     __click(coordinates)
@@ -357,7 +356,8 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                     else:
                         nothing_opened_counter += 1
                 elif current_screen_condition == 'blank_chrome':
-                    __click(coordinates)
+                    pyautogui.hotkey('ctrl', 'l')
+                    # __click(coordinates)
                     sleep(0.1)
                     if clear_chrome:
                         link = 'chrome://settings/resetProfileSettings'

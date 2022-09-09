@@ -809,7 +809,7 @@ def flask_operations(port):
         return f"""<meta http-equiv = "refresh" content = "1; url = /debug" />
 Server start time: {ctime(server_start_time)} IST</br></br>
 Hardware:</br>
-CPU(4 x 3.8GHz):</br>Current:{host_cpu}%</br>Max:{max_host_cpu}%</br>
+CPU(1 x 3.8GHz):</br>Current:{host_cpu}%</br>Max:{max_host_cpu}%</br>
 RAM(3.5GB):</br>Current:{host_ram}%</br>Max:{max_host_ram}%</br>
 </br></br>
 Network:</br>
@@ -841,7 +841,7 @@ IP: {ip}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
 <a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
-<a href='/ping'>=>  Ping Server  </a></br>
+<a href='/time_table'>=>  College Schedule  </a></br>
 <a href='/favicon.ico'>=>  Icon  </a></br>
 <a href='/youtube_img'>=>  YT img  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
@@ -858,7 +858,12 @@ Links:</br>
 
     @app.route('/favicon.ico')
     def _return_favicon():
-        return redirect('https://avatars.githubusercontent.com/u/101955196')
+        return send_from_directory(directory=getcwd()+'/other_files', path='image.png')
+
+
+    @app.route('/time_table')
+    def _return_time_table():
+        return send_from_directory(directory=getcwd()+'/other_files', path='time_table.png')
 
 
     @app.route('/youtube_img')
@@ -994,6 +999,7 @@ Links:</br>
                         proxy = choice(unchecked_proxies_unique)
                     else:
                         proxy = choice(all_proxies_unique)
+
                 else: #unchecked
                     if unchecked_proxies_unique:
                         proxy = choice(unchecked_proxies_unique)
@@ -1002,16 +1008,35 @@ Links:</br>
             return proxy
 
         elif quantity == 0:
-            working_proxy_string = f"</br><h2>Working({len(working_proxies_unique)}):</h2></br>"
-            failed_proxy_string = f"</br><h2>Failed({len(failed_proxies_unique)}):</h2></br>"
-            unchecked_proxy_string = f"</br><h2>Unchecked({len(unchecked_proxies_unique)}):</h2></br>"
-            for proxy in working_proxies_unique:
-                working_proxy_string += f"{proxy}</br>"
-            for proxy in failed_proxies_unique:
-                failed_proxy_string += f"{proxy}</br>"
-            for proxy in unchecked_proxies_unique:
-                unchecked_proxy_string += f"{proxy}</br>"
-            return working_proxy_string + failed_proxy_string + unchecked_proxy_string
+            _max_rows = max(len(working_proxies_unique), len(failed_proxies_unique), len(unchecked_proxies_unique))
+            table_body = ''
+            temp_working = sorted(working_proxies_unique)
+            temp_failed = sorted(failed_proxies_unique)
+            temp_unchecked = sorted(unchecked_proxies_unique)
+            for row_index in range(_max_rows):
+                if temp_working:
+                    working_proxy = temp_working.pop()
+                else:
+                    working_proxy = ''
+                if temp_failed:
+                    failed_proxy = temp_failed.pop()
+                else:
+                    failed_proxy = ''
+                if temp_unchecked:
+                    unchecked_proxy = temp_unchecked.pop()
+                else:
+                    unchecked_proxy = ''
+                table_body += f"<tr><td>{row_index+1}</td><td>{working_proxy}</td><td>{failed_proxy}</td><td>{unchecked_proxy}</td></tr>"
+            return f"""
+            <table border= 3px solid black>
+            <tr>
+            <th>No</th>
+            <th>Working ({len(working_proxies_unique)})</th>
+            <th>Failed ({len(failed_proxies_unique)})</th>
+            <th>Unchecked ({len(unchecked_proxies_unique)})</th>
+            </tr>
+            {table_body}
+            </table>"""
 
         else:
             return_string = ''
@@ -1069,7 +1094,7 @@ Links:</br>
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/proxy_request', time() - request_start_time, f"{proxy}: {status} {ip}")
+        log_data(request_ip, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}")
         return f'{proxy} {status}'
 
     @app.route('/suffix_link', methods=['GET'])
