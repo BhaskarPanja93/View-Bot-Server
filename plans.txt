@@ -8,3 +8,5 @@ vm files if received None
 global server file recheck add new parameter last_checked to prevent spam checking of same file(avoid rechecking if last_checked is less than 5 seconds)
 
 ngrok direct each image has unique % for matching
+
+remove explicit user data db commit, migh cause problems

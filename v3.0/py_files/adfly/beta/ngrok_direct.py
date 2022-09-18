@@ -291,9 +291,9 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
             'click_here_to_continue': ['click here to continue'],
             'force_close_chrome_neutral': ['ngrok wrong link', 'ngrok service unavailable'],
             'force_close_chrome_failure': ['cookies not enabled', 'site cant be reached'],
-            'force_click': ['adfly continue', 'ngrok visit site'],
             'chrome_restore': ['chrome restore 1'],
-            'nothing_opened': ['chrome icon'],
+            'force_click': ['adfly continue', 'ngrok visit site'],
+            'nothing_opened': ['shrink your url and get paid', 'chrome icon'],
         }
         thread_name = Thread()
         for condition_name in possible_screen_conditions:

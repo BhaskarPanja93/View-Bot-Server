@@ -43,7 +43,8 @@ img_location = path.join(parent, 'req_imgs/Windows')
 HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1))
 USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1))
 
-db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False)
+user_data_db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False)
+proxy_db_connection = sqlite3.connect(f'{read_only_location}/proxy.db', check_same_thread=False)
 paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.')
 host_files_location = getcwd() + '/py_files/host'
 adfly_stable_file_location = getcwd() + '/py_files/adfly/stable'
@@ -153,16 +154,16 @@ def link_view_token_add(token, u_name):
 def add_new_view(token):
     if token in pending_link_view_token:
         u_name_to_feed = pending_link_view_token[token]
-        old_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name_to_feed}'")][0][0])
-        db_connection.cursor().execute(f"UPDATE user_data set total_views={old_views + 1} where u_name='{u_name_to_feed}'")
-        db_connection.commit()
+        old_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name_to_feed}'")][0][0])
+        user_data_db_connection.cursor().execute(f"UPDATE user_data set total_views={old_views + 1} where u_name='{u_name_to_feed}'")
+        user_data_db_connection.commit()
 
 
 def u_name_matches_standard(u_name: str):
     for reserved_word in reserved_u_names_words:
         if reserved_word in u_name:
             return False
-    all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+    all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
     if u_name in all_u_names:
         return False
     else:
@@ -197,13 +198,62 @@ def tcp_token_manager(ip, token):
 
 
 proxies_checked_count = 0
-all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = [], [], [], []
+all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set()
+
+def fetch_old_proxy_data():
+    _working = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy, ip from working_proxies")]
+    for proxy in _working:
+        working_proxies_unique.add(proxy)
+        all_proxies_unique.add(proxy[0])
+
+    _failed = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy from failed_proxies")]
+    for proxy in _failed:
+        failed_proxies_unique.add(proxy[0])
+        all_proxies_unique.add(proxy[0])
+
+    _unchecked = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy from unchecked_proxies")]
+    for proxy in _unchecked:
+        unchecked_proxies_unique.add(proxy[0])
+        all_proxies_unique.add(proxy[0])
+
+
+def write_proxy_stats():
+    while True:
+        sleep(10)
+        _working = working_proxies_unique.copy()
+        _failed = failed_proxies_unique.copy()
+        _unchecked = unchecked_proxies_unique.copy()
+
+        for pair in _working:
+            proxy, ip = pair
+            try:
+                proxy_db_connection.cursor().execute(f"INSERT into working_proxies (proxy, ip) values ('{proxy}', '{ip}')")
+            except:
+                try:
+                    proxy_db_connection.cursor().execute(f"UPDATE working_proxies set ip='{ip}' where proxy='{proxy}')")
+                except:
+                    pass
+        for proxy in _failed:
+            try:
+                proxy_db_connection.cursor().execute(f"INSERT into failed_proxies (proxy) values ('{proxy}')")
+            except:
+                pass
+        for proxy in _unchecked:
+            try:
+                proxy_db_connection.cursor().execute(f"INSERT into unchecked_proxies (proxy) values ('{proxy}')")
+            except:
+                pass
+        proxy_db_connection.commit()
+
+
 def re_add_old_proxies():
     while True:
         sleep(60*20)
         if not unchecked_proxies_unique:
             for _ in range(len(failed_proxies_unique) // 100):
-                unchecked_proxies_unique.append(failed_proxies_unique.pop(0))
+                unchecked_proxies_unique.add(failed_proxies_unique.pop())
+            for _ in range(len(failed_proxies_unique) // 10):
+                unchecked_proxies_unique.add(working_proxies_unique.pop()[0])
 
 
 def fetch_proxies_from_sources():
@@ -214,8 +264,8 @@ def fetch_proxies_from_sources():
             for _line in response_html:
                 if _line.count(".") == 3 and _line.count(':') == 1:
                     if _line not in all_proxies_unique:
-                        unchecked_proxies_unique.append(_line)
-                        all_proxies_unique.append(_line)
+                        unchecked_proxies_unique.add(_line)
+                        all_proxies_unique.add(_line)
         except:
             pass
         ### normal links (IP:PORT format)
@@ -243,17 +293,33 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
                 html_data = get(link.strip()).text.splitlines()
                 for _line in html_data:
                     if _line not in all_proxies_unique:
-                        unchecked_proxies_unique.append(_line)
-                        all_proxies_unique.append(_line)
+                        unchecked_proxies_unique.add(_line)
+                        all_proxies_unique.add(_line)
             except:
                 pass
         sleep(10 * 60)
 
 
+check_ip_list = []
+def check_ip_manager(ip):
+    if ip not in check_ip_list:
+        check_ip_list.append(ip)
+    sleep(60)
+    if ip in check_ip_list:
+        check_ip_list.remove(ip)
+
+
+def check_valid_ip(ip):
+    if ip in check_ip_list and len(ip) < 50 :
+        check_ip_list.remove(ip)
+        return True
+    return False
+
+
 def host_manager(ip, connection):
     s_time = time()
     response_string = __receive_from_connection(connection).strip()
-    if response_string and response_string[0] == 123 and response_string[-1] == 125:
+    if response_string and response_string[0] == 123 and response_string[-1] == 125 and b'eval' not in response_string:
         response_dict = eval(response_string)
         purpose = response_dict['purpose']
 
@@ -273,9 +339,9 @@ def host_manager(ip, connection):
                     self_ids = fernet.encrypt(str(self_ids).encode()).decode()
                     fernet = Fernet(key)
                     network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
-                    db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
-                    db_connection.commit()
-                    instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
+                    user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
+                    user_data_db_connection.commit()
+                    instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -292,24 +358,24 @@ def host_manager(ip, connection):
             u_name = response_dict['u_name'].strip().lower()
             password = response_dict['password'].strip().swapcase()
             network_adapters = response_dict['network_adapters']
-            all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+            all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
             if u_name in all_u_names:
-                user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
+                user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                 if check_password_hash(user_pw_hash, password):
                     log_data(ip, 'Password Login (Host)', time() - s_time, u_name)
-                    key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     try:
-                        old_network_adapters_encrypted = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
+                        old_network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
                         old_network_adapters = eval(fernet.decrypt(old_network_adapters_encrypted))
                     except:
                         old_network_adapters = []
                     if network_adapters not in old_network_adapters:
                         new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
                         new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
-                        db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
-                        db_connection.commit()
-                    instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
+                        user_data_db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
+                        user_data_db_connection.commit()
+                    instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                     if u_name not in known_ips[ip]:
                         known_ips[ip].append(u_name)
@@ -328,18 +394,18 @@ def host_manager(ip, connection):
             u_name = response_dict['u_name'].strip().lower()
             auth_token = response_dict['auth_token'].strip()
             network_adapters = response_dict['network_adapters']
-            all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+            all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
             if u_name in all_u_names:
-                instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
+                instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                 real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                 if auth_token == real_auth_token:
                     log_data(ip, 'Auth Login (Host)', time() - s_time, u_name)
                     if u_name not in known_ips[ip]:
                         known_ips[ip].append(u_name)
-                    key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     try:
-                        old_network_adapters_encrypted = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
+                        old_network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
                         old_network_adapters = eval(fernet.decrypt(old_network_adapters_encrypted))
                     except:
                         old_network_adapters = []
@@ -347,8 +413,8 @@ def host_manager(ip, connection):
                     if network_adapters not in old_network_adapters:
                         new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
                         new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
-                        db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
-                        db_connection.commit()
+                        user_data_db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
+                        user_data_db_connection.commit()
                     data_to_be_sent = {'status_code': 0, 'additional_data': {'auth_token': auth_token}}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # auth token wrong
@@ -376,7 +442,7 @@ def user_manager(ip, connection):
     while True:
         try:
             response_string = __receive_from_connection(connection).strip()
-            if response_string and response_string[0] == 123 and response_string[-1] == 125:
+            if response_string and response_string[0] == 123 and response_string[-1] == 125 and b'eval' not in response_string:
                 response_dict = eval(response_string)
                 if 'token' in response_dict:
                     token = response_dict['token']
@@ -403,8 +469,8 @@ def user_manager(ip, connection):
                                 fernet = Fernet(key)
                                 network_adapters = []
                                 network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
-                                db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
-                                db_connection.commit()
+                                user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
+                                user_data_db_connection.commit()
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': {}, 'total_views': 0, 'network_adapters': []}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -424,24 +490,24 @@ def user_manager(ip, connection):
                         login_success = False
                         u_name = response_dict['u_name'].strip().lower()
                         password = response_dict['password'].strip().swapcase()
-                        all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+                        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
                         if u_name in all_u_names:
-                            user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
+                            user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                             if check_password_hash(user_pw_hash, password):
                                 log_data(ip, 'Password Login (User)', time() - s_time, u_name)
                                 if u_name not in known_ips[ip]:
                                     known_ips[ip].append(u_name)
-                                key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                                encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                                key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                                encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                                 fernet = Fernet(key)
                                 old_ids = eval(fernet.decrypt(encoded_data).decode())
                                 fernet = Fernet(key)
                                 try:
-                                    network_adapters_encrypted = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
+                                    network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
                                     network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
                                 except:
                                     network_adapters = []
-                                total_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
+                                total_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': old_ids, 'total_views': total_views, 'network_adapters': network_adapters}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -460,22 +526,22 @@ def user_manager(ip, connection):
                     elif purpose == 'remove_account':
                         if login_success and u_name:
                             acc_id = int(response_dict['acc_id'])
-                            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                            encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                            key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                            encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id == 'all_acc_ids':
                                 log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} All")
                                 old_ids = {}
                                 new_ids = fernet.encrypt(str(old_ids).encode())
-                                db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
-                                db_connection.commit()
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.commit()
                             elif acc_id in old_ids:
                                 log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} {acc_id}")
                                 del old_ids[acc_id]
                                 new_ids = fernet.encrypt(str(old_ids).encode())
-                                db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
-                                db_connection.commit()
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.commit()
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -491,16 +557,16 @@ def user_manager(ip, connection):
                         if login_success and u_name:
                             acc_id = response_dict['acc_id']
                             identifier = response_dict['identifier']
-                            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                            encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                            key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                            encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id not in old_ids:
                                 log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id}")
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
-                                db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
-                                db_connection.commit()
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.commit()
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -508,8 +574,8 @@ def user_manager(ip, connection):
                                 log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id} Updated")
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
-                                db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
-                                db_connection.commit()
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.commit()
                                 expected_token = generate_random_string(10, 20)
                                 data_to_be_sent = {'status_code': 1, 'token': str(expected_token), 'reason': f'Identifier text modified for Account {acc_id}', 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -548,7 +614,7 @@ def accept_connections_from_users(port):
         Thread(target=acceptor).start()
         try:
             received_data = __receive_from_connection(connection).strip()
-            if received_data[0] == 123 and received_data[-1] == 125:
+            if received_data[0] == 123 and received_data[-1] == 125 and b'eval' not in received_data:
                 received_data = eval(received_data)
                 if 'purpose' not in received_data:
                     __try_closing_connection(connection)
@@ -557,7 +623,7 @@ def accept_connections_from_users(port):
                 __try_closing_connection(connection)
                 return
             purpose = received_data['purpose']
-            db_connection.commit()
+            user_data_db_connection.commit()
 
             if purpose == 'ping':
                 data_to_be_sent = {'ping': 'ping'}
@@ -567,7 +633,7 @@ def accept_connections_from_users(port):
             elif purpose == 'link_fetch':
                 u_name = 'invalid_uname'
                 received_token = received_data['token']
-                all_u_name = [row[0] for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
+                all_u_name = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
                 if all_u_name and all_u_name[0]:
                     u_name = all_u_name[0]
                 link_view_token = generate_random_string(100,500)
@@ -589,12 +655,12 @@ def accept_connections_from_users(port):
             elif purpose == 'fetch_network_adapters':
                 received_u_name = received_data['u_name'].lower().strip()
                 received_token = received_data['token']
-                instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
+                instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
                 if received_token == instance_token:
-                    key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
+                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     try:
-                        network_adapters_encrypted = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
+                        network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
                         network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
                     except:
                         network_adapters = []
@@ -608,7 +674,7 @@ def accept_connections_from_users(port):
                 received_u_name = received_data['u_name'].lower()
                 received_token = received_data['token']
                 all_u_name = []
-                for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
+                for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
                     all_u_name.append(row[0])
                 if all_u_name and all_u_name[0]:
                     u_name = all_u_name[0]
@@ -625,11 +691,11 @@ def accept_connections_from_users(port):
             elif purpose == 'request_instance_token':
                 u_name = received_data['u_name'].strip().lower()
                 password = received_data['password'].strip().swapcase()
-                all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+                all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
                 if u_name in all_u_names:
-                    user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
+                    user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                     if check_password_hash(user_pw_hash, password):
-                        instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
+                        instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
                         data_to_be_sent = {'status_code': 0, 'u_name': u_name, 'token': instance_token}
                         __send_to_connection(connection, str(data_to_be_sent).encode())
                     else:
@@ -876,6 +942,7 @@ Links:</br>
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = choice(list(set(request.environ['HTTP_X_FORWARDED_FOR'].split(','))))
+        Thread(target=check_ip_manager, args=(ip,)).start()
         return f"Current_Visitor_IP:{ip}"
 
 
@@ -987,24 +1054,24 @@ Links:</br>
         if quantity == 1:
             if worker:
                 if unchecked_proxies_unique:
-                    proxy = choice(unchecked_proxies_unique)
+                    proxy = choice(list(unchecked_proxies_unique))
                 else:
-                    proxy = choice(all_proxies_unique)
+                    proxy = choice(list(all_proxies_unique))
 
             else:
                 if choice([0,1]): #working
                     if working_proxies_unique:
-                        proxy = choice(working_proxies_unique)
+                        proxy = choice(list(working_proxies_unique))[0]
                     elif unchecked_proxies_unique:
-                        proxy = choice(unchecked_proxies_unique)
+                        proxy = choice(list(unchecked_proxies_unique))
                     else:
-                        proxy = choice(all_proxies_unique)
+                        proxy = choice(list(all_proxies_unique))
 
                 else: #unchecked
                     if unchecked_proxies_unique:
-                        proxy = choice(unchecked_proxies_unique)
+                        proxy = choice(list(unchecked_proxies_unique))
                     else:
-                        proxy = choice(all_proxies_unique)
+                        proxy = choice(list(all_proxies_unique))
             return proxy
 
         elif quantity == 0:
@@ -1042,7 +1109,7 @@ Links:</br>
             return_string = ''
             temp_list = []
             for __ in range(quantity - len(temp_list)):
-                proxy = choice(all_proxies_unique)
+                proxy = choice(list(all_proxies_unique))
                 if proxy not in temp_list:
                     return_string += proxy +'</br>'
                     temp_list.append(proxy)
@@ -1068,11 +1135,13 @@ Links:</br>
                 status = request.args.get('status')
                 if status == 'working':
                     ip = request.args.get('ip')
+                    if not check_valid_ip(ip):
+                        return f'{proxy} {status}'
                     proxies_checked_count += 1
                     if proxy in unchecked_proxies_unique:
                         unchecked_proxies_unique.remove(proxy)
                     if proxy not in working_proxies_unique:
-                        working_proxies_unique.append(proxy)
+                        working_proxies_unique.add((proxy,ip,))
                     if proxy in failed_proxies_unique:
                         failed_proxies_unique.remove(proxy)
                 elif status == 'failed':
@@ -1083,26 +1152,20 @@ Links:</br>
                         pass
                     else:
                         if proxy not in failed_proxies_unique:
-                            failed_proxies_unique.append(proxy)
-                elif status == 'reset':
-                    if proxy not in unchecked_proxies_unique:
-                        unchecked_proxies_unique.append(proxy)
-                    if proxy in working_proxies_unique:
-                        working_proxies_unique.remove(proxy)
-                    if proxy in failed_proxies_unique:
-                        failed_proxies_unique.remove(proxy)
+                            failed_proxies_unique.add(proxy)
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
         log_data(request_ip, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}")
         return f'{proxy} {status}'
 
+
     @app.route('/suffix_link', methods=['GET'])
     def _return_suffix_link():
         u_name = 'invalid_uname'
         if 'token' in request.args:
             received_token = request.args.get('token')
-            all_u_name = [row[0] for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
+            all_u_name = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
             if all_u_name and all_u_name[0]:
                 u_name = all_u_name[0]
             link_view_token = generate_random_string(100, 500)
@@ -1126,12 +1189,12 @@ Links:</br>
             received_u_name = request.args.get('u_name').strip().lower()
         if 'token' in request.args:
             received_token = request.args.get('token')
-        instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
+        instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
         if received_token == instance_token:
-            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
+            key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
             fernet = Fernet(key)
             try:
-                network_adapters_encrypted = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
+                network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
                 network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
             except:
                 network_adapters = []
@@ -1149,7 +1212,7 @@ Links:</br>
         if 'token' in request.args:
             received_token = request.args.get('token')
         all_u_name = []
-        for row in db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
+        for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
             all_u_name.append(row[0])
         if all_u_name and all_u_name[0]:
             u_name = all_u_name[0]
@@ -1169,11 +1232,11 @@ Links:</br>
             u_name = request.args.get('u_name').strip().lower()
         if 'password' in request.args:
             password = request.args.get('password').strip().swapcase()
-        all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
         if u_name in all_u_names:
-            user_pw_hash = [_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
+            user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
             if check_password_hash(user_pw_hash, password):
-                instance_token = [row[0] for row in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
+                instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
                 data_to_be_sent = {'status_code': 0, 'u_name': u_name, 'token': instance_token}
             else:
                 data_to_be_sent = {'status_code': -1}
@@ -1200,11 +1263,11 @@ Links:</br>
             if 'u_name' in request.args:
                 if randrange(1,10) != 1:
                     u_name = request.args.get('u_name')
-            all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+            all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
             while True:
                 if u_name in all_u_names:
-                    key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    encoded_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     self_ids = eval(fernet.decrypt(encoded_data).decode())
                     if self_ids:
@@ -1231,28 +1294,28 @@ Links:</br>
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
+        if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
             log_data(request_ip, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
             return f"You are not authorised to visit this page"
         all_data = {}
-        all_u_names = [row[0] for row in db_connection.cursor().execute("SELECT u_name from user_data")]
+        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
         for u_name in all_u_names:
             all_data[u_name.upper()] = {}
-            key = ([_ for _ in db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+            key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
             fernet = Fernet(key)  ###
-            encoded_old_acc_data = ([_ for _ in db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+            encoded_old_acc_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
             ids = eval(fernet.decrypt(encoded_old_acc_data).decode())
             all_data[u_name.upper()]["_ids"] = ids
-            total_views = ([_ for _ in db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
+            total_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
             all_data[u_name.upper()]["total_views"] = total_views
-            encoded_network_adapters_data = ([_ for _ in db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0])
+            encoded_network_adapters_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0])
             network_adapters = 0
             try:
                 network_adapters = eval(fernet.decrypt(encoded_network_adapters_data.encode()).decode())
             except:
                 pass
             all_data[u_name.upper()]["network_adapters"] = network_adapters
-            instance_token = [_ for _ in db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
+            instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
             all_data[u_name.upper()]["instance_token"] = f'{instance_token[0:6]}...{instance_token[len(instance_token) - 6:len(instance_token)]}'
 
         table_data = ""
@@ -1314,6 +1377,13 @@ Links:</br>
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
+
+### PROXY OPERATIONS
+fetch_old_proxy_data()
+Thread(target=fetch_proxies_from_sources).start()
+Thread(target=re_add_old_proxies).start()
+Thread(target=write_proxy_stats).start()
+
 ### SELF STATUS
 Thread(target=server_stats_updater).start()
 
@@ -1322,7 +1392,3 @@ for port in HOST_MAIN_WEB_PORT_LIST:
     Thread(target=flask_operations, args=(port,)).start()
 for port in USER_CONNECTION_PORT_LIST:
     Thread(target=accept_connections_from_users, args=(port,)).start()
-
-### PROXY OPERATIONS
-Thread(target=fetch_proxies_from_sources).start()
-Thread(target=re_add_old_proxies).start()
