@@ -10,13 +10,16 @@ while True:
         from requests import get, post
         from psutil import cpu_percent, virtual_memory, net_io_counters
         break
-    except Exception as e:
+    except:
         import pip
         pip.main(['install', 'pillow'])
+        pip.main(['install', 'psutil'])
         pip.main(['install', 'flask'])
+        pip.main(['install', 'turbo_flask'])
         pip.main(['install', 'cryptography'])
         pip.main(['install', 'werkzeug'])
         pip.main(['install', 'requests'])
+        pip.main(['install', 'ping3'])
         del pip
 from os import path, getcwd, system as system_caller
 import socket
@@ -825,10 +828,6 @@ def recreate_user_host_exe():
             sleep(1)
         return
     exe_files['user_host.exe'] = {'version': None}
-    with open(f'{getcwd()}/other_files/requirements.txt', 'r') as requirement_file:
-        import pip
-        for item in requirement_file.readlines():
-            pip.main(['install', item.strip()])
     system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/other_files/image.png" --distpath "{getcwd()}/other_files" "{host_files_location}/user_host.py"')
     exe_files['user_host.exe'] = {'version': path.getmtime(f"{getcwd()}/other_files/user_host.exe"), 'file': open(f"{getcwd()}/other_files/user_host.exe", 'rb').read()}
     sleep(1)
