@@ -63,6 +63,20 @@ max_network_in = network_in = 0.0
 max_network_out = network_out = 0.0
 
 
+proxy_db_last_change = 0
+last_proxy_modified = 0
+pending_link_view_token = {}
+active_tcp_tokens = {}
+proxies_checked_count = 0
+all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set()
+check_ip_list = []
+python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'adfly':{'stable':{}, 'beta':{}, 'proxy_checker':{}}}
+windows_img_files = {}
+text_files = {}
+exe_files = {}
+known_ips = {}
+
+
 def server_stats_updater():
     global host_ram, host_cpu, network_out, network_in, max_host_ram, max_host_cpu, max_network_out, max_network_in
     while True:
@@ -146,7 +160,6 @@ def generate_random_string(_min, _max):
     return string
 
 
-pending_link_view_token = {}
 def link_view_token_add(token, u_name):
     if token not in pending_link_view_token:
         pending_link_view_token[token] = u_name
@@ -191,7 +204,6 @@ def password_matches_standard(password: str):
         return False
 
 
-active_tcp_tokens = {}
 def tcp_token_manager(ip, token):
     active_tcp_tokens[token] = [ip, False]
     for _ in range(30):
@@ -201,62 +213,69 @@ def tcp_token_manager(ip, token):
             break
 
 
-proxies_checked_count = 0
-all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set()
-
 def fetch_old_proxy_data():
+    global last_proxy_modified
     _working = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy, ip from working_proxies")]
     for proxy in _working:
         proxy = (proxy[0].strip(), proxy[1])
         if check_valid_ipv4_proxy(proxy[0]):
             working_proxies_unique.add(proxy)
             all_proxies_unique.add(proxy[0])
+        last_proxy_modified = time()
 
     _failed = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy from failed_proxies")]
     for proxy in _failed:
         proxy = proxy[0].strip()
         if check_valid_ipv4_proxy(proxy):
-            failed_proxies_unique.add(proxy)
-            all_proxies_unique.add(proxy)
+            if proxy not in [pair[0] for pair in working_proxies_unique]:
+                failed_proxies_unique.add(proxy)
+                all_proxies_unique.add(proxy)
+        last_proxy_modified = time()
 
     _unchecked = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy from unchecked_proxies")]
     for proxy in _unchecked:
         proxy = proxy[0].strip()
         if check_valid_ipv4_proxy(proxy):
-            unchecked_proxies_unique.add(proxy)
-            all_proxies_unique.add(proxy)
+            if proxy not in [pair[0] for pair in working_proxies_unique] and proxy not in failed_proxies_unique:
+                unchecked_proxies_unique.add(proxy)
+                all_proxies_unique.add(proxy)
+        last_proxy_modified = time()
 
 
 def write_proxy_stats():
+    global proxy_db_last_change
     while True:
         sleep(10)
-        _working = working_proxies_unique.copy()
-        _failed = failed_proxies_unique.copy()
-        _unchecked = unchecked_proxies_unique.copy()
+        if proxy_db_last_change < last_proxy_modified:
+            _working = working_proxies_unique.copy()
+            _failed = failed_proxies_unique.copy()
+            _unchecked = unchecked_proxies_unique.copy()
 
-        for pair in _working:
-            proxy, ip = pair
-            try:
-                proxy_db_connection.cursor().execute(f"INSERT into working_proxies (proxy, ip) values ('{proxy}', '{ip}')")
-            except:
+            for pair in _working:
+                proxy, ip = pair
                 try:
-                    proxy_db_connection.cursor().execute(f"UPDATE working_proxies set ip='{ip}' where proxy='{proxy}')")
+                    proxy_db_connection.cursor().execute(f"INSERT into working_proxies (proxy, ip) values ('{proxy}', '{ip}')")
+                except:
+                    try:
+                        proxy_db_connection.cursor().execute(f"UPDATE working_proxies set ip='{ip}' where proxy='{proxy}')")
+                    except:
+                        pass
+            for proxy in _failed:
+                try:
+                    proxy_db_connection.cursor().execute(f"INSERT into failed_proxies (proxy) values ('{proxy}')")
                 except:
                     pass
-        for proxy in _failed:
-            try:
-                proxy_db_connection.cursor().execute(f"INSERT into failed_proxies (proxy) values ('{proxy}')")
-            except:
-                pass
-        for proxy in _unchecked:
-            try:
-                proxy_db_connection.cursor().execute(f"INSERT into unchecked_proxies (proxy) values ('{proxy}')")
-            except:
-                pass
-        proxy_db_connection.commit()
+            for proxy in _unchecked:
+                try:
+                    proxy_db_connection.cursor().execute(f"INSERT into unchecked_proxies (proxy) values ('{proxy}')")
+                except:
+                    pass
+            proxy_db_connection.commit()
+            proxy_db_last_change = time()
 
 
 def re_add_old_proxies():
+    global last_proxy_modified
     while True:
         sleep(60*20)
         if not unchecked_proxies_unique:
@@ -264,10 +283,13 @@ def re_add_old_proxies():
                 unchecked_proxies_unique.add(failed_proxies_unique.pop())
             for _ in range(len(failed_proxies_unique) // 10):
                 unchecked_proxies_unique.add(working_proxies_unique.pop()[0])
+            last_proxy_modified = time()
 
 
-def fetch_proxies_from_sources():
+def fetch_proxies_from_sites():
+    global last_proxy_modified
     while True:
+        proxy_added = False
         ### special links
         try:
             response_html = get("https://free-proxy-list.net/").text.splitlines()
@@ -277,6 +299,8 @@ def fetch_proxies_from_sources():
                     if _line not in all_proxies_unique:
                         unchecked_proxies_unique.add(_line)
                         all_proxies_unique.add(_line)
+                        if not proxy_added:
+                            proxy_added = True
         except:
             pass
         ### normal links (IP:PORT format)
@@ -308,12 +332,15 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
                         if _line not in all_proxies_unique:
                             unchecked_proxies_unique.add(_line)
                             all_proxies_unique.add(_line)
+                            if not proxy_added:
+                                proxy_added = True
             except:
                 pass
+        if proxy_added:
+            last_proxy_modified = time()
         sleep(10 * 60)
 
 
-check_ip_list = []
 def proxy_check_ip_tracker(ip):
     if ip not in check_ip_list:
         check_ip_list.append(ip)
@@ -653,82 +680,6 @@ def accept_connections_from_users(port):
                 data_to_be_sent = {'ping': 'ping'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
-            ### Remove from here
-            elif purpose == 'link_fetch':
-                u_name = 'invalid_uname'
-                received_token = received_data['token']
-                all_u_name = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
-                if all_u_name and all_u_name[0]:
-                    u_name = all_u_name[0]
-                link_view_token = generate_random_string(100,500)
-                Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
-                data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}', 'link_viewer_token':str(link_view_token)}
-                __send_to_connection(connection, str(data_to_be_sent).encode())
-
-            elif purpose == 'view_accomplished':
-                link_view_token = received_data['link_view_token']
-                add_new_view(link_view_token)
-
-            elif purpose == 'all_user_agents':
-                if ('user_agents.txt' not in text_files) or (path.getmtime(f'{read_only_location}/user_agents.txt') != text_files['user_agents.txt']['version']):
-                    text_files['user_agents.txt'] = {'version': path.getmtime(f'{read_only_location}/user_agents.txt'), 'file': open(f'{read_only_location}/user_agents.txt', 'rb').read()}
-                data_to_be_sent = {'all_user_agents': bytes(text_files['user_agents.txt']['file'])}
-                __send_to_connection(connection, str(data_to_be_sent).encode())
-
-
-            elif purpose == 'fetch_network_adapters':
-                received_u_name = received_data['u_name'].lower().strip()
-                received_token = received_data['token']
-                instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
-                if received_token == instance_token:
-                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
-                    fernet = Fernet(key)
-                    try:
-                        network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
-                        network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
-                    except:
-                        network_adapters = []
-                    data_to_be_sent = {'status_code': 0, 'network_adapters': network_adapters}
-                    __send_to_connection(connection, str(data_to_be_sent).encode())
-                else:
-                    data_to_be_sent = {'status_code': -1}
-                    __send_to_connection(connection, str(data_to_be_sent).encode())
-
-            elif purpose == 'verify_instance_token':
-                received_u_name = received_data['u_name'].lower()
-                received_token = received_data['token']
-                all_u_name = []
-                for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
-                    all_u_name.append(row[0])
-                if all_u_name and all_u_name[0]:
-                    u_name = all_u_name[0]
-                    if u_name and u_name == received_u_name:
-                        data_to_be_sent = {'status_code': 0}
-                        __send_to_connection(connection, str(data_to_be_sent).encode())
-                    else:
-                        data_to_be_sent = {'status_code': -1}
-                        __send_to_connection(connection, str(data_to_be_sent).encode())
-                else:
-                    data_to_be_sent = {'status_code': -1}
-                    __send_to_connection(connection, str(data_to_be_sent).encode())
-
-            elif purpose == 'request_instance_token':
-                u_name = received_data['u_name'].strip().lower()
-                password = received_data['password'].strip().swapcase()
-                all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-                if u_name in all_u_names:
-                    user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
-                    if check_password_hash(user_pw_hash, password):
-                        instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
-                        data_to_be_sent = {'status_code': 0, 'u_name': u_name, 'token': instance_token}
-                        __send_to_connection(connection, str(data_to_be_sent).encode())
-                    else:
-                        data_to_be_sent = {'status_code': -1}
-                        __send_to_connection(connection, str(data_to_be_sent).encode())
-                else:
-                    data_to_be_sent = {'status_code': -1}
-                    __send_to_connection(connection, str(data_to_be_sent).encode())
-            ### Remove upto here
 
             elif purpose == 'host_authentication':
                 binding_token = received_data['binding_token']
@@ -758,13 +709,6 @@ def accept_connections_from_users(port):
     for _ in range(10):
         Thread(target=acceptor).start()
 
-
-python_files = {'host':{},
-                'common':{'proxy_checker':{}, 'test':{}},
-                'adfly':{'stable':{}, 'beta':{}, 'proxy_checker':{}}}
-windows_img_files = {}
-text_files = {}
-exe_files = {}
 
 def return_adfly_link_page(u_name):
     data = ''
@@ -892,7 +836,6 @@ def return_img_file(image_name):
     return windows_img_files[image_name]['version'], windows_img_files[image_name]['file'].tobytes(), windows_img_files[image_name]['file'].size
 
 
-known_ips = {}
 def flask_operations(port):
     app = Flask(__name__)
 
@@ -1150,7 +1093,7 @@ Links:</br>
 
     @app.route('/proxy_report', methods=['GET'])
     def _return_blank_proxy_report():
-        global proxies_checked_count
+        global proxies_checked_count, last_proxy_modified
         request_start_time = time()
         proxy = ''
         status = ''
@@ -1179,6 +1122,7 @@ Links:</br>
                     else:
                         if proxy not in failed_proxies_unique:
                             failed_proxies_unique.add(proxy)
+            last_proxy_modified = time()
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
@@ -1199,6 +1143,7 @@ Links:</br>
             data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}', 'link_viewer_token': str(link_view_token)}
             return str(data_to_be_sent)
 
+
     @app.route('/view_accomplished', methods=['GET'])
     def _view_accomplished():
         link_view_token = ''
@@ -1206,6 +1151,7 @@ Links:</br>
             link_view_token = request.args.get('view_token')
         add_new_view(link_view_token)
         return ""
+
 
     @app.route('/network_adapters', methods=['GET'])
     def _return_network_adapters():
@@ -1229,6 +1175,7 @@ Links:</br>
             data_to_be_sent = {'status_code': -1}
         return str(data_to_be_sent)
 
+
     @app.route('/verify_instance_token', methods=['GET'])
     def _verify_instance_token():
         received_u_name = ''
@@ -1250,6 +1197,7 @@ Links:</br>
             data_to_be_sent = {'status_code': -1}
         return str(data_to_be_sent)
 
+
     @app.route('/request_instance_token', methods=['GET'])
     def _return_instance_token():
         u_name = ''
@@ -1270,9 +1218,11 @@ Links:</br>
             data_to_be_sent = {'status_code': -1}
         return str(data_to_be_sent)
 
+
     @app.route('/current_user_host_main_version', methods=['GET'])
     def _return_user_host_main_version():
         return current_user_host_main_version
+
 
     @app.route('/user_load_links', methods=['GET'])
     def _return_user_load_links():
@@ -1406,7 +1356,7 @@ Links:</br>
 
 ### PROXY OPERATIONS
 fetch_old_proxy_data()
-Thread(target=fetch_proxies_from_sources).start()
+Thread(target=fetch_proxies_from_sites).start()
 Thread(target=re_add_old_proxies).start()
 Thread(target=write_proxy_stats).start()
 

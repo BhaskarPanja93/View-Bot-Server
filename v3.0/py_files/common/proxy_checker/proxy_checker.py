@@ -57,7 +57,7 @@ def __connect_proxy():
         current_proxy = ''
         sleep(0.1)
         try:
-            current_proxy = popen(f'curl -L -s "{global_host_page}/proxy_request?quantity=1" --max-time 10').read().replace("</br>", "")
+            current_proxy = popen(f'curl -L -s "{global_host_page}/proxy_request?quantity=1&worker=1" --max-time 10').read().replace("</br>", "")
             # current_proxy = "8.219.97.248:80"
             if current_proxy == '':
                 return False

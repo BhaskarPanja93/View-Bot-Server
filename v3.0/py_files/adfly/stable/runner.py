@@ -1,6 +1,5 @@
 print('runner')
 next_file_code = 'adfly_stable_4'
-global_host_address = ()
 global_host_page = ''
 local_page = ""
 local_host_address = ()
