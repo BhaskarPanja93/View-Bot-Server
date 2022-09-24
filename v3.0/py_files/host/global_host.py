@@ -26,6 +26,7 @@ import socket
 from random import choice, randrange
 from threading import Thread
 from time import sleep, time, ctime
+import ipaddress
 import logging
 
 log = logging.getLogger('werkzeug')
@@ -206,18 +207,24 @@ all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_pro
 def fetch_old_proxy_data():
     _working = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy, ip from working_proxies")]
     for proxy in _working:
-        working_proxies_unique.add(proxy)
-        all_proxies_unique.add(proxy[0])
+        proxy = (proxy[0].strip(), proxy[1])
+        if check_valid_ipv4_proxy(proxy[0]):
+            working_proxies_unique.add(proxy)
+            all_proxies_unique.add(proxy[0])
 
     _failed = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy from failed_proxies")]
     for proxy in _failed:
-        failed_proxies_unique.add(proxy[0])
-        all_proxies_unique.add(proxy[0])
+        proxy = proxy[0].strip()
+        if check_valid_ipv4_proxy(proxy):
+            failed_proxies_unique.add(proxy)
+            all_proxies_unique.add(proxy)
 
     _unchecked = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy from unchecked_proxies")]
     for proxy in _unchecked:
-        unchecked_proxies_unique.add(proxy[0])
-        all_proxies_unique.add(proxy[0])
+        proxy = proxy[0].strip()
+        if check_valid_ipv4_proxy(proxy):
+            unchecked_proxies_unique.add(proxy)
+            all_proxies_unique.add(proxy)
 
 
 def write_proxy_stats():
@@ -265,7 +272,8 @@ def fetch_proxies_from_sources():
         try:
             response_html = get("https://free-proxy-list.net/").text.splitlines()
             for _line in response_html:
-                if _line.count(".") == 3 and _line.count(':') == 1:
+                _line = _line.strip()
+                if check_valid_ipv4_proxy(_line):
                     if _line not in all_proxies_unique:
                         unchecked_proxies_unique.add(_line)
                         all_proxies_unique.add(_line)
@@ -295,16 +303,18 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
             try:
                 html_data = get(link.strip()).text.splitlines()
                 for _line in html_data:
-                    if _line not in all_proxies_unique:
-                        unchecked_proxies_unique.add(_line)
-                        all_proxies_unique.add(_line)
+                    _line = _line.strip()
+                    if check_valid_ipv4_proxy(_line):
+                        if _line not in all_proxies_unique:
+                            unchecked_proxies_unique.add(_line)
+                            all_proxies_unique.add(_line)
             except:
                 pass
         sleep(10 * 60)
 
 
 check_ip_list = []
-def check_ip_manager(ip):
+def proxy_check_ip_tracker(ip):
     if ip not in check_ip_list:
         check_ip_list.append(ip)
     sleep(60)
@@ -312,11 +322,22 @@ def check_ip_manager(ip):
         check_ip_list.remove(ip)
 
 
-def check_valid_ip(ip):
+def ip_in_proxy_waitlist(ip):
     if ip in check_ip_list and len(ip) < 50 :
         check_ip_list.remove(ip)
         return True
     return False
+
+
+def check_valid_ipv4_proxy(proxy):
+    try:
+        ip, port = proxy.split(":")
+        ipaddress.ip_network(ip)
+        port = int(port)
+        if 1<=port<=65535:
+            return True
+    except:
+        return False
 
 
 def host_manager(ip, connection):
@@ -811,12 +832,18 @@ def return_py_file(file_id):
     ###
 
     elif file_id == 'testing_1':
-        if ('testing_1.py' not in python_files['common']['test']) or (path.getmtime(f'{testing_py_files_location}/testing_1.py') != python_files['common']['test']['testing_1']['version']):
-            python_files['common']['test']['testing_1'] = {'version': path.getmtime(f'{testing_py_files_location}/testing_1.py'), 'file': open(f'{testing_py_files_location}/testing_1.py', 'rb').read()}
-        return python_files['common']['test']['testing_1']['version'], python_files['common']['test']['testing_1']['file']
+        bot_type, file_name = 'common', 'testing'
 
     ###
-
+    else:
+        bot_type, file_name = file_id.split('_')
+    if bot_type not in python_files:
+        python_files[bot_type] = {}
+    file_name = file_name+'.py'
+    if file_id not in python_files[bot_type]:
+        if (file_name not in python_files[bot_type]) or (path.getmtime(f'{adfly_stable_file_location}/{file_name}') != python_files[bot_type][file_name]['version']):
+            python_files[bot_type][file_name] = {'version': path.getmtime(f'{adfly_stable_file_location}/{file_name}'), 'file': open(f'{adfly_stable_file_location}/{file_name}', 'rb').read()}
+        return python_files[bot_type][file_name]['version'], python_files[bot_type][file_name]['file']
     else:
         return None, None
 
@@ -941,7 +968,7 @@ Links:</br>
         ip = request.remote_addr
         if not ip or ip == '127.0.0.1':
             ip = choice(list(set(request.environ['HTTP_X_FORWARDED_FOR'].split(','))))
-        Thread(target=check_ip_manager, args=(ip,)).start()
+        Thread(target=proxy_check_ip_tracker, args=(ip,)).start()
         return f"Current_Visitor_IP:{ip}"
 
 
@@ -1134,7 +1161,7 @@ Links:</br>
                 status = request.args.get('status')
                 if status == 'working':
                     ip = request.args.get('ip')
-                    if not check_valid_ip(ip):
+                    if not ip_in_proxy_waitlist(ip):
                         return f'{proxy} {status}'
                     proxies_checked_count += 1
                     if proxy in unchecked_proxies_unique:
