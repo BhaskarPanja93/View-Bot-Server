@@ -9,4 +9,8 @@ global server file recheck add new parameter last_checked to prevent spam checki
 
 ngrok direct each image has unique % for matching
 
-remove explicit user data db commit, migh cause problems
+logging for some web actions not added for some web functions
+
+activate all vms automatically
+
+keep track of views and duration only when the vm restarts itself

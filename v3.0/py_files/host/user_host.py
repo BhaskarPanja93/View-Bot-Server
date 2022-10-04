@@ -179,19 +179,19 @@ def __send_to_connection(connection, data_bytes: bytes):
 def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
-    for _ in range(12000):
+    for _ in range(50):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.01)
+            sleep(0.1)
         else:
             break
     else:
         return b''
     if len(length) == 8:
         length = int(length)
-        for _ in range(12000):
+        for _ in range(50):
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.01)
+            sleep(0.1)
             if len(data_bytes) == length:
                 break
         else:
@@ -1613,9 +1613,9 @@ def public_flask_operations():
 
     @app.route('/py_files', methods=["GET"])
     def _return_py_files():
-        request_ip = request.remote_addr
-        request_type = '/py_files'
-        request_start_time = time()
+        #request_ip = request.remote_addr
+        #request_type = '/py_files'
+        #request_start_time = time()
 
         if "file_code" not in request.args:
             return ""
@@ -1625,16 +1625,16 @@ def public_flask_operations():
             sleep(1)
         data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{file_code}: Updated")
+        #processing_time = time() - request_start_time
+        #log_data(request_ip, request_type, processing_time, f"{file_code}: Updated")
         return str(data_to_be_sent)
 
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
-        request_ip = request.remote_addr
-        request_type = '/img_files'
-        request_start_time = time()
+        #request_ip = request.remote_addr
+        #request_type = '/img_files'
+        #request_start_time = time()
 
         if "img_name" not in request.args:
             return ""
@@ -1643,14 +1643,14 @@ def public_flask_operations():
             Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
             sleep(1)
         if "version" not in request.args or windows_img_files[img_name]['version'] != float(request.args.get("version")) or float(request.args.get("version")) == 0:
-            updated = False
+            #updated = False
             data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
         else:
-            updated = True
+            #updated = True
             data_to_be_sent = {'image_name': str(img_name)}
 
-        processing_time = time() - request_start_time
-        log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if not updated else ''}")
+        #processing_time = time() - request_start_time
+        #log_data(request_ip, request_type, processing_time, f"{img_name}{' : Updated' if not updated else ''}")
         return str(data_to_be_sent)
 
     app.run(host='0.0.0.0', port=PUBLIC_HOST_PORT, debug=False, use_reloader=False, threaded=True)

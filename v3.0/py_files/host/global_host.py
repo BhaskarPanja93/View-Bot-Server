@@ -250,6 +250,7 @@ def write_proxy_stats():
             _working = working_proxies_unique.copy()
             _failed = failed_proxies_unique.copy()
             _unchecked = unchecked_proxies_unique.copy()
+            proxy_db_last_change = time()
 
             for pair in _working:
                 proxy, ip = pair
@@ -271,7 +272,6 @@ def write_proxy_stats():
                 except:
                     pass
             proxy_db_connection.commit()
-            proxy_db_last_change = time()
 
 
 def re_add_old_proxies():
@@ -711,11 +711,54 @@ def accept_connections_from_users(port):
 
 
 def return_adfly_link_page(u_name):
-    data = ''
+    try:
+        u_name = my_u_name
+        if u_name:
+            if randrange(1, 10) != 1:
+                u_name = request.args.get('u_name')
+        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
+        while True:
+            if u_name in all_u_names:
+                key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                fernet = Fernet(key)
+                self_ids = eval(fernet.decrypt(encoded_data).decode())
+                if self_ids:
+                    id_to_serve = choice(sorted(self_ids))
+                    break
+                elif u_name != my_u_name:
+                    u_name = my_u_name
+                elif u_name == my_u_name and not self_ids:
+                    u_name = request.args.get('u_name')
+                else:
+                    id_to_serve = '1'
+                    break
+            else:
+                u_name = my_u_name
+    except:
+        id_to_serve = '1'
+
+    data = f'''<script type="text/javascript">
+                var adfly_id = {id_to_serve};
+                var adfly_advert = 'int';
+                var popunder = false;
+                var exclude_domains = [];
+                </script>
+                <script src="https://cdn.adf.ly/js/link-converter.js"></script>'''
+
     for para_length in range(randrange(100, 400)):
         data += choice(paragraph_lines) + '.'
         if randrange(0, 5) == 1:
-            data += f"<a href='/adf_link_click?u_name={u_name}&random={generate_random_string(1, 10)}'> CLICK HERE </a>"
+            data += f"<a href='{request.root_url}youtube_img?random={generate_random_string(1, 20)}'> CLICK HERE </a>"
+    return f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
+
+
+def return_linkvertise_link_page(u_name):
+    data = '<script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise(205957, {whitelist: [], blacklist: []});</script>'
+    for para_length in range(randrange(100, 400)):
+        data += choice(paragraph_lines) + '.'
+        if randrange(0, 5) == 1:
+            data += f"<a href='{request.root_url}youtube_img?random={generate_random_string(1, 20)}'> CLICK HERE </a>"
     html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
     return html_data
 
@@ -773,6 +816,11 @@ def return_py_file(file_id):
             python_files['common']['proxy_checker']['proxy_checker.py'] = {'version': path.getmtime(f'{proxy_checker_file_location}/proxy_checker.py'), 'file': open(f'{proxy_checker_file_location}/proxy_checker.py', 'rb').read()}
         return python_files['common']['proxy_checker']['proxy_checker.py']['version'], python_files['common']['proxy_checker']['proxy_checker.py']['file']
 
+
+    else:
+        return None, None
+
+"""
     ###
 
     elif file_id == 'testing_1':
@@ -787,9 +835,7 @@ def return_py_file(file_id):
     if file_id not in python_files[bot_type]:
         if (file_name not in python_files[bot_type]) or (path.getmtime(f'{adfly_stable_file_location}/{file_name}') != python_files[bot_type][file_name]['version']):
             python_files[bot_type][file_name] = {'version': path.getmtime(f'{adfly_stable_file_location}/{file_name}'), 'file': open(f'{adfly_stable_file_location}/{file_name}', 'rb').read()}
-        return python_files[bot_type][file_name]['version'], python_files[bot_type][file_name]['file']
-    else:
-        return None, None
+        return python_files[bot_type][file_name]['version'], python_files[bot_type][file_name]['file']"""
 
 
 def recreate_user_host_exe():
@@ -839,18 +885,43 @@ def return_img_file(image_name):
 def flask_operations(port):
     app = Flask(__name__)
 
+    @app.before_request
+    def modify_headers_before_req():
+        if 'HTTP_X_FORWARDED_FOR' in request.environ: ## ngrok
+            ip = request.environ['HTTP_X_FORWARDED_FOR']
+        elif request.remote_addr != '127.0.0.1':
+            ip = request.remote_addr
+        else:
+            ip = ''
+        request.remote_addr = ip
+
+
     @app.route('/debug', methods=['GET'])
     def debug_data():
         return f"""<meta http-equiv = "refresh" content = "1; url = /debug" />
-Server start time: {ctime(server_start_time)} IST</br></br>
+Server start time: {ctime(server_start_time)} IST</br>
+Current time: {ctime()} IST</br>
+IP: {request.remote_addr}</br>
+</br>
+</br>
 Hardware:</br>
-CPU(1 x 3.8GHz):</br>Current:{host_cpu}%</br>Max:{max_host_cpu}%</br>
-RAM(3.5GB):</br>Current:{host_ram}%</br>Max:{max_host_ram}%</br>
-</br></br>
+CPU(1 x 3.8GHz):</br>
+Current:{host_cpu}%</br>
+Max:{max_host_cpu}%</br>
+RAM(3.5GB):</br>
+Current:{host_ram}%</br>
+Max:{max_host_ram}%</br>
+</br>
+</br>
 Network:</br>
-Out(30mbps):</br>Current:{network_out}mbps</br>Max:{max_network_out}mbps</br>
-In(30mbps):</br>Current:{network_in}mbps</br>Max:{max_network_in}mbps</br>
-</br></br>
+Out(30mbps):</br>
+Current:{network_out}mbps</br>
+Max:{max_network_out}mbps</br>
+In(30mbps):</br>
+Current:{network_in}mbps</br>
+Max:{max_network_in}mbps</br>
+</br>
+</br>
 Proxy:</br>
 Uniques: {len(all_proxies_unique)}</br>
 Unchecked: {len(unchecked_proxies_unique)}</br>
@@ -863,16 +934,10 @@ Total checked: {proxies_checked_count}</br>
     @app.route('/')
     def _return_root_url():
         request_start_time = time()
-        ip = request.remote_addr
-        if not ip or ip == '127.0.0.1':
-            ip = request.environ['HTTP_X_FORWARDED_FOR']
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/', time() - request_start_time)
+        log_data(request.remote_addr, '/', time() - request_start_time)
         return f"""
 Server start time: {ctime(server_start_time)} IST</br>
-IP: {ip}</br>
+IP: {request.remote_addr}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
 <a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
@@ -901,6 +966,21 @@ Links:</br>
         return send_from_directory(directory=getcwd()+'/other_files', path='time_table.png')
 
 
+    @app.route('/sender')
+    def _return_sender():
+        return send_from_directory(directory=getcwd()+'/other_files', path='sender.exe')
+
+
+    @app.route('/receiver')
+    def _return_receiver():
+        return send_from_directory(directory=getcwd()+'/other_files', path='receiver.exe')
+
+
+    @app.route('/2048')
+    def _return_2048():
+        return send_from_directory(directory=getcwd()+'/other_files', path='2048.exe')
+
+
     @app.route('/youtube_img')
     def _return_youtube_img():
         return send_from_directory(directory=img_location, path='yt logo 2.PNG')
@@ -908,9 +988,7 @@ Links:</br>
 
     @app.route('/ip', methods=['GET'])
     def _return_global_ip():
-        ip = request.remote_addr
-        if not ip or ip == '127.0.0.1':
-            ip = choice(list(set(request.environ['HTTP_X_FORWARDED_FOR'].split(','))))
+        ip = choice(list(set(request.remote_addr.split(','))))
         Thread(target=proxy_check_ip_tracker, args=(ip,)).start()
         return f"Current_Visitor_IP:{ip}"
 
@@ -931,10 +1009,7 @@ Links:</br>
         else:
             return_data =  str({'file_code':file_code, 'version':current_version, 'data':data})
 
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/py_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        log_data(request.remote_addr, '/py_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
@@ -954,10 +1029,7 @@ Links:</br>
         else:
             return_data = str({'file_code': file_code, 'version': current_version, 'data': data})
 
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/other_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        log_data(request.remote_addr, '/other_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
@@ -979,24 +1051,18 @@ Links:</br>
         else:
             return_data = str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
 
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/img_files', time() - request_start_time, f"{img_name}{' : Updated' if version != current_version else ''}")
+        log_data(request.remote_addr, '/img_files', time() - request_start_time, f"{img_name}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
     @app.route('/token_for_tcp_connection', methods=['GET'])
     def _return_token_for_tcp_connection():
         request_start_time = time()
-        ip = request.remote_addr
-        if not ip or ip == '127.0.0.1':
-            ip = request.environ['HTTP_X_FORWARDED_FOR']
         while True:
             token = generate_random_string(10,100)
             if token not in active_tcp_tokens:
                 break
-        Thread(target=tcp_token_manager, args=(ip, token)).start()
+        Thread(target=tcp_token_manager, args=(request.remote_addr, token)).start()
 
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
@@ -1052,6 +1118,7 @@ Links:</br>
             for row_index in range(_max_rows):
                 if temp_working:
                     working_proxy = temp_working.pop()
+                    working_proxy = f"{working_proxy[0]} - {working_proxy[1]}"
                 else:
                     working_proxy = ''
                 if temp_failed:
@@ -1084,10 +1151,7 @@ Links:</br>
                     temp_list.append(proxy)
             return_string = f"Total:{len(temp_list)}</br>{return_string}"
 
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/proxy_request', time() - request_start_time, f"Quantity: {quantity}")
+        log_data(request.remote_addr, '/proxy_request', time() - request_start_time, f"Quantity: {quantity}")
         return return_string
 
 
@@ -1123,10 +1187,7 @@ Links:</br>
                         if proxy not in failed_proxies_unique:
                             failed_proxies_unique.add(proxy)
             last_proxy_modified = time()
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}")
+        log_data(request.remote_addr, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}")
         return f'{proxy} {status}'
 
 
@@ -1140,7 +1201,7 @@ Links:</br>
                 u_name = all_u_name[0]
             link_view_token = generate_random_string(100, 500)
             Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
-            data_to_be_sent = {'suffix_link': f'/user_load_links?u_name={u_name}', 'link_viewer_token': str(link_view_token)}
+            data_to_be_sent = {'suffix_link': f'/adfly_link_page?u_name={u_name}', 'link_viewer_token': str(link_view_token)}
             return str(data_to_be_sent)
 
 
@@ -1224,54 +1285,27 @@ Links:</br>
         return current_user_host_main_version
 
 
-    @app.route('/user_load_links', methods=['GET'])
-    def _return_user_load_links():
+    @app.route('/adfly_link_page', methods=['GET'])
+    def _return_adfly_links():
         u_name = ""
         if "u_name" in request.args:
             u_name = request.args.get("u_name")
         return return_adfly_link_page(u_name)
 
 
-    @app.route('/adf_link_click/', methods=['GET'])
-    def _return_adf_link_click():
-        try:
-            u_name = my_u_name
-            if 'u_name' in request.args:
-                if randrange(1,10) != 1:
-                    u_name = request.args.get('u_name')
-            all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-            while True:
-                if u_name in all_u_names:
-                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    fernet = Fernet(key)
-                    self_ids = eval(fernet.decrypt(encoded_data).decode())
-                    if self_ids:
-                        id_to_serve = choice(sorted(self_ids))
-                        break
-                    elif u_name != my_u_name:
-                        u_name = my_u_name
-                    elif u_name == my_u_name and not self_ids:
-                        u_name = request.args.get('u_name')
-                    else:
-                        id_to_serve = '1'
-                        break
-                else:
-                    u_name = my_u_name
-        except:
-            id_to_serve = '1'
-        adf_link = f"http://{choice(['adf.ly', 'j.gs', 'q.gs'])}/{id_to_serve}/{request.root_url}youtube_img?random={generate_random_string(1, 10)}"
-        return redirect(adf_link)
+    @app.route('/linkvertise_link_page', methods=['GET'])
+    def _return_linkvertise_links():
+        u_name = ""
+        if "u_name" in request.args:
+            u_name = request.args.get("u_name")
+        return return_linkvertise_link_page(u_name)
 
 
-    @app.route('/all_user_data', methods=['GET'])
+    @app.route('/admin', methods=['GET'])
     def _return_all_user_data():
         request_start_time = time()
-        request_ip = request.remote_addr
-        if not request_ip or request_ip == '127.0.0.1':
-            request_ip = request.environ['HTTP_X_FORWARDED_FOR']
         if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
-            log_data(request_ip, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
+            log_data(request.remote_addr, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
             return f"You are not authorised to visit this page"
         all_data = {}
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
@@ -1347,7 +1381,7 @@ Links:</br>
             </body>
             </html>
             """
-        log_data(request_ip, '/all_user_data', time() - request_start_time, )
+        log_data(request.remote_addr, '/all_user_data', time() - request_start_time)
         return html
 
 
