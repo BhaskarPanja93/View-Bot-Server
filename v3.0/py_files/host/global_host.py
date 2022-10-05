@@ -905,10 +905,10 @@ IP: {request.remote_addr}</br>
 </br>
 </br>
 Hardware:</br>
-CPU(1 x 3.8GHz):</br>
+CPU(24 x 3.8GHz):</br>
 Current:{host_cpu}%</br>
 Max:{max_host_cpu}%</br>
-RAM(3.5GB):</br>
+RAM(32GB):</br>
 Current:{host_ram}%</br>
 Max:{max_host_ram}%</br>
 </br>
