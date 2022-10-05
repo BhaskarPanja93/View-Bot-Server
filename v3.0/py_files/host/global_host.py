@@ -945,7 +945,7 @@ Links:</br>
 <a href='/favicon.ico'>=>  Icon  </a></br>
 <a href='/youtube_img'>=>  YT img  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
-<a href='/proxy_request'>=>  Working proxies  </a></br>
+<a href='/proxy_request'>=>  Proxies  </a></br>
 <a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
 <a href='/debug'>=>  Developer debug data  </a></br>
 """

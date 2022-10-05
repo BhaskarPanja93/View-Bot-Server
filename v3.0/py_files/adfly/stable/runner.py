@@ -26,6 +26,19 @@ from psutil import virtual_memory, cpu_percent as cpu
 from getmac import get_mac_address
 
 
+def activate_windows():
+    system_caller('cls')
+    print("\n\nACTIVATING this VM, please wait till the process is complete\n\n")
+    system_caller('dism /online /set-edition:ServerStandard /productkey:N69G4-B89J2-4G8F4-WWYCC-J464C /accepteula /NoRestart')
+    system_caller('slmgr //B /skms kms.03k.org:1688')
+    system_caller('slmgr //B /ato')
+    print("\n\nSuccessfully activated")
+    previous_data = eval(open("previous_data", 'r').read())
+    previous_data['activated'] = True
+    with open("previous_data", 'w') as file:
+        file.write(str(previous_data))
+
+
 def verify_global_site():
     global global_host_page
     while True:
@@ -119,19 +132,19 @@ def __send_to_connection(connection, data_bytes: bytes):
 def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
-    for _ in range(12000):
+    for _ in range(50):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.01)
+            sleep(0.1)
         else:
             break
     else:
         return b''
     if len(length) == 8:
         length = int(length)
-        for _ in range(12000):
+        for _ in range(50):
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.01)
+            sleep(0.1)
             if len(data_bytes) == length:
                 break
         else:
@@ -329,10 +342,27 @@ sleep(3)
 while not genuine_ip:
     genuine_ip = __get_global_ip()
 ## update user agent list
-start_time = time()
+try:
+    previous_data = eval(open("previous_data", 'r').read())
+    start_time = previous_data['start_time'] + (time() - previous_data['stop_time'])
+    views = previous_data['views']
+    activated = previous_data['activated']
+    previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
+    with open("previous_data", 'w') as file:
+        file.write(str(previous_data))
+except:
+    start_time = time()
+    activated = False
+    previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
+    with open("previous_data", 'w') as file:
+        file.write(str(previous_data))
+
+if not activated:
+    activate_windows()
+
 Thread(target=restart_if_connection_missing).start()
 Thread(target=send_data).start()
-next_ip_reset = 0
+next_ip_reset = views
 
 while True:
     while True:

@@ -99,19 +99,19 @@ def run():
     def __receive_from_connection(connection):
         data_bytes = b''
         length = b''
-        for _ in range(12000):
+        for _ in range(50):
             if len(length) != 8:
                 length += connection.recv(8 - len(length))
-                sleep(0.01)
+                sleep(0.1)
             else:
                 break
         else:
             return b''
         if len(length) == 8:
             length = int(length)
-            for _ in range(12000):
+            for _ in range(50):
                 data_bytes += connection.recv(length - len(data_bytes))
-                sleep(0.01)
+                sleep(0.1)
                 if len(data_bytes) == length:
                     break
             else:
@@ -119,6 +119,7 @@ def run():
             return data_bytes
         else:
             return b''
+
 
     def __restart_host_machine(duration=5):
         system_caller(f'shutdown -r -f -t {duration}')

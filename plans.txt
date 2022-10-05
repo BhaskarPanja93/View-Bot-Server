@@ -11,6 +11,4 @@ ngrok direct each image has unique % for matching
 
 logging for some web actions not added for some web functions
 
-activate all vms automatically
 
-keep track of views and duration only when the vm restarts itself

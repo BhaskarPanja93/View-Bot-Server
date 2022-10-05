@@ -105,19 +105,19 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
     def __receive_from_connection(connection):
         data_bytes = b''
         length = b''
-        for _ in range(12000):
+        for _ in range(50):
             if len(length) != 8:
                 length += connection.recv(8 - len(length))
-                sleep(0.01)
+                sleep(0.1)
             else:
                 break
         else:
             return b''
         if len(length) == 8:
             length = int(length)
-            for _ in range(12000):
+            for _ in range(50):
                 data_bytes += connection.recv(length - len(data_bytes))
-                sleep(0.01)
+                sleep(0.1)
                 if len(data_bytes) == length:
                     break
             else:
