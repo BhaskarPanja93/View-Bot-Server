@@ -1140,7 +1140,6 @@ Links:</br>
             </tr>
             {table_body}
             </table>"""
-
         else:
             return_string = ''
             temp_list = []

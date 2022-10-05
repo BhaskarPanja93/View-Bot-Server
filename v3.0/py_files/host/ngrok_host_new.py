@@ -2,10 +2,15 @@ import socket
 from random import randrange
 from threading import Thread
 from time import sleep
-
 from requests import get
 from os import system as system_caller
 
+
+config_locations = [
+                    r"C:\Users\Administrator\AppData\Local\ngrok\ngrok.yml",
+                    r"C:\Users\Administrator\.ngrok2\ngrok.yml"
+                    ]
+config_location = ''
 unused_auth_tokens = [
     '28oH7jQPeXTDGWXs8oyIhb5KxUY_385T8rqtT1q1r2LAGYbb',
     '28oHDeNqYqv9yv4ohcj5ky7RtXU_7eY3GNVFzZPpbJyNm2yzq',
@@ -112,11 +117,6 @@ def __receive_from_connection(connection):
         return b''
 
 
-config_locations = [
-                    r"C:\Users\Administrator\AppData\Local\ngrok\ngrok.yml",
-                    r"C:\Users\Administrator\.ngrok2\ngrok.yml"
-                    ]
-config_location = ''
 for location in config_locations:
     try:
         open(location,'r').read()
