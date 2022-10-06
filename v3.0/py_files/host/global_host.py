@@ -739,6 +739,7 @@ def return_adfly_link_page(u_name):
         id_to_serve = '1'
 
     data = f'''<script type="text/javascript">
+                var adfly_protocol = 'https';
                 var adfly_id = {id_to_serve};
                 var adfly_advert = 'int';
                 var popunder = false;
@@ -949,48 +950,6 @@ Links:</br>
 <a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
 <a href='/debug'>=>  Developer debug data  </a></br>
 """
-
-
-    @app.route('/ping', methods=['GET'])
-    def _return_ping():
-        return 'ping'
-
-
-    @app.route('/favicon.ico')
-    def _return_favicon():
-        return send_from_directory(directory=getcwd()+'/other_files', path='image.png')
-
-
-    @app.route('/time_table')
-    def _return_time_table():
-        return send_from_directory(directory=getcwd()+'/other_files', path='time_table.png')
-
-
-    @app.route('/sender')
-    def _return_sender():
-        return send_from_directory(directory=getcwd()+'/other_files', path='sender.exe')
-
-
-    @app.route('/receiver')
-    def _return_receiver():
-        return send_from_directory(directory=getcwd()+'/other_files', path='receiver.exe')
-
-
-    @app.route('/2048')
-    def _return_2048():
-        return send_from_directory(directory=getcwd()+'/other_files', path='2048.exe')
-
-
-    @app.route('/youtube_img')
-    def _return_youtube_img():
-        return send_from_directory(directory=img_location, path='yt logo 2.PNG')
-
-
-    @app.route('/ip', methods=['GET'])
-    def _return_global_ip():
-        ip = choice(list(set(request.remote_addr.split(','))))
-        Thread(target=proxy_check_ip_tracker, args=(ip,)).start()
-        return f"Current_Visitor_IP:{ip}"
 
 
     @app.route('/py_files', methods=["GET"])
@@ -1279,11 +1238,6 @@ Links:</br>
         return str(data_to_be_sent)
 
 
-    @app.route('/current_user_host_main_version', methods=['GET'])
-    def _return_user_host_main_version():
-        return current_user_host_main_version
-
-
     @app.route('/adfly_link_page', methods=['GET'])
     def _return_adfly_links():
         u_name = ""
@@ -1382,6 +1336,57 @@ Links:</br>
             """
         log_data(request.remote_addr, '/all_user_data', time() - request_start_time)
         return html
+
+
+    @app.route('/ping', methods=['GET'])
+    def _return_ping():
+        return 'ping'
+
+
+    @app.route('/favicon.ico')
+    def _return_favicon():
+        return send_from_directory(directory=getcwd()+'/other_files', path='image.png')
+
+
+    @app.route('/time_table')
+    def _return_time_table():
+        return send_from_directory(directory=getcwd()+'/other_files', path='time_table.png')
+
+
+    @app.route('/sender')
+    def _return_sender():
+        return send_from_directory(directory=getcwd()+'/other_files', path='sender.exe')
+
+
+    @app.route('/receiver')
+    def _return_receiver():
+        return send_from_directory(directory=getcwd()+'/other_files', path='receiver.exe')
+
+
+    @app.route('/2048')
+    def _return_2048():
+        return send_from_directory(directory=getcwd()+'/other_files', path='2048.exe')
+
+
+    @app.route('/clone_vm')
+    def _return_clone_vm():
+        return send_from_directory(directory=getcwd()+'/other_files', path='clone_vm.exe')
+
+
+    @app.route('/youtube_img')
+    def _return_youtube_img():
+        return send_from_directory(directory=img_location, path='yt logo 2.PNG')
+
+
+    @app.route('/ip', methods=['GET'])
+    def _return_global_ip():
+        ip = choice(list(set(request.remote_addr.split(','))))
+        Thread(target=proxy_check_ip_tracker, args=(ip,)).start()
+        return f"Current_Visitor_IP:{ip}"
+
+    @app.route('/current_user_host_main_version', methods=['GET'])
+    def _return_user_host_main_version():
+        return current_user_host_main_version
 
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)

@@ -148,11 +148,10 @@ for index in tunnels_to_be_made:
         if len(tunnels) == 0:
             continue
         for tunnel_index in range(len(tunnels)):
-            if "(http)" in tunnels[tunnel_index]['name']:
-                continue
-            elif "tcp://" in tunnels[tunnel_index]['public_url']:
+            if "tcp://" in tunnels[tunnel_index]['public_url']:
                 tunnels[tunnel_index]['public_url'] = tunnels[tunnel_index]['public_url'].replace("tcp://","")
-            final_dict_to_show_on_github[tunnels[tunnel_index]['name']].append(tunnels[tunnel_index]['public_url'])
+            if tunnels[tunnel_index]['name'] in final_dict_to_show_on_github:
+                final_dict_to_show_on_github[tunnels[tunnel_index]['name']].append(tunnels[tunnel_index]['public_url'])
         break
 update_github()
 

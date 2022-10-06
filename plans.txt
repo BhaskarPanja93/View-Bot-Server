@@ -11,4 +11,6 @@ ngrok direct each image has unique % for matching
 
 logging for some web actions not added for some web functions
 
+replace chrome_opened parameter with a time based cooldown.
 
+time based version tracking for each server file, to prevent unnecessary re-write of unchanged file

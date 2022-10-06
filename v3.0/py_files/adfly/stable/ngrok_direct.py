@@ -8,8 +8,10 @@ local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
 start_time  = ''
 link_viewer_token = ''
+chrome_opened = False
+
 def run(img_dict, _global_host_page = '', _local_page = ''):
-    global global_host_page, local_page
+    global global_host_page, local_page, chrome_opened
     from os import remove
     remove('instance.py')
     global start_time, link_viewer_token
@@ -135,12 +137,14 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
 
 
     def __close_chrome_safe():
+        global chrome_opened
         for sign in ['chrome close region 1', 'chrome close region 2']:
             chrome_close_region = __find_image_on_screen(img_name=sign, confidence=0.8)
             if chrome_close_region:
                 coordinates = __find_image_on_screen(img_name='chrome close', region=chrome_close_region, confidence=0.9)
                 if coordinates:
                     __click(coordinates)
+                    chrome_opened = False
                     break
 
 
@@ -297,7 +301,6 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 thread_name.start()
         thread_name.join()
         sleep(2)
-        nothing_opened_counter = 1
         while not success and not failure:
             sleep(randrange(0, 2))
             coordinates = [0, 0, 0, 0]
@@ -348,13 +351,9 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                 elif current_screen_condition == 'chrome_restore':
                     __click(coordinates, position='top_right')
                 elif current_screen_condition == 'nothing_opened':
-                    if nothing_opened_counter>=1:
-                        pyautogui.press('f5')
-                        sleep(0.1)
+                    if not chrome_opened:
                         __click(coordinates)
-                        nothing_opened_counter = 0
-                    else:
-                        nothing_opened_counter += 1
+                        chrome_opened = True
                 elif current_screen_condition == 'blank_chrome':
                     pyautogui.hotkey('ctrl', 'l')
                     # __click(coordinates)
