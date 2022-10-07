@@ -11,6 +11,11 @@ ngrok direct each image has unique % for matching
 
 logging for some web actions not added for some web functions
 
-replace chrome_opened parameter with a time based cooldown.
+replace chrome_opened parameter with a time based cooldown for each image
 
 time based version tracking for each server file, to prevent unnecessary re-write of unchanged file
+
+make suffix link adfly specific
+
+coloured text or show debug statements on web page
+

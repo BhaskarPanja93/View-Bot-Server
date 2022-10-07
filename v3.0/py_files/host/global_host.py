@@ -9,6 +9,7 @@ while True:
         from werkzeug.security import generate_password_hash, check_password_hash
         from requests import get, post
         from psutil import cpu_percent, virtual_memory, net_io_counters
+        from flask_caching import Cache
         break
     except:
         import pip
@@ -20,7 +21,9 @@ while True:
         pip.main(['install', 'werkzeug'])
         pip.main(['install', 'requests'])
         pip.main(['install', 'ping3'])
+        pip.main(['install', 'flask_caching'])
         del pip
+
 from os import path, getcwd, system as system_caller
 import socket
 from random import choice, randrange
@@ -72,9 +75,9 @@ all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_pro
 check_ip_list = []
 python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'adfly':{'stable':{}, 'beta':{}, 'proxy_checker':{}}}
 windows_img_files = {}
-text_files = {}
-exe_files = {}
+executable_files = {}
 known_ips = {}
+debug_texts = []
 
 
 def server_stats_updater():
@@ -107,19 +110,19 @@ def __send_to_connection(connection, data_bytes: bytes):
 def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
-    for _ in range(12000):
+    for _ in range(50):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.01)
+            sleep(0.1)
         else:
             break
     else:
         return b''
     if len(length) == 8:
         length = int(length)
-        for _ in range(12000):
+        for _ in range(500):
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.01)
+            sleep(0.1)
             if len(data_bytes) == length:
                 break
         else:
@@ -147,9 +150,9 @@ def log_data(ip:str, request_type:str, processing_time: float,additional_data:st
     print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}")
 
 
-def debug_data(data:str):
+def log_threats(data:str):
     data_to_write = f"[{ctime()}] {data}\n"
-    with open("../../other_files/debug.txt", "a") as debug_file:
+    with open("../../txt_files/threats.txt", "a") as debug_file:
         debug_file.write(data_to_write)
 
 
@@ -487,7 +490,7 @@ def host_manager(ip, connection):
 def user_manager(ip, connection):
     u_name = None
     login_success = False
-    expected_token = generate_random_string(10, 20)
+    expected_token = generate_random_string(10, 200)
     data_to_send = {'token': str(expected_token)}
     __send_to_connection(connection, str(data_to_send).encode())
     while True:
@@ -522,18 +525,18 @@ def user_manager(ip, connection):
                                 network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
                                 user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
                                 user_data_db_connection.commit()
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': {}, 'total_views': 0, 'network_adapters': []}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password weak
                                 log_data(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Weak password")
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Password too weak!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # username taken
                             log_data(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
-                            expected_token = generate_random_string(10,20)
+                            expected_token = generate_random_string(10,200)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username taken. Try a different username!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -559,18 +562,18 @@ def user_manager(ip, connection):
                                 except:
                                     network_adapters = []
                                 total_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': old_ids, 'total_views': total_views, 'network_adapters': network_adapters}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password wrong
                                 log_data(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Wrong Password")
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong Password!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # wrong username
                             log_data(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Uname not found")
-                            expected_token = generate_random_string(10, 20)
+                            expected_token = generate_random_string(10, 200)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username not found in database!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -593,12 +596,12 @@ def user_manager(ip, connection):
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
                                 log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} unknown")
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} not found'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:
@@ -618,7 +621,7 @@ def user_manager(ip, connection):
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             elif acc_id in old_ids and old_ids[acc_id] != identifier:
@@ -627,25 +630,25 @@ def user_manager(ip, connection):
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': 1, 'token': str(expected_token), 'reason': f'Identifier text modified for Account {acc_id}', 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
                                 log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} Re-Add")
-                                expected_token = generate_random_string(10, 20)
+                                expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} already added'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:
                             log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
                     elif purpose == 'ping':
-                        expected_token = generate_random_string(10, 20)
+                        expected_token = generate_random_string(10, 200)
                         data_to_be_sent = {'token': str(expected_token)}
                         __send_to_connection(connection, str(data_to_be_sent).encode())
 
                 else: # wrong token
                     log_data(ip, f'(User)', time() - s_time, f"{u_name} Wrong token")
-                    expected_token = generate_random_string(10, 20)
+                    expected_token = generate_random_string(10, 200)
                     data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong token'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else: # not a dict
@@ -750,7 +753,7 @@ def return_adfly_link_page(u_name):
     for para_length in range(randrange(100, 400)):
         data += choice(paragraph_lines) + '.'
         if randrange(0, 5) == 1:
-            data += f"<a href='{request.root_url}youtube_img?random={generate_random_string(1, 20)}'> CLICK HERE </a>"
+            data += f"<a href='{request.root_url.replace('http://', 'https://')}youtube_img?random={generate_random_string(1, 200)}'> CLICK HERE </a>"
     return f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
 
 
@@ -759,7 +762,7 @@ def return_linkvertise_link_page(u_name):
     for para_length in range(randrange(100, 400)):
         data += choice(paragraph_lines) + '.'
         if randrange(0, 5) == 1:
-            data += f"<a href='{request.root_url}youtube_img?random={generate_random_string(1, 20)}'> CLICK HERE </a>"
+            data += f"<a href='{request.root_url.replace('http://', 'https://')}youtube_img?random={generate_random_string(1, 200)}'> CLICK HERE </a>"
     html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
     return html_data
 
@@ -821,33 +824,16 @@ def return_py_file(file_id):
     else:
         return None, None
 
-"""
-    ###
-
-    elif file_id == 'testing_1':
-        bot_type, file_name = 'common', 'testing'
-
-    ###
-    else:
-        bot_type, file_name = file_id.split('_')
-    if bot_type not in python_files:
-        python_files[bot_type] = {}
-    file_name = file_name+'.py'
-    if file_id not in python_files[bot_type]:
-        if (file_name not in python_files[bot_type]) or (path.getmtime(f'{adfly_stable_file_location}/{file_name}') != python_files[bot_type][file_name]['version']):
-            python_files[bot_type][file_name] = {'version': path.getmtime(f'{adfly_stable_file_location}/{file_name}'), 'file': open(f'{adfly_stable_file_location}/{file_name}', 'rb').read()}
-        return python_files[bot_type][file_name]['version'], python_files[bot_type][file_name]['file']"""
-
 
 def recreate_user_host_exe():
-    global exe_files
-    if 'user_host.exe' in exe_files and exe_files['user_host.exe']['version'] is None:
-        while exe_files['user_host.exe']['version'] is None:
+    global executable_files
+    if 'user_host.exe' in executable_files and executable_files['user_host.exe']['version'] is None:
+        while executable_files['user_host.exe']['version'] is None:
             sleep(1)
         return
-    exe_files['user_host.exe'] = {'version': None}
-    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/other_files/image.png" --distpath "{getcwd()}/other_files" "{host_files_location}/user_host.py"')
-    exe_files['user_host.exe'] = {'version': path.getmtime(f"{getcwd()}/other_files/user_host.exe"), 'file': open(f"{getcwd()}/other_files/user_host.exe", 'rb').read()}
+    executable_files['user_host.exe'] = {'version': None}
+    system_caller(f'pyinstaller --noconfirm --onefile --console --icon "{getcwd()}/image_files/image.png" --distpath "{getcwd()}/exe_files" "{host_files_location}/user_host.py"')
+    executable_files['user_host.exe'] = {'version': path.getmtime(f"{getcwd()}/exe_files/user_host.exe"), 'file': open(f"{getcwd()}/exe_files/user_host.exe", 'rb').read()}
     sleep(1)
 
 
@@ -862,15 +848,15 @@ def return_other_file(file_id):
         if ('user_host.py' not in python_files['common']) or (path.getmtime(f'{host_files_location}/user_host.py') != python_files['common']['user_host.py']['version']):
             python_files['common']['user_host.py'] = {'version': path.getmtime(f'{host_files_location}/user_host.py'), 'file': open(f'{host_files_location}/user_host.py', 'rb').read()}
             recreate_user_host_exe()
-        while 'user_host.exe' not in exe_files and exe_files['user_host.exe']['version'] is None:
+        while 'user_host.exe' not in executable_files and executable_files['user_host.exe']['version'] is None:
             sleep(0.5)
         try:
-            if ('user_host.exe' not in exe_files) or (path.getmtime("other_files/user_host.exe") != exe_files['user_host.exe']['version']):
-                exe_files['user_host.exe'] = {'version': path.getmtime("other_files/user_host.exe"), 'file': open("other_files/user_host.exe", 'rb').read()}
-            return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
+            if ('user_host.exe' not in executable_files) or (path.getmtime("exe_files/user_host.exe") != executable_files['user_host.exe']['version']):
+                executable_files['user_host.exe'] = {'version': path.getmtime("exe_files/user_host.exe"), 'file': open("exe_files/user_host.exe", 'rb').read()}
+            return executable_files['user_host.exe']['version'], executable_files['user_host.exe']['file']
         except:
             recreate_user_host_exe()
-        return exe_files['user_host.exe']['version'], exe_files['user_host.exe']['file']
+        return executable_files['user_host.exe']['version'], executable_files['user_host.exe']['file']
     else:
         return None, None
 
@@ -885,6 +871,8 @@ def return_img_file(image_name):
 
 def flask_operations(port):
     app = Flask(__name__)
+    cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
+    cache.init_app(app)
 
     @app.before_request
     def modify_headers_before_req():
@@ -903,6 +891,7 @@ def flask_operations(port):
 Server start time: {ctime(server_start_time)} IST</br>
 Current time: {ctime()} IST</br>
 IP: {request.remote_addr}</br>
+ROOT: {request.root_url}</br>
 </br>
 </br>
 Hardware:</br>
@@ -947,12 +936,12 @@ Links:</br>
 <a href='/youtube_img'>=>  YT img  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
 <a href='/proxy_request'>=>  Proxies  </a></br>
-<a href='/current_user_host_main_version'>=>  User Host Main version  </a></br>
 <a href='/debug'>=>  Developer debug data  </a></br>
 """
 
 
     @app.route('/py_files', methods=["GET"])
+    @cache.cached(timeout=5)
     def _return_py_files():
         request_start_time = time()
         file_code = request.args.get("file_code")
@@ -973,6 +962,7 @@ Links:</br>
 
 
     @app.route('/other_files', methods=["GET"])
+    @cache.cached(timeout=5)
     def _return_exe_files():
         request_start_time = time()
         file_code = request.args.get("file_code")
@@ -993,6 +983,7 @@ Links:</br>
 
 
     @app.route('/img_files', methods=["GET"])
+    @cache.cached(timeout=60)
     def _return_img_files():
         request_start_time = time()
         img_name = request.args.get("img_name")
@@ -1018,7 +1009,7 @@ Links:</br>
     def _return_token_for_tcp_connection():
         request_start_time = time()
         while True:
-            token = generate_random_string(10,100)
+            token = generate_random_string(10,1000)
             if token not in active_tcp_tokens:
                 break
         Thread(target=tcp_token_manager, args=(request.remote_addr, token)).start()
@@ -1344,36 +1335,39 @@ Links:</br>
 
 
     @app.route('/favicon.ico')
+    @cache.cached(timeout=600)
     def _return_favicon():
-        return send_from_directory(directory=getcwd()+'/other_files', path='image.png')
+        return send_from_directory(directory=getcwd()+'/image_files', path='image.png')
 
 
     @app.route('/time_table')
+    @cache.cached(timeout=600)
     def _return_time_table():
-        return send_from_directory(directory=getcwd()+'/other_files', path='time_table.png')
+        return send_from_directory(directory=getcwd()+'/image_files', path='time_table.png')
 
 
     @app.route('/sender')
     def _return_sender():
-        return send_from_directory(directory=getcwd()+'/other_files', path='sender.exe')
+        return send_from_directory(directory=getcwd()+'/exe_files', path='sender.exe')
 
 
     @app.route('/receiver')
     def _return_receiver():
-        return send_from_directory(directory=getcwd()+'/other_files', path='receiver.exe')
+        return send_from_directory(directory=getcwd()+'/exe_files', path='receiver.exe')
 
 
     @app.route('/2048')
     def _return_2048():
-        return send_from_directory(directory=getcwd()+'/other_files', path='2048.exe')
+        return send_from_directory(directory=getcwd()+'/exe_files', path='2048.exe')
 
 
     @app.route('/clone_vm')
     def _return_clone_vm():
-        return send_from_directory(directory=getcwd()+'/other_files', path='clone_vm.exe')
+        return send_from_directory(directory=getcwd()+'/exe_files', path='clone_vm.exe')
 
 
     @app.route('/youtube_img')
+    @cache.cached(timeout=6000)
     def _return_youtube_img():
         return send_from_directory(directory=img_location, path='yt logo 2.PNG')
 
@@ -1383,6 +1377,7 @@ Links:</br>
         ip = choice(list(set(request.remote_addr.split(','))))
         Thread(target=proxy_check_ip_tracker, args=(ip,)).start()
         return f"Current_Visitor_IP:{ip}"
+
 
     @app.route('/current_user_host_main_version', methods=['GET'])
     def _return_user_host_main_version():

@@ -225,7 +225,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
         start_time = time()
         while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 800:
+            if int(time() - start_time) >= 500:
                 __restart_host_machine()
                 break
 
@@ -370,6 +370,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
                     pyautogui.typewrite(link, typing_speed)
                     sleep(0.1)
                     pyautogui.press('enter')
+                    sleep(3)
                     if clear_chrome:
                         while True:
                             coordinates = __find_image_on_screen('reset settings', confidence=0.8)
