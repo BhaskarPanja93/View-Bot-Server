@@ -19,3 +19,4 @@ make suffix link adfly specific
 
 coloured text or show debug statements on web page
 
+rebrand from adfly viewbot to Project Viewbot

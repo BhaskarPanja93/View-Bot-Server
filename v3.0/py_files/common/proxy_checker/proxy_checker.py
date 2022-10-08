@@ -21,7 +21,7 @@ def verify_global_site():
             if popen(f'curl -L -s "{global_host_page}/ping" --max-time 10').read() == 'ping':
                 break
             else:
-                _ = 1 / 0
+                raise ZeroDivisionError
         except:
             try:
                 print("Global host ping failed. Rechecking from github...")
@@ -94,19 +94,12 @@ def __get_global_ip():
             else:
                 raise ZeroDivisionError
         except:
-            if 'http://' in global_host_page:
-                print('switched to secure')
-                global_host_page = global_host_page.replace("http://", "https://")
-            elif 'https://' in global_host_page:
-                print('switched to insecure')
-                global_host_page = global_host_page.replace("https://", "http://")
-            else:
-                print('fetching new')
-                sleep(0.1)
+            if 'http' not in global_host_page:
                 verify_global_site()
         sleep(1)
     else:
         return ""
+
 
 def restart_vpn_recheck_ip(_=0):
     global last_ip, connection_enabled, current_ip, current_proxy
@@ -145,6 +138,7 @@ def restart_vpn_recheck_ip(_=0):
 while not genuine_ip:
     __disconnect_proxy()
     genuine_ip = __get_global_ip()
+
 
 def run():
     while True:

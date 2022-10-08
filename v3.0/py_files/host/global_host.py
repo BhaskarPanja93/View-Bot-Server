@@ -9,7 +9,6 @@ while True:
         from werkzeug.security import generate_password_hash, check_password_hash
         from requests import get, post
         from psutil import cpu_percent, virtual_memory, net_io_counters
-        from flask_caching import Cache
         break
     except:
         import pip
@@ -21,7 +20,6 @@ while True:
         pip.main(['install', 'werkzeug'])
         pip.main(['install', 'requests'])
         pip.main(['install', 'ping3'])
-        pip.main(['install', 'flask_caching'])
         del pip
 
 from os import path, getcwd, system as system_caller
@@ -871,8 +869,6 @@ def return_img_file(image_name):
 
 def flask_operations(port):
     app = Flask(__name__)
-    cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
-    cache.init_app(app)
 
     @app.before_request
     def modify_headers_before_req():
@@ -941,7 +937,6 @@ Links:</br>
 
 
     @app.route('/py_files', methods=["GET"])
-    @cache.cached(timeout=5)
     def _return_py_files():
         request_start_time = time()
         file_code = request.args.get("file_code")
@@ -962,7 +957,6 @@ Links:</br>
 
 
     @app.route('/other_files', methods=["GET"])
-    @cache.cached(timeout=5)
     def _return_exe_files():
         request_start_time = time()
         file_code = request.args.get("file_code")
@@ -983,7 +977,6 @@ Links:</br>
 
 
     @app.route('/img_files', methods=["GET"])
-    @cache.cached(timeout=60)
     def _return_img_files():
         request_start_time = time()
         img_name = request.args.get("img_name")
@@ -1335,13 +1328,11 @@ Links:</br>
 
 
     @app.route('/favicon.ico')
-    @cache.cached(timeout=600)
     def _return_favicon():
         return send_from_directory(directory=getcwd()+'/image_files', path='image.png')
 
 
     @app.route('/time_table')
-    @cache.cached(timeout=600)
     def _return_time_table():
         return send_from_directory(directory=getcwd()+'/image_files', path='time_table.png')
 
@@ -1367,7 +1358,6 @@ Links:</br>
 
 
     @app.route('/youtube_img')
-    @cache.cached(timeout=6000)
     def _return_youtube_img():
         return send_from_directory(directory=img_location, path='yt logo 2.PNG')
 
