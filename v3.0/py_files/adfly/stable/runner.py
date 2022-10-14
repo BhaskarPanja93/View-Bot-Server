@@ -335,13 +335,6 @@ def check_windscribe_logged_in():
             break
 
 
-__clean_temps_directory()
-__disconnect_all_vpn()
-check_windscribe_logged_in()
-sleep(3)
-while not genuine_ip:
-    genuine_ip = __get_global_ip()
-## update user agent list
 try:
     previous_data = eval(open("previous_data", 'r').read())
     start_time = previous_data['start_time'] + (time() - previous_data['stop_time'])
@@ -356,9 +349,17 @@ except:
     previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
     with open("previous_data", 'w') as file:
         file.write(str(previous_data))
-
 if not activated:
-    activate_windows()
+    Thread(target=activate_windows).start()
+
+
+__clean_temps_directory()
+__disconnect_all_vpn()
+check_windscribe_logged_in()
+sleep(3)
+while not genuine_ip:
+    genuine_ip = __get_global_ip()
+
 
 Thread(target=restart_if_connection_missing).start()
 Thread(target=send_data).start()

@@ -375,12 +375,31 @@ def __clean_temps_directory():
             pass
 
 
+try:
+    previous_data = eval(open("previous_data", 'r').read())
+    start_time = previous_data['start_time'] + (time() - previous_data['stop_time'])
+    views = previous_data['views']
+    activated = previous_data['activated']
+    previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
+    with open("previous_data", 'w') as file:
+        file.write(str(previous_data))
+except:
+    start_time = time()
+    activated = False
+    previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
+    with open("previous_data", 'w') as file:
+        file.write(str(previous_data))
+if not activated:
+    Thread(target=activate_windows).start()
+
+
 __clean_temps_directory()
 __disconnect_proxy()
 sleep(3)
 while not genuine_ip:
     genuine_ip = __get_global_ip()
-## update user agent list
+
+
 try:
     previous_data = eval(open("previous_data", 'r').read())
     start_time = previous_data['start_time'] + (time() - previous_data['stop_time'])

@@ -20,3 +20,11 @@ make suffix link adfly specific
 coloured text or show debug statements on web page
 
 rebrand from adfly viewbot to Project Viewbot
+
+recreate every database each time the server starts to prevent unnecessary space consumption
+
+token for opening adfly or linkvertise link page, to prevent any random person forem accessing other person's adfly or linkvertise ids
+
+linkvertise bot
+
+vm send debug comments to user host

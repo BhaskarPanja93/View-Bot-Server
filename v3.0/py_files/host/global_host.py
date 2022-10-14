@@ -75,7 +75,7 @@ python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'adfly':{'s
 windows_img_files = {}
 executable_files = {}
 known_ips = {}
-debug_texts = []
+logs = []
 
 
 def server_stats_updater():
@@ -139,18 +139,31 @@ def __try_closing_connection(connection):
             pass
 
 
-def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
+def time_based_logs_manager(data='', duration=0):
+    logs.append(data)
+    sleep(duration)
+    if data in logs:
+        logs.remove(data)
+
+
+def add_to_logs(ip:str, request_type:str, processing_time: float, additional_data:str= '', duration=60*60*24*2):
     if ip in known_ips and known_ips[ip]:
         u_name = known_ips[ip]
     else:
         known_ips[ip] = []
         u_name = [ip]
-    print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}")
+    Thread(target=time_based_logs_manager, args=(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}",duration)).start()
 
 
-def log_threats(data:str):
+def log_threats(ip:str, request_type:str, processing_time: float, additional_data:str= ''):
+    if ip in known_ips and known_ips[ip]:
+        u_name = known_ips[ip]
+    else:
+        known_ips[ip] = []
+        u_name = [ip]
+    data = f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}"
     data_to_write = f"[{ctime()}] {data}\n"
-    with open("../../txt_files/threats.txt", "a") as debug_file:
+    with open("txt_files/threats.txt", "a") as debug_file:
         debug_file.write(data_to_write)
 
 
@@ -381,7 +394,7 @@ def host_manager(ip, connection):
             network_adapters = response_dict['network_adapters']
             if u_name_matches_standard(u_name):
                 if password_matches_standard(password):
-                    log_data(ip, 'New Account (Host)', time() - s_time, u_name)
+                    add_to_logs(ip, 'New Account (Host)', time() - s_time, u_name)
                     if u_name not in known_ips[ip]:
                         known_ips[ip].append(u_name)
                     user_pw_hash = generate_password_hash(password, salt_length=1000)
@@ -398,11 +411,11 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password weak
-                    log_data(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Weak password")
+                    add_to_logs(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Weak password")
                     data_to_be_sent = {'status_code': -1, 'reason': 'Password too weak!'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # username taken
-                log_data(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Uname not allowed")
+                add_to_logs(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Uname not allowed")
                 data_to_be_sent = {'status_code': -1, 'reason': 'Username taken. Try a different username!'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -414,7 +427,7 @@ def host_manager(ip, connection):
             if u_name in all_u_names:
                 user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                 if check_password_hash(user_pw_hash, password):
-                    log_data(ip, 'Password Login (Host)', time() - s_time, u_name)
+                    add_to_logs(ip, 'Password Login (Host)', time() - s_time, u_name)
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     try:
@@ -434,11 +447,11 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password wrong
-                    log_data(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Wrong Password")
+                    add_to_logs(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Wrong Password")
                     data_to_be_sent = {'status_code': -1, 'reason': 'Wrong Password!'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # wrong username
-                log_data(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Uname not found")
+                add_to_logs(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Uname not found")
                 data_to_be_sent = {'status_code': -1, 'reason': 'Username not found in database!'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -451,7 +464,7 @@ def host_manager(ip, connection):
                 instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
                 real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                 if auth_token == real_auth_token:
-                    log_data(ip, 'Auth Login (Host)', time() - s_time, u_name)
+                    add_to_logs(ip, 'Auth Login (Host)', time() - s_time, u_name)
                     if u_name not in known_ips[ip]:
                         known_ips[ip].append(u_name)
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
@@ -470,11 +483,11 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': 0, 'additional_data': {'auth_token': auth_token}}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # auth token wrong
-                    log_data(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Auth")
+                    add_to_logs(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Auth")
                     data_to_be_sent = {'status_code': -1}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # wrong username
-                log_data(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Uname")
+                add_to_logs(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Uname")
                 data_to_be_sent = {'status_code': -1}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -510,7 +523,7 @@ def user_manager(ip, connection):
                         password = response_dict['password'].strip().swapcase()
                         if u_name_matches_standard(u_name):
                             if password_matches_standard(password):
-                                log_data(ip, 'New Account (User)', time() - s_time, u_name)
+                                add_to_logs(ip, 'New Account (User)', time() - s_time, u_name)
                                 if u_name not in known_ips[ip]:
                                     known_ips[ip].append(u_name)
                                 user_pw_hash = generate_password_hash(password, salt_length=1000)
@@ -528,12 +541,12 @@ def user_manager(ip, connection):
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password weak
-                                log_data(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Weak password")
+                                add_to_logs(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Weak password")
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Password too weak!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # username taken
-                            log_data(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
+                            add_to_logs(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
                             expected_token = generate_random_string(10,200)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username taken. Try a different username!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -546,7 +559,7 @@ def user_manager(ip, connection):
                         if u_name in all_u_names:
                             user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
                             if check_password_hash(user_pw_hash, password):
-                                log_data(ip, 'Password Login (User)', time() - s_time, u_name)
+                                add_to_logs(ip, 'Password Login (User)', time() - s_time, u_name)
                                 if u_name not in known_ips[ip]:
                                     known_ips[ip].append(u_name)
                                 key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
@@ -565,12 +578,12 @@ def user_manager(ip, connection):
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password wrong
-                                log_data(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Wrong Password")
+                                add_to_logs(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Wrong Password")
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong Password!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # wrong username
-                            log_data(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Uname not found")
+                            add_to_logs(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Uname not found")
                             expected_token = generate_random_string(10, 200)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username not found in database!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -583,13 +596,13 @@ def user_manager(ip, connection):
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id == 'all_acc_ids':
-                                log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} All")
+                                add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} All")
                                 old_ids = {}
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
                             elif acc_id in old_ids:
-                                log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} {acc_id}")
+                                add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} {acc_id}")
                                 del old_ids[acc_id]
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
@@ -598,12 +611,12 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
-                                log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} unknown")
+                                add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} unknown")
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} not found'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:
-                            log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
+                            add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
                     elif purpose == 'add_account':
                         if login_success and u_name:
@@ -614,7 +627,7 @@ def user_manager(ip, connection):
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id not in old_ids:
-                                log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id}")
+                                add_to_logs(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id}")
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
@@ -623,7 +636,7 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             elif acc_id in old_ids and old_ids[acc_id] != identifier:
-                                log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id} Updated")
+                                add_to_logs(ip, 'Add Account (User)', time() - s_time, f"{u_name} {acc_id} Updated")
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
@@ -632,12 +645,12 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 1, 'token': str(expected_token), 'reason': f'Identifier text modified for Account {acc_id}', 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
-                                log_data(ip, 'Add Account (User)', time() - s_time, f"{u_name} Re-Add")
+                                add_to_logs(ip, 'Add Account (User)', time() - s_time, f"{u_name} Re-Add")
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} already added'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:
-                            log_data(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
+                            add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
                     elif purpose == 'ping':
                         expected_token = generate_random_string(10, 200)
@@ -645,7 +658,7 @@ def user_manager(ip, connection):
                         __send_to_connection(connection, str(data_to_be_sent).encode())
 
                 else: # wrong token
-                    log_data(ip, f'(User)', time() - s_time, f"{u_name} Wrong token")
+                    log_threats(ip, f'(User)', time() - s_time, f"{u_name} Wrong token")
                     expected_token = generate_random_string(10, 200)
                     data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong token'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -686,7 +699,7 @@ def accept_connections_from_users(port):
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
                     public_ip = active_tcp_tokens[binding_token][0]
-                    log_data(public_ip, 'Login Req (Host)', 0.0)
+                    add_to_logs(public_ip, 'Login Req (Host)', 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
                     return
@@ -696,7 +709,7 @@ def accept_connections_from_users(port):
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
                     public_ip = active_tcp_tokens[binding_token][0]
-                    log_data(public_ip, 'Login Req (User)', 0.0)
+                    add_to_logs(public_ip, 'Login Req (User)', 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
                     return
@@ -920,18 +933,23 @@ Total checked: {proxies_checked_count}</br>
     @app.route('/')
     def _return_root_url():
         request_start_time = time()
-        log_data(request.remote_addr, '/', time() - request_start_time)
+        add_to_logs(request.remote_addr, '/', time() - request_start_time)
         return f"""
 Server start time: {ctime(server_start_time)} IST</br>
 IP: {request.remote_addr}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
 <a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
-<a href='/time_table'>=>  College Schedule  </a></br>
-<a href='/favicon.ico'>=>  Icon  </a></br>
-<a href='/youtube_img'>=>  YT img  </a></br>
+<a href='/time_table'>=> College Schedule  </a></br>
+<a href='/favicon.ico'>=>  Brand Icon  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
-<a href='/proxy_request'>=>  Proxies  </a></br>
+<a href='/2048'>=>  Download Game2048.exe  </a></br>
+<a href='/sender'>=>  Download Sender.exe for file transfer </a></br>
+<a href='/receiver'>=>  Download Receiver.exe for file transfer </a></br>
+<a href='/clone_vm'>=>  Download CloneVM.exe for mass cloning Virtual machines </a></br>
+<a href='/adfly_link_page'>=>  Demo AdFly link page </a></br>
+<a href='/linkvertise_link_page'>=>  Demo Linkvertise link page </a></br>
+<a href='/proxy_request'>=>  All Proxies  </a></br>
 <a href='/debug'>=>  Developer debug data  </a></br>
 """
 
@@ -952,7 +970,7 @@ Links:</br>
         else:
             return_data =  str({'file_code':file_code, 'version':current_version, 'data':data})
 
-        log_data(request.remote_addr, '/py_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        add_to_logs(request.remote_addr, '/py_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
@@ -972,7 +990,7 @@ Links:</br>
         else:
             return_data = str({'file_code': file_code, 'version': current_version, 'data': data})
 
-        log_data(request.remote_addr, '/other_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
+        add_to_logs(request.remote_addr, '/other_files', time() - request_start_time, f"{file_code}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
@@ -994,7 +1012,7 @@ Links:</br>
         else:
             return_data = str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size})
 
-        log_data(request.remote_addr, '/img_files', time() - request_start_time, f"{img_name}{' : Updated' if version != current_version else ''}")
+        add_to_logs(request.remote_addr, '/img_files', time() - request_start_time, f"{img_name}{' : Updated' if version != current_version else ''}")
         return return_data
 
 
@@ -1010,13 +1028,12 @@ Links:</br>
         request_ip = request.remote_addr
         if not request_ip or request_ip == '127.0.0.1':
             request_ip = request.environ['HTTP_X_FORWARDED_FOR']
-        log_data(request_ip, '/token_for_tcp_connection', time() - request_start_time, f"active tokens: {len(active_tcp_tokens)}")
+        add_to_logs(request_ip, '/token_for_tcp_connection', time() - request_start_time, f"active tokens: {len(active_tcp_tokens)}")
         return token
 
 
     @app.route('/proxy_request', methods=['GET'])
     def _return_proxy_list():
-        request_start_time = time()
         if not all_proxies_unique:
             return ''
         if 'quantity' in request.args:
@@ -1092,8 +1109,6 @@ Links:</br>
                     return_string += proxy +'</br>'
                     temp_list.append(proxy)
             return_string = f"Total:{len(temp_list)}</br>{return_string}"
-
-        log_data(request.remote_addr, '/proxy_request', time() - request_start_time, f"Quantity: {quantity}")
         return return_string
 
 
@@ -1129,7 +1144,7 @@ Links:</br>
                         if proxy not in failed_proxies_unique:
                             failed_proxies_unique.add(proxy)
             last_proxy_modified = time()
-        log_data(request.remote_addr, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}")
+        add_to_logs(request.remote_addr, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}", 60)
         return f'{proxy} {status}'
 
 
@@ -1238,11 +1253,19 @@ Links:</br>
         return return_linkvertise_link_page(u_name)
 
 
+    @app.route('/logs', methods=['GET'])
+    def _return_server_logs():
+        def generate():
+            for log in logs:
+                yield f"{log}</br>"
+        return app.response_class(generate())
+
+
     @app.route('/admin', methods=['GET'])
     def _return_all_user_data():
         request_start_time = time()
         if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
-            log_data(request.remote_addr, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
+            log_threats(request.remote_addr, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
             return f"You are not authorised to visit this page"
         all_data = {}
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
@@ -1318,7 +1341,7 @@ Links:</br>
             </body>
             </html>
             """
-        log_data(request.remote_addr, '/all_user_data', time() - request_start_time)
+        add_to_logs(request.remote_addr, '/all_user_data', time() - request_start_time)
         return html
 
 
