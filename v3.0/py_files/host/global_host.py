@@ -285,7 +285,10 @@ def write_proxy_stats():
                     proxy_db_connection.cursor().execute(f"INSERT into unchecked_proxies (proxy) values ('{proxy}')")
                 except:
                     pass
-            proxy_db_connection.commit()
+            try:
+                proxy_db_connection.commit()
+            except Exception as e:
+                log_threats('','proxy_stat_update',0,repr(e))
 
 
 def re_add_old_proxies():
@@ -295,7 +298,7 @@ def re_add_old_proxies():
         if not unchecked_proxies_unique:
             for _ in range(len(failed_proxies_unique) // 100):
                 unchecked_proxies_unique.add(failed_proxies_unique.pop())
-            for _ in range(len(failed_proxies_unique) // 10):
+            for _ in range(len(working_proxies_unique) // 10):
                 unchecked_proxies_unique.add(working_proxies_unique.pop()[0])
             last_proxy_modified = time()
 
@@ -690,7 +693,19 @@ def accept_connections_from_users(port):
             purpose = received_data['purpose']
             user_data_db_connection.commit()
 
-            if purpose == 'ping':
+            if purpose == 'receive_random_data':
+                while True:
+                    sleep(1)
+                    __receive_from_connection(connection)
+
+
+            elif purpose == 'send_random_data':
+                while True:
+                    sleep(1)
+                    __send_to_connection(connection, b"x")
+
+
+            elif purpose == 'ping':
                 data_to_be_sent = {'ping': 'ping'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -1036,40 +1051,19 @@ Links:</br>
     def _return_proxy_list():
         if not all_proxies_unique:
             return ''
+
         if 'quantity' in request.args:
             quantity = int(request.args.get('quantity'))
             quantity = min(quantity, len(all_proxies_unique))
         else:
-            quantity = 0
-        if 'worker' in request.args:
-            worker = int(request.args.get('worker'))
+            quantity = -1
+
+        if 'checker' in request.args:
+            checker = int(request.args.get('checker'))
         else:
-            worker = 0
+            checker = 0
 
-        if quantity == 1:
-            if worker:
-                if unchecked_proxies_unique:
-                    proxy = choice(list(unchecked_proxies_unique))
-                else:
-                    proxy = choice(list(all_proxies_unique))
-
-            else:
-                if choice([0,1]): #working
-                    if working_proxies_unique:
-                        proxy = choice(list(working_proxies_unique))[0]
-                    elif unchecked_proxies_unique:
-                        proxy = choice(list(unchecked_proxies_unique))
-                    else:
-                        proxy = choice(list(all_proxies_unique))
-
-                else: #unchecked
-                    if unchecked_proxies_unique:
-                        proxy = choice(list(unchecked_proxies_unique))
-                    else:
-                        proxy = choice(list(all_proxies_unique))
-            return proxy
-
-        elif quantity == 0:
+        if quantity == -1:
             _max_rows = max(len(working_proxies_unique), len(failed_proxies_unique), len(unchecked_proxies_unique))
             table_body = ''
             temp_working = sorted(working_proxies_unique)
@@ -1100,6 +1094,22 @@ Links:</br>
             </tr>
             {table_body}
             </table>"""
+
+        elif quantity == 1:
+            if checker == 1:
+                if unchecked_proxies_unique:
+                    proxy = choice(list(unchecked_proxies_unique))
+                else:
+                    proxy = choice(list(all_proxies_unique))
+            elif checker == -1:
+                if working_proxies_unique:
+                    proxy = choice(list(working_proxies_unique))[0]
+                else:
+                    proxy = choice(list(all_proxies_unique))
+            else:
+                proxy = choice(list(all_proxies_unique))
+            return proxy
+
         else:
             return_string = ''
             temp_list = []
@@ -1108,8 +1118,7 @@ Links:</br>
                 if proxy not in temp_list:
                     return_string += proxy +'</br>'
                     temp_list.append(proxy)
-            return_string = f"Total:{len(temp_list)}</br>{return_string}"
-        return return_string
+            return f"Total:{len(temp_list)}</br>{return_string}"
 
 
     @app.route('/proxy_report', methods=['GET'])
@@ -1253,14 +1262,6 @@ Links:</br>
         return return_linkvertise_link_page(u_name)
 
 
-    @app.route('/logs', methods=['GET'])
-    def _return_server_logs():
-        def generate():
-            for log in logs:
-                yield f"{log}</br>"
-        return app.response_class(generate())
-
-
     @app.route('/admin', methods=['GET'])
     def _return_all_user_data():
         request_start_time = time()
@@ -1302,45 +1303,51 @@ Links:</br>
                 network_adapter_data += f"{all_data[u_name]['network_adapters']}</br>"
 
             table_data += f"""
-                <tr>
-                <th class=with_borders>{u_name}
-                <td class=with_borders>{_id_data}
-                <td class=with_borders>{all_data[u_name]["total_views"]}
-                <td class=with_borders>{network_adapter_data}
-                <td class=with_borders>{all_data[u_name]["instance_token"]}
-                </tr>"""
-
+                        <tr>
+                        <th class=with_borders>{u_name}
+                        <td class=with_borders>{_id_data}
+                        <td class=with_borders>{all_data[u_name]["total_views"]}
+                        <td class=with_borders>{network_adapter_data}
+                        <td class=with_borders>{all_data[u_name]["instance_token"]}
+                        </tr>"""
+        log_data = ''
+        for log in logs:
+            log_data+=log+'</br>'
+        threats_data = ''
+        for line in open("txt_files/threats.txt", "r").readlines():
+            threats_data+=line+'</br>'
         html = f"""
-            <html>
-            <head>
-            <style>
-            .with_borders {{
-            border: 3px solid black;
-            }}
-            </style>
-            <style>
-            td, th {{
-            font-size: 18px;
-            }}
-            table, th, td {{
-            text-align: center;
-            }}
-            </style>
-            </head>
-            <body>
-            <table class=with_borders>
-            <tr>
-            <th>U_Name
-            <th>IDs
-            <th>Total Views
-            <th>Network Adapter
-            <th>Instance Token
-            </tr>
-            {table_data}
-            </table>
-            </body>
-            </html>
-            """
+                <html>
+                <head>
+                <style>
+                .with_borders {{
+                border: 3px solid black;
+                }}
+                </style>
+                <style>
+                td, th {{
+                font-size: 18px;
+                }}
+                table, th, td {{
+                text-align: center;
+                }}
+                </style>
+                </head>
+                <body>
+                <table class=with_borders>
+                <tr>
+                <th>U_Name
+                <th>IDs
+                <th>Total Views
+                <th>Network Adapter
+                <th>Instance Token
+                </tr>
+                {table_data}</br></br>
+                {log_data}</br></br>
+                {threats_data}</br></br>
+                </table>
+                """
+
         add_to_logs(request.remote_addr, '/all_user_data', time() - request_start_time)
         return html
 

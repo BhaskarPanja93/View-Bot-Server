@@ -66,7 +66,7 @@ tunnels_to_be_made = {1:{"key":"adfly_host_page_list",
                                         version: "2"
                                         """},
 
-                      3: {"key":"minecraft_connection_list",
+                      3: {"key":"minecraft_survival_list",
                                     "config":"""
                                     region: in
                                     authtoken: REPLACE_AUTHTOKEN
@@ -74,13 +74,27 @@ tunnels_to_be_made = {1:{"key":"adfly_host_page_list",
                                     inspect_db_size: -1
                                     log_level: crit
                                     tunnels:
-                                        minecraft_connection_list:
+                                        minecraft_survival_list:
                                             addr: 50000
                                             inspect: false
                                             proto: tcp
                                     version: "2"
                                     """},
-                      4:{"key":"adfly_local_list",
+                      4: {"key": "minecraft_creative_list",
+                                  "config": """
+                                  region: in
+                                  authtoken: REPLACE_AUTHTOKEN
+                                  web_addr: 127.0.0.1:INSPECT_PORT
+                                  inspect_db_size: -1
+                                  log_level: crit
+                                  tunnels:
+                                      minecraft_creative_list:
+                                          addr: 50001
+                                          inspect: false
+                                          proto: tcp
+                                  version: "2"
+                                  """},
+                      5:{"key":"adfly_local_list",
                                     "config":"""
                                     region: ap
                                     authtoken: REPLACE_AUTHTOKEN
@@ -140,7 +154,7 @@ def __receive_from_connection(connection):
         return b''
 
 
-final_dict_to_show_on_github = {'adfly_host_page_list':[], 'adfly_user_tcp_connection_list':[], 'minecraft_connection_list':[], 'adfly_local_list':[]}
+final_dict_to_show_on_github = {'adfly_host_page_list':[], 'adfly_user_tcp_connection_list':[], 'minecraft_survival_list':[], 'minecraft_creative_list':[], 'adfly_local_list':[]}
 def update_github():
     try:
         connection = force_connect_server('127.0.0.1', 50010)
