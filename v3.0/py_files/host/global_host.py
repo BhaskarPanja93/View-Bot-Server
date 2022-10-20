@@ -1147,11 +1147,11 @@ Links:</br>
                     proxies_checked_count += 1
                     if proxy in unchecked_proxies_unique:
                         unchecked_proxies_unique.remove(proxy)
-                    if proxy in working_proxies_unique:
-                        pass
-                    else:
-                        if proxy not in failed_proxies_unique:
-                            failed_proxies_unique.add(proxy)
+                    for pair in list(working_proxies_unique):
+                        if pair[0] == proxy:
+                            working_proxies_unique.remove(pair)
+                    if proxy not in failed_proxies_unique:
+                        failed_proxies_unique.add(proxy)
             last_proxy_modified = time()
         add_to_logs(request.remote_addr, '/proxy_report', time() - request_start_time, f"{proxy}: {status} {ip}", 60)
         return f'{proxy} {status}'
