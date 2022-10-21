@@ -17,7 +17,6 @@ def verify_global_site():
     global global_host_page
     while True:
         try:
-            print(f'Trying to connect to global_page at {global_host_page}')
             if popen(f'curl -L -s "{global_host_page}/ping" --max-time 10').read() == 'ping':
                 break
             else:
@@ -31,10 +30,6 @@ def verify_global_site():
             except:
                 print("Unable to connect to github. Recheck internet connection?")
                 sleep(1)
-
-
-def __restart_host_machine(duration=5):
-    system_caller(f'shutdown -r -f -t {duration}')
 
 
 def report_working_proxy(proxy, current_ip):
@@ -57,7 +52,7 @@ def __connect_proxy():
         current_proxy = ''
         sleep(0.1)
         try:
-            current_proxy = popen(f'curl -L -s "{global_host_page}/proxy_request?quantity=1&worker=1" --max-time 10').read().replace("</br>", "")
+            current_proxy = popen(f'curl -L -s "{global_host_page}/proxy_request?quantity=1&checker=1" --max-time 10').read().replace("</br>", "")
             # current_proxy = "8.219.97.248:80"
             if current_proxy == '':
                 return False
@@ -88,17 +83,28 @@ def __get_global_ip():
     verify_global_site()
     for _ in range(2):
         try:
-            response = get(f"{global_host_page}/ip", timeout=10).text
+            response = get(f"{global_host_page}/ip", timeout=10, headers={'ngrok-skip-browser-warning': 'demo',}, params={'cookies': f'http_abuse_interstitial={global_host_page.replace("https://", "").replace("http://", "")}', 'forward_headers': 'true',}).text
             if "Current_Visitor_IP:" in response:
                 return response.replace("Current_Visitor_IP:", '')
             else:
                 raise ZeroDivisionError
         except:
-            if 'http' not in global_host_page:
+            if 'http://' in global_host_page:
+                global_host_page = global_host_page.replace("http://", 'https://')
+            elif 'https://' in global_host_page:
+                global_host_page = global_host_page.replace("https://", 'http://')
+            else:
                 verify_global_site()
         sleep(1)
     else:
         return ""
+
+
+def __cloudflare_check():
+    """Dec1lent's cloudflare checking part to be added here.
+    Note: after all your operations, if the proxy is supposed to be added as working, return True at the end of the function, else return False"""
+
+    return True
 
 
 def restart_vpn_recheck_ip(_=0):
@@ -117,8 +123,9 @@ def restart_vpn_recheck_ip(_=0):
                 _ = 0
         elif genuine_ip != current_ip != last_ip and current_ip:
             if current_proxy:
-                Thread(target=report_working_proxy, args=(current_proxy, current_ip)).start()
-                last_ip = genuine_ip
+                if __cloudflare_check():
+                    Thread(target=report_working_proxy, args=(current_proxy, current_ip)).start()
+                    last_ip = genuine_ip
             print(f'successfully found working proxy {current_ip}')
             return
         else:
