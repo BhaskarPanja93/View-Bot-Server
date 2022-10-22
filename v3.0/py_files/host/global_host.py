@@ -1,5 +1,4 @@
-current_user_host_main_version = '2.4.2'
-
+## modules that require installation
 while True:
     try:
         from cryptography.fernet import Fernet
@@ -22,6 +21,9 @@ while True:
         pip.main(['install', 'ping3'])
         del pip
 
+
+
+## pre-installed modules
 from os import path, getcwd, system as system_caller
 import socket
 from random import choice, randrange
@@ -30,55 +32,68 @@ from time import sleep, time, ctime
 import ipaddress
 import logging
 
+
+## block logging of all flask outputs except errors
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
-server_start_time = time()
 
-my_u_name = 'bhaskar'
-reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/']
+
+current_user_host_main_version = '2.4.2' ## latest user_host file version
+available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
+server_start_time = time() ## server start time as float
+
+
+my_u_name = 'bhaskar' ## account to credit free views
+reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/'] ## strings not allowed for usernames
+
 
 parent, _ = path.split(path.split(getcwd())[0])
-read_only_location = path.join(parent, 'read only')
+read_only_location = path.join(parent, 'read only') ## stores paragraphs, user database, proxy database
 
 parent, _ = path.split(getcwd())
-img_location = path.join(parent, 'req_imgs/Windows')
-
-HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1))
-USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1))
-
-user_data_db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False)
-proxy_db_connection = sqlite3.connect(f'{read_only_location}/proxy.db', check_same_thread=False)
-paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.')
-host_files_location = getcwd() + '/py_files/host'
-adfly_stable_file_location = getcwd() + '/py_files/adfly/stable'
-adfly_beta_file_location = getcwd() + '/py_files/adfly/beta'
-proxy_checker_file_location = getcwd() +'/py_files/common/proxy_checker'
-testing_py_files_location = getcwd() + '/py_files/common/test'
+img_location = path.join(parent, 'req_imgs/Windows') ## stores all images
 
 
+HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1)) ## list of all ports flask web page should listen on
+USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1)) ##list of all ports socket connection should listen on
+
+
+user_data_db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False) ## user database
+proxy_db_connection = sqlite3.connect(f'{read_only_location}/proxy.db', check_same_thread=False) ## proxy database
+paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.') ## paragraph
+host_files_location = getcwd() + '/py_files/host'  ## location for all server codes
+adfly_stable_file_location = getcwd() + '/py_files/adfly/stable' ## location for all stable client codes
+adfly_beta_file_location = getcwd() + '/py_files/adfly/beta' ## location for all beta client codes
+proxy_checker_file_location = getcwd() +'/py_files/common/proxy_checker' ## location for proxy checking client codes
+
+
+proxy_db_last_change = 0 ## proxy database last modified time as float
+last_proxy_modified = 0 ## proxy in  memory last modified time as float
+pending_link_view_token = {} ## stores token to fulfill a view
+active_tcp_tokens = {} ## stores tokens for user_host to make connections along with their IP
+check_ip_list = [] ## stores IP reported by a proxy VM
+all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set() ## all proxies of each type (set for storing unique values)
+python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'adfly':{'stable':{}, 'beta':{}, 'proxy_checker':{}}} ## cache of all python files required according to time modified
+windows_img_files = {} ## cache of all image files required according to time modified
+executable_files = {} ## cache of all .exe files required according to time modified
+known_ips = {} ## map of IP to username
+logs = [] ## server logs stored here
+
+
+## initial values of network, CPU, RAM stats
 max_host_cpu = host_cpu = 0.0
 max_host_ram = host_ram = 0.0
 max_network_in = network_in = 0.0
 max_network_out = network_out = 0.0
 
 
-proxy_db_last_change = 0
-last_proxy_modified = 0
-pending_link_view_token = {}
-active_tcp_tokens = {}
-proxies_checked_count = 0
-all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set()
-check_ip_list = []
-python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'adfly':{'stable':{}, 'beta':{}, 'proxy_checker':{}}}
-windows_img_files = {}
-executable_files = {}
-known_ips = {}
-logs = []
-
-
 def server_stats_updater():
+    """
+    update the server CPU, RAM, network stats every second
+    :return: None
+    """
+
     global host_ram, host_cpu, network_out, network_in, max_host_ram, max_host_cpu, max_network_out, max_network_in
     while True:
         host_cpu = cpu_percent()
@@ -102,13 +117,27 @@ def server_stats_updater():
 
 
 def __send_to_connection(connection, data_bytes: bytes):
+    """
+    Send any data(max size 10^9 - 1 bytes) to the connected socket along with its 8 bytes header
+    :param connection: socket.socket(): connected socket object
+    :param data_bytes: bytes: data to be sent
+    :return: None
+    """
+
     connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
 
 
 def __receive_from_connection(connection):
+    """
+    Receive any data(max size 10^9 - 1 bytes) from the connected socket
+    Wait 30*0.1=3 secs to receive the 8 byte header, 80*0.1=8 secs to receive the main data
+    :param connection: socket.socket(): connected socket object
+    :return: bytes: the received data
+    """
+
     data_bytes = b''
     length = b''
-    for _ in range(50):
+    for _ in range(30):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
             sleep(0.1)
@@ -116,9 +145,11 @@ def __receive_from_connection(connection):
             break
     else:
         return b''
+
+
     if len(length) == 8:
         length = int(length)
-        for _ in range(500):
+        for _ in range(80):
             data_bytes += connection.recv(length - len(data_bytes))
             sleep(0.1)
             if len(data_bytes) == length:
@@ -131,6 +162,12 @@ def __receive_from_connection(connection):
 
 
 def __try_closing_connection(connection):
+    """
+    forcefully close a connection 10 times over a second duration
+    :param connection: socket.socket(): connection to close
+    :return: None
+    """
+
     for _ in range(10):
         sleep(0.1)
         try:
@@ -139,7 +176,14 @@ def __try_closing_connection(connection):
             pass
 
 
-def time_based_logs_manager(data='', duration=0):
+def __time_based_logs_manager(data='', duration=0):
+    """
+    append log data for temporary duration
+    :param data: log data to be stored
+    :param duration: float: duration to wait before removing the log data
+    :return: None
+    """
+
     logs.append(data)
     sleep(duration)
     if data in logs:
@@ -147,15 +191,34 @@ def time_based_logs_manager(data='', duration=0):
 
 
 def add_to_logs(ip:str, request_type:str, processing_time: float, additional_data:str= '', duration=60*60*24*2):
+    """
+    calls __time_based_logs_manager in a different thread with prettied log
+    :param ip: String: IP (if any) for flask or socket requests
+    :param request_type: String: request (if any) type for flask or socket requests
+    :param processing_time: Int: time required by server to process the request
+    :param additional_data: String: any additional data to store
+    :param duration: Int: time to wait before removing the log
+    :return: None
+    """
+
     if ip in known_ips and known_ips[ip]:
         u_name = known_ips[ip]
     else:
         known_ips[ip] = []
         u_name = [ip]
-    Thread(target=time_based_logs_manager, args=(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}",duration)).start()
+    Thread(target=__time_based_logs_manager, args=(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] {u_name} [{request_type}] {additional_data}",duration)).start()
 
 
 def log_threats(ip:str, request_type:str, processing_time: float, additional_data:str= ''):
+    """
+    logs only threat or Critical data, writes to a file
+    :param ip: String: IP (if any) for flask or socket requests
+    :param request_type: String: request (if any) type for flask or socket requests
+    :param processing_time: Int: time required by server to process the request
+    :param additional_data: String: any additional data to store
+    :return: None
+    """
+
     if ip in known_ips and known_ips[ip]:
         u_name = known_ips[ip]
     else:
@@ -168,6 +231,13 @@ def log_threats(ip:str, request_type:str, processing_time: float, additional_dat
 
 
 def generate_random_string(_min, _max):
+    """
+    generates a random string of random size
+    :param _min: Int: minimum length of the string to be formed
+    :param _max: Int: maximum length of the string to be formed
+    :return:
+    """
+
     string = ''
     for _ in range(randrange(_min, _max)):
         string += chr(choice(available_asciis))
@@ -175,6 +245,13 @@ def generate_random_string(_min, _max):
 
 
 def link_view_token_add(token, u_name):
+    """
+    save a link-view token for 1000 seconds, then remove it if the token still exists
+    :param token: String: the token to store
+    :param u_name: String: u_name the view belongs to
+    :return: None
+    """
+
     if token not in pending_link_view_token:
         pending_link_view_token[token] = u_name
         sleep(1000)
@@ -183,6 +260,12 @@ def link_view_token_add(token, u_name):
 
 
 def add_new_view(token):
+    """
+    remove link-view token if it exists, and add a new view to the user's account
+    :param token: String: link-view token
+    :return: None
+    """
+
     if token in pending_link_view_token:
         u_name_to_feed = pending_link_view_token[token]
         old_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name_to_feed}'")][0][0])
@@ -191,6 +274,12 @@ def add_new_view(token):
 
 
 def u_name_matches_standard(u_name: str):
+    """
+    define a standard for new username, repeated username not allowed, username with reserved characters not allowed
+    :param u_name: String: username to check
+    :return: Bool: the username is allowed or not
+    """
+
     for reserved_word in reserved_u_names_words:
         if reserved_word in u_name:
             return False
@@ -202,6 +291,12 @@ def u_name_matches_standard(u_name: str):
 
 
 def password_matches_standard(password: str):
+    """
+    define a standard for password, must contain required characters
+    :param password: String: password to check
+    :return: Bool: the password is allowed or not
+    """
+
     has_1_number = False
     has_1_upper =False
     has_1_lower = False
@@ -219,6 +314,13 @@ def password_matches_standard(password: str):
 
 
 def tcp_token_manager(ip, token):
+    """
+    store a token along with IP the token belongs to, token is used for logging in to socket based connections
+    :param ip: String: IP of the connection source
+    :param token: String: socket connection token
+    :return:None
+    """
+
     active_tcp_tokens[token] = [ip, False]
     for _ in range(30):
         sleep(1)
@@ -228,6 +330,10 @@ def tcp_token_manager(ip, token):
 
 
 def fetch_old_proxy_data():
+    """
+    fetch all old proxy data from the database
+    :return: None
+    """
     global last_proxy_modified
     _working = [_ for _ in proxy_db_connection.cursor().execute(f"SELECT proxy, ip from working_proxies")]
     for proxy in _working:
@@ -257,6 +363,10 @@ def fetch_old_proxy_data():
 
 
 def write_proxy_stats():
+    """
+    Write current proxy data to database
+    :return: None
+    """
     global proxy_db_last_change
     while True:
         sleep(10)
@@ -292,6 +402,11 @@ def write_proxy_stats():
 
 
 def re_add_old_proxies():
+    """
+    If there's no unchecked proxy left, add 10% of working proxies and 1% of failed proxies for rechecking
+    :return: None
+    """
+
     global last_proxy_modified
     while True:
         sleep(60*20)
@@ -304,6 +419,11 @@ def re_add_old_proxies():
 
 
 def fetch_proxies_from_sites():
+    """
+    Send get requests every 10minutes to various sites and receive list of proxies from them, and add them as unchecked proxies
+    :return: None
+    """
+
     global last_proxy_modified
     while True:
         proxy_added = False
@@ -359,6 +479,12 @@ https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"""
 
 
 def proxy_check_ip_tracker(ip):
+    """
+    add IP to proxy_waitlist for 60 seconds, for proxy's IP checking, then remove it
+    :param ip: String: IP received from the proxy
+    :return: None
+    """
+
     if ip not in check_ip_list:
         check_ip_list.append(ip)
     sleep(60)
@@ -367,15 +493,27 @@ def proxy_check_ip_tracker(ip):
 
 
 def ip_in_proxy_waitlist(ip):
+    """
+    check if IP in proxy_waitlist
+    :param ip: String: IP to check
+    :return: Bool: IP present or not
+    """
+
     if ip in check_ip_list and len(ip) < 50 :
         check_ip_list.remove(ip)
         return True
     return False
 
 
-def check_valid_ipv4_proxy(proxy):
+def check_valid_ipv4_proxy(string):
+    """
+    Check if the string(assumed to be proxy) is a valid IPv4 Proxy of format xxx.xxx.xxx.xxx:y
+    :param string: String: the string to check
+    :return: Bool: if the string resembles a valid IPv4 IP
+    """
+
     try:
-        ip, port = proxy.split(":")
+        ip, port = string.split(":")
         ipaddress.ip_network(ip)
         port = int(port)
         if 1<=port<=65535:
@@ -385,6 +523,13 @@ def check_valid_ipv4_proxy(proxy):
 
 
 def host_manager(ip, connection):
+    """
+    all user_host's internal actions manager
+    :param ip: String: IP of the user_host
+    :param connection: socket.socket(): socket object connected to the user_host
+    :return: None
+    """
+
     s_time = time()
     response_string = __receive_from_connection(connection).strip()
     if response_string and response_string[0] == 123 and response_string[-1] == 125 and b'eval' not in response_string:
@@ -502,6 +647,13 @@ def host_manager(ip, connection):
 
 
 def user_manager(ip, connection):
+    """
+    all user_host based user actions manager
+    :param ip: String: IP of the user_host
+    :param connection: socket.socket(): socket object connected to the user_host
+    :return: None
+    """
+
     u_name = None
     login_success = False
     expected_token = generate_random_string(10, 200)
@@ -672,12 +824,24 @@ def user_manager(ip, connection):
 
 
 def accept_connections_from_users(port):
+    """
+    Socket based connection waiting thread
+    Starts 10 acceptor threads
+    :param port: Int: port the socket is supposed to listen
+    :return: None
+    """
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('0.0.0.0', port))
     sock.listen()
 
     def acceptor():
-        global proxies_checked_count
+        """
+        Accepts a single socket connection request, and immediately starts another acceptor thread to fill its place.
+        All socket based actions initialise here
+        :return: None
+        """
+
         connection, address = sock.accept()
         Thread(target=acceptor).start()
         try:
@@ -690,6 +854,8 @@ def accept_connections_from_users(port):
             else:
                 __try_closing_connection(connection)
                 return
+
+
             purpose = received_data['purpose']
             user_data_db_connection.commit()
 
@@ -720,6 +886,7 @@ def accept_connections_from_users(port):
                     return
                 host_manager(public_ip, connection)
 
+
             elif purpose == 'user_authentication':
                 binding_token = received_data['binding_token']
                 if binding_token in active_tcp_tokens and not active_tcp_tokens[binding_token][1]:
@@ -740,6 +907,12 @@ def accept_connections_from_users(port):
 
 
 def return_adfly_link_page(u_name):
+    """
+    generate an adfly web page with the username provided
+    :param u_name: String: username of the account to feed
+    :return: String: web page
+    """
+
     try:
         u_name = my_u_name
         if u_name:
@@ -784,6 +957,11 @@ def return_adfly_link_page(u_name):
 
 
 def return_linkvertise_link_page(u_name):
+    """
+    Incomplete
+    :param u_name:
+    :return:
+    """
     data = '<script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise(205957, {whitelist: [], blacklist: []});</script>'
     for para_length in range(randrange(100, 400)):
         data += choice(paragraph_lines) + '.'
@@ -794,6 +972,11 @@ def return_linkvertise_link_page(u_name):
 
 
 def return_py_file(file_id):
+    """
+    return a python file data from cache(read from disk if file not in cache already)
+    :param file_id: String: name of file
+    :return: Int, Bytes: version of the file(time created or last modified), file data in bytes
+    """
 
     if file_id == 'adfly_stable_1' or file_id == 'stable_1':
         if ('vm_main.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/vm_main.py') != python_files['adfly']['stable']['vm_main.py']['version']):
@@ -852,6 +1035,10 @@ def return_py_file(file_id):
 
 
 def recreate_user_host_exe():
+    """
+    create .exe from .py of the user_host file if there is a version mismatch between .py version and one stored as cache
+    :return: None
+    """
     global executable_files
     if 'user_host.exe' in executable_files and executable_files['user_host.exe']['version'] is None:
         while executable_files['user_host.exe']['version'] is None:
@@ -863,13 +1050,13 @@ def recreate_user_host_exe():
     sleep(1)
 
 
-"""
-STABLE
-8 or stable_user_host: 'user_host.exe'
-"""
-
-
 def return_other_file(file_id):
+    """
+    return other files from cache(read from disk if file not in cache already)
+    :param file_id: String: name of file
+    :return: Int, Bytes: version of the file(time created or last modified), file data in bytes
+    """
+
     if file_id == '8' or file_id == 'stable_user_host':
         if ('user_host.py' not in python_files['common']) or (path.getmtime(f'{host_files_location}/user_host.py') != python_files['common']['user_host.py']['version']):
             python_files['common']['user_host.py'] = {'version': path.getmtime(f'{host_files_location}/user_host.py'), 'file': open(f'{host_files_location}/user_host.py', 'rb').read()}
@@ -888,6 +1075,12 @@ def return_other_file(file_id):
 
 
 def return_img_file(image_name):
+    """
+    return an image file data from cache(read from disk if file not in cache already)
+    :param image_name: String: name of file
+    :return: Int, Bytes, Tuple: version of the file(time created or last modified), file data in bytes, size of the image in pixels
+    """
+
     if not path.exists(f'{img_location}/{image_name}.PNG') or '/' in image_name or '\\' in image_name:
         return None, None, None
     if (image_name not in windows_img_files) or (path.getmtime(f'{img_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
@@ -896,10 +1089,21 @@ def return_img_file(image_name):
 
 
 def flask_operations(port):
+    """
+    All web based operations occur here
+    :param port: port on which flask is supposed to work
+    :return: None
+    """
+
     app = Flask(__name__)
 
     @app.before_request
     def modify_headers_before_req():
+        """
+        take IP from header(specific to each tunneling software) and add it to request.remote_addr to make it easy for the server to identify source IP
+        :return: None
+        """
+
         if 'HTTP_X_FORWARDED_FOR' in request.environ: ## ngrok
             ip = request.environ['HTTP_X_FORWARDED_FOR']
         elif request.remote_addr != '127.0.0.1':
@@ -911,6 +1115,11 @@ def flask_operations(port):
 
     @app.route('/debug', methods=['GET'])
     def debug_data():
+        """
+        show debug data publicly
+        :return: String: html data
+        """
+
         return f"""<meta http-equiv = "refresh" content = "1; url = /debug" />
 Server start time: {ctime(server_start_time)} IST</br>
 Current time: {ctime()} IST</br>
@@ -941,12 +1150,16 @@ Uniques: {len(all_proxies_unique)}</br>
 Unchecked: {len(unchecked_proxies_unique)}</br>
 Working: {len(working_proxies_unique)}</br>
 Failed: {len(failed_proxies_unique)}</br>
-Total checked: {proxies_checked_count}</br>
 """
 
 
     @app.route('/')
     def _return_root_url():
+        """
+        All public links are displayed here
+        :return: String: html data
+        """
+
         request_start_time = time()
         add_to_logs(request.remote_addr, '/', time() - request_start_time)
         return f"""
@@ -971,6 +1184,11 @@ Links:</br>
 
     @app.route('/py_files', methods=["GET"])
     def _return_py_files():
+        """
+        All py files are returned from this page(returns only version if client version is same, else returns all data)
+        :return: String: file data dict as string
+        """
+
         request_start_time = time()
         file_code = request.args.get("file_code")
         current_version, data = return_py_file(file_code)
@@ -991,6 +1209,11 @@ Links:</br>
 
     @app.route('/other_files', methods=["GET"])
     def _return_exe_files():
+        """
+        All other files are returned from this page(returns only version if client version is same, else returns all data)
+        :return: String: file data dict as string
+        """
+
         request_start_time = time()
         file_code = request.args.get("file_code")
         current_version, data = return_other_file(file_code)
@@ -1011,6 +1234,11 @@ Links:</br>
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
+        """
+        All image files are returned from this page(returns only version if client version is same, else returns all data)
+        :return: String: file data dict as string
+        """
+
         request_start_time = time()
         img_name = request.args.get("img_name")
         if '/' in img_name or '\\' in img_name:
@@ -1033,6 +1261,11 @@ Links:</br>
 
     @app.route('/token_for_tcp_connection', methods=['GET'])
     def _return_token_for_tcp_connection():
+        """
+        A random token is returned, the same token is stored along with the IP of the client, this token is then used to check IP of client when it tries to connect to server socket
+        :return: String: token generated
+        """
+
         request_start_time = time()
         while True:
             token = generate_random_string(10,1000)
@@ -1049,6 +1282,11 @@ Links:</br>
 
     @app.route('/proxy_request', methods=['GET'])
     def _return_proxy_list():
+        """
+        Returns single proxy or list of several or all proxies according to request parameters, from the server
+        :return: String: proxy or html page with table of all proxies
+        """
+
         if not all_proxies_unique:
             return ''
 
@@ -1123,7 +1361,13 @@ Links:</br>
 
     @app.route('/proxy_report', methods=['GET'])
     def _return_blank_proxy_report():
-        global proxies_checked_count, last_proxy_modified
+        """
+        Receives a proxy from client and its working state
+        If its working, a valid IP is required too
+        :return: String: (not needed) Proxy and working state
+        """
+
+        global last_proxy_modified
         request_start_time = time()
         proxy = ''
         status = ''
@@ -1136,7 +1380,6 @@ Links:</br>
                     ip = request.args.get('ip')
                     if not ip_in_proxy_waitlist(ip):
                         return f'{proxy} {status}'
-                    proxies_checked_count += 1
                     if proxy in unchecked_proxies_unique:
                         unchecked_proxies_unique.remove(proxy)
                     if proxy not in working_proxies_unique:
@@ -1144,7 +1387,6 @@ Links:</br>
                     if proxy in failed_proxies_unique:
                         failed_proxies_unique.remove(proxy)
                 elif status == 'failed':
-                    proxies_checked_count += 1
                     if proxy in unchecked_proxies_unique:
                         unchecked_proxies_unique.remove(proxy)
                     for pair in list(working_proxies_unique):
@@ -1159,6 +1401,11 @@ Links:</br>
 
     @app.route('/suffix_link', methods=['GET'])
     def _return_suffix_link():
+        """
+        Client receives the suffix link (/adfly_link_page?u_name={u_name})
+        :return: String: suffix link
+        """
+
         u_name = 'invalid_uname'
         if 'token' in request.args:
             received_token = request.args.get('token')
@@ -1173,6 +1420,11 @@ Links:</br>
 
     @app.route('/view_accomplished', methods=['GET'])
     def _view_accomplished():
+        """
+        Receives the link-view token from client, if it's a valid token, the username receives 1 view
+        :return: String: ""
+        """
+
         link_view_token = ''
         if 'view_token' in request.args:
             link_view_token = request.args.get('view_token')
@@ -1182,6 +1434,11 @@ Links:</br>
 
     @app.route('/network_adapters', methods=['GET'])
     def _return_network_adapters():
+        """
+        Client receives all network adaptors of devices that ever had the username logged on
+        :return: String: dict containing network adaptors
+        """
+
         received_u_name = ''
         received_token = ''
         if 'u_name' in request.args:
@@ -1205,6 +1462,11 @@ Links:</br>
 
     @app.route('/verify_instance_token', methods=['GET'])
     def _verify_instance_token():
+        """
+        Client receives status code based on the instance token is valid or not
+        :return: String: dict containing status code
+        """
+
         received_u_name = ''
         received_token = ''
         if 'u_name' in request.args:
@@ -1227,6 +1489,11 @@ Links:</br>
 
     @app.route('/request_instance_token', methods=['GET'])
     def _return_instance_token():
+        """
+        Client receives instance token in exchange with a valid username and password
+        :return: String: dict containing status code, username and token
+        """
+
         u_name = ''
         password = ''
         if 'u_name' in request.args:
@@ -1248,6 +1515,11 @@ Links:</br>
 
     @app.route('/adfly_link_page', methods=['GET'])
     def _return_adfly_links():
+        """
+        Generates and returns an adfly link page according to username provived
+        :return: String: html data
+        """
+
         u_name = ""
         if "u_name" in request.args:
             u_name = request.args.get("u_name")
@@ -1256,6 +1528,11 @@ Links:</br>
 
     @app.route('/linkvertise_link_page', methods=['GET'])
     def _return_linkvertise_links():
+        """
+        Generates and returns a linkvertise link page according to username provived
+        :return: String: html data
+        """
+
         u_name = ""
         if "u_name" in request.args:
             u_name = request.args.get("u_name")
@@ -1264,6 +1541,11 @@ Links:</br>
 
     @app.route('/admin', methods=['GET'])
     def _return_all_user_data():
+        """
+        takes username password of admin user and returns all user data, threats and logs
+        :return: String: html data
+        """
+
         request_start_time = time()
         if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
             log_threats(request.remote_addr, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
@@ -1394,6 +1676,11 @@ Links:</br>
 
     @app.route('/ip', methods=['GET'])
     def _return_global_ip():
+        """
+        Returns IP of client and sends it incase the request is for proxy's IP checking
+        :return: String: html data
+        """
+
         ip = choice(list(set(request.remote_addr.split(','))))
         Thread(target=proxy_check_ip_tracker, args=(ip,)).start()
         return f"Current_Visitor_IP:{ip}"

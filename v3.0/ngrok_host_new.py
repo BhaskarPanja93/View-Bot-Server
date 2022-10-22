@@ -1,3 +1,9 @@
+"""
+To host individual ngrok tunnels for each port with their new API
+Modifications required: None
+"""
+
+## import statements
 import socket
 from random import randrange
 from threading import Thread
@@ -6,17 +12,15 @@ from requests import get
 from os import system as system_caller
 
 
-config_locations = [
-                    r"C:\Users\Administrator\AppData\Local\ngrok\ngrok.yml",
-                    r"C:\Users\Administrator\.ngrok2\ngrok.yml"
-                    ]
-config_location = ''
-for location in config_locations:
-    try:
-        open(location,'r').read()
-        config_location = location
-    except:
-        pass
+## dictionary to show on https://github.com/BhaskarPanja93/AllLinks.github.io
+final_dict_to_show_on_github = {'adfly_host_page_list':[],
+                                'adfly_user_tcp_connection_list':[],
+                                'minecraft_survival_list':[],
+                                'minecraft_creative_list':[],
+                                'adfly_local_list':[]}
+
+
+## list of all auth tokens (will get removed as they are being used in code)
 unused_auth_tokens = [
     '28oH7jQPeXTDGWXs8oyIhb5KxUY_385T8rqtT1q1r2LAGYbb',
     '28oHDeNqYqv9yv4ohcj5ky7RtXU_7eY3GNVFzZPpbJyNm2yzq',
@@ -33,23 +37,25 @@ unused_auth_tokens = [
 ]
 
 
+
+## all tunnels to be made along with their name in dictionary, port, other details
 tunnels_to_be_made = {1:{"key":"adfly_host_page_list",
-                                    "config":"""
-                                    region: ap
-                                    authtoken: REPLACE_AUTHTOKEN
-                                    web_addr: 127.0.0.1:INSPECT_PORT
-                                    inspect_db_size: -1
-                                    log_level: crit
-                                    tunnels:
-                                        adfly_host_page_list:
-                                            addr: 65500
-                                            inspect: false
-                                            proto: http
-                                            schemes:
-                                                - https
-                                                - http
-                                    version: "2"
-                                    """},
+                                        "config":"""
+                                        region: ap
+                                        authtoken: REPLACE_AUTHTOKEN
+                                        web_addr: 127.0.0.1:INSPECT_PORT
+                                        inspect_db_size: -1
+                                        log_level: crit
+                                        tunnels:
+                                            adfly_host_page_list:
+                                                addr: 65500
+                                                inspect: false
+                                                proto: http
+                                                schemes:
+                                                    - https
+                                                    - http
+                                        version: "2"
+                                        """},
 
                       2:{"key":"adfly_user_tcp_connection_list",
                                         "config":"""
@@ -67,33 +73,33 @@ tunnels_to_be_made = {1:{"key":"adfly_host_page_list",
                                         """},
 
                       3: {"key":"minecraft_survival_list",
-                                    "config":"""
-                                    region: in
-                                    authtoken: REPLACE_AUTHTOKEN
-                                    web_addr: 127.0.0.1:INSPECT_PORT
-                                    inspect_db_size: -1
-                                    log_level: crit
-                                    tunnels:
-                                        minecraft_survival_list:
-                                            addr: 50000
-                                            inspect: false
-                                            proto: tcp
-                                    version: "2"
-                                    """},
+                                        "config":"""
+                                        region: in
+                                        authtoken: REPLACE_AUTHTOKEN
+                                        web_addr: 127.0.0.1:INSPECT_PORT
+                                        inspect_db_size: -1
+                                        log_level: crit
+                                        tunnels:
+                                            minecraft_survival_list:
+                                                addr: 50000
+                                                inspect: false
+                                                proto: tcp
+                                        version: "2"
+                                        """},
                       4: {"key": "minecraft_creative_list",
-                                  "config": """
-                                  region: in
-                                  authtoken: REPLACE_AUTHTOKEN
-                                  web_addr: 127.0.0.1:INSPECT_PORT
-                                  inspect_db_size: -1
-                                  log_level: crit
-                                  tunnels:
-                                      minecraft_creative_list:
-                                          addr: 50001
-                                          inspect: false
-                                          proto: tcp
-                                  version: "2"
-                                  """},
+                                      "config": """
+                                      region: in
+                                      authtoken: REPLACE_AUTHTOKEN
+                                      web_addr: 127.0.0.1:INSPECT_PORT
+                                      inspect_db_size: -1
+                                      log_level: crit
+                                      tunnels:
+                                          minecraft_creative_list:
+                                              addr: 50001
+                                              inspect: false
+                                              proto: tcp
+                                      version: "2"
+                                      """},
                       5:{"key":"adfly_local_list",
                                     "config":"""
                                     region: ap
@@ -114,7 +120,35 @@ tunnels_to_be_made = {1:{"key":"adfly_host_page_list",
                       }
 
 
+
+def check_ngrok_yml_location():
+    """
+    To check where the ngrok.yml file is stored, from a list of default locations
+    To be run in main thread
+    :return: String: path of a ngrok.yml file
+    """
+
+    default_locations = [
+        r"C:\Users\Administrator\AppData\Local\ngrok\ngrok.yml",
+        r"C:\Users\Administrator\.ngrok2\ngrok.yml"
+    ]
+    for location in default_locations:
+        try:
+            open(location, 'r').read()
+            return location
+        except:
+            pass
+
+
 def force_connect_server(host_ip, host_port):
+    """
+    Keep trying to connect to server
+    blocks the rest of the code till then
+    :param host_ip: String: IP of the socket to connect - "1.2.3.4"
+    :param host_port: Int: Port assigned to the socket to connect - 60000
+    :return: socket.socket(): connected socket object
+    """
+
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
         try:
@@ -126,25 +160,41 @@ def force_connect_server(host_ip, host_port):
 
 
 def __send_to_connection(connection, data_bytes: bytes):
+    """
+    Send any data(max size 10^9 - 1 bytes) to the connected socket along with its 8 bytes header
+    :param connection: socket.socket(): connected socket object
+    :param data_bytes: bytes: data to be sent
+    :return: None
+    """
+
     connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
 
 
 def __receive_from_connection(connection):
+    """
+    Receive any data(max size 10^9 - 1 bytes) from the connected socket
+    Wait 30*0.1=3 secs to receive the 8 byte header, 80*0.1=8 secs to receive the main data
+    :param connection: socket.socket(): connected socket object
+    :return: bytes: the received data
+    """
+
     data_bytes = b''
     length = b''
-    for _ in range(500):
+    for _ in range(30):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.01)
+            sleep(0.1)
         else:
             break
     else:
         return b''
+
+
     if len(length) == 8:
         length = int(length)
-        for _ in range(500):
+        for _ in range(80):
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.01)
+            sleep(0.1)
             if len(data_bytes) == length:
                 break
         else:
@@ -154,8 +204,12 @@ def __receive_from_connection(connection):
         return b''
 
 
-final_dict_to_show_on_github = {'adfly_host_page_list':[], 'adfly_user_tcp_connection_list':[], 'minecraft_survival_list':[], 'minecraft_creative_list':[], 'adfly_local_list':[]}
 def update_github():
+    """
+    To send the current state of the final_dictionary to socket listening on port 50010. github updater program
+    :return: None
+    """
+
     try:
         connection = force_connect_server('127.0.0.1', 50010)
         __send_to_connection(connection, str(final_dict_to_show_on_github).encode())
@@ -164,6 +218,12 @@ def update_github():
 
 
 def create_tunnel(index):
+    """
+    Iterate over each index of the tunnel list, write corresponding config data to file, start a tunnel, and update the dict accordingly
+    :param index: Int: index as in tunnels_to_be_made dictionary
+    :return: String, String, String: key as in github dictionary, url of tunnel, auth token used
+    """
+
     dict_key, url, auth_token = '', '', ''
     while True:
         inspect_port = randrange(50000, 59999)
@@ -190,6 +250,12 @@ def create_tunnel(index):
                 final_dict_to_show_on_github[dict_key].append(url.replace("tcp://",""))
         break
     return dict_key, url, auth_token
+
+
+config_location = check_ngrok_yml_location()
+for index in tunnels_to_be_made:
+    dict_key, url, auth_token = create_tunnel(index)
+update_github()
 
 
 """
@@ -288,14 +354,8 @@ def tcp_checker(check_frequency=0, url='', dict_key='', auth_token=''):
                 dict_key, url, auth_token = create_tunnel(index)
 """
 
-
-for index in tunnels_to_be_made:
-    dict_key, url, auth_token = create_tunnel(index)
-    """if "tcp://" in url:
-        Thread(target=check_tcp, args=(url,)).start()
-    elif "https://" in url:
-        Thread(target=check_https, args=(url,)).start()"""
-
-update_github()
-
+"""if "tcp://" in url:
+    Thread(target=check_tcp, args=(url,)).start()
+elif "https://" in url:
+    Thread(target=check_https, args=(url,)).start()"""
 
