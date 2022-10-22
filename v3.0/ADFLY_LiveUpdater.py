@@ -9,7 +9,6 @@ class Updater(Thread):
     _process = None
     check_interval = 1
 
-
     def __init__(self, file_name):
         Thread.__init__(self)
         self.program_to_rerun = self.file_to_check = file_name
