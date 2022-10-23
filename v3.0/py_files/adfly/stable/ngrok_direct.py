@@ -238,7 +238,7 @@ def run(img_dict, _global_host_page = '', _local_page = ''):
         def fetch_side_link():
             global link_viewer_token
             instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-            received_data = get(f"{global_host_page}/suffix_link?token={instance_token}", timeout=10).content
+            received_data = get(f"{global_host_page}/adfly_suffix_link?token={instance_token}", timeout=10).content
             if received_data[0] == 123 and received_data[-1] == 125:
                 received_data = eval(received_data)
                 link_viewer_token = received_data['link_viewer_token']

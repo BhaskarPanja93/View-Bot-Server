@@ -1,3 +1,10 @@
+"""
+To host individual ngrok tunnels for each port with their new API
+Modifications required:
+Rename brand name to Project viewbot
+Split all adfly and linkvertise functions
+"""
+
 ## modules that require installation
 while True:
     try:
@@ -244,16 +251,16 @@ def generate_random_string(_min, _max):
     return string
 
 
-def link_view_token_add(token, u_name):
+def link_view_token_add(token, id_to_serve):
     """
     save a link-view token for 1000 seconds, then remove it if the token still exists
     :param token: String: the token to store
-    :param u_name: String: u_name the view belongs to
+    :param id_to_serve: Int: id the view belongs to
     :return: None
     """
 
     if token not in pending_link_view_token:
-        pending_link_view_token[token] = u_name
+        pending_link_view_token[token] = id_to_serve
         sleep(1000)
         if token in pending_link_view_token:
             del pending_link_view_token[token]
@@ -906,39 +913,12 @@ def accept_connections_from_users(port):
         Thread(target=acceptor).start()
 
 
-def return_adfly_link_page(u_name):
+def return_adfly_link_page(id_to_serve=1):
     """
     generate an adfly web page with the username provided
-    :param u_name: String: username of the account to feed
+    :param id_to_serve: Int: id of the account to feed
     :return: String: web page
     """
-
-    try:
-        u_name = my_u_name
-        if u_name:
-            if randrange(1, 10) != 1:
-                u_name = request.args.get('u_name')
-        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-        while True:
-            if u_name in all_u_names:
-                key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                fernet = Fernet(key)
-                self_ids = eval(fernet.decrypt(encoded_data).decode())
-                if self_ids:
-                    id_to_serve = choice(sorted(self_ids))
-                    break
-                elif u_name != my_u_name:
-                    u_name = my_u_name
-                elif u_name == my_u_name and not self_ids:
-                    u_name = request.args.get('u_name')
-                else:
-                    id_to_serve = '1'
-                    break
-            else:
-                u_name = my_u_name
-    except:
-        id_to_serve = '1'
 
     data = f'''<script type="text/javascript">
                 var adfly_protocol = 'https';
@@ -953,7 +933,7 @@ def return_adfly_link_page(u_name):
         data += choice(paragraph_lines) + '.'
         if randrange(0, 5) == 1:
             data += f"<a href='{request.root_url.replace('http://', 'https://')}youtube_img?random={generate_random_string(1, 200)}'> CLICK HERE </a>"
-    return f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
+    return f"""<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
 
 
 def return_linkvertise_link_page(u_name):
@@ -1399,23 +1379,42 @@ Links:</br>
         return f'{proxy} {status}'
 
 
-    @app.route('/suffix_link', methods=['GET'])
+    @app.route('/adfly_suffix_link', methods=['GET'])
     def _return_suffix_link():
         """
-        Client receives the suffix link (/adfly_link_page?u_name={u_name})
+        Client receives the adfly suffix link (/adfly_link_page?id_to_serve={id})
         :return: String: suffix link
         """
 
-        u_name = 'invalid_uname'
-        if 'token' in request.args:
-            received_token = request.args.get('token')
-            all_u_name = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
-            if all_u_name and all_u_name[0]:
-                u_name = all_u_name[0]
-            link_view_token = generate_random_string(100, 500)
-            Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
-            data_to_be_sent = {'suffix_link': f'/adfly_link_page?u_name={u_name}', 'link_viewer_token': str(link_view_token)}
-            return str(data_to_be_sent)
+        u_name = my_u_name
+        received_token = request.args.get('token')
+        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
+        if all_u_names and all_u_names[0]:
+            u_name = all_u_names[0]
+        try:
+            if randrange(1, 10) == 1:
+                u_name = my_u_name
+            while True:
+                if u_name in all_u_names:
+                    key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    fernet = Fernet(key)
+                    self_ids = eval(fernet.decrypt(encoded_data).decode())
+                    if self_ids:
+                        id_to_serve = choice(sorted(self_ids))
+                        break
+                    elif u_name != my_u_name:
+                        u_name = my_u_name
+                    else:
+                        raise ZeroDivisionError
+                else:
+                    u_name = my_u_name
+        except:
+            id_to_serve = 1
+        link_view_token = generate_random_string(100, 500)
+        Thread(target=link_view_token_add, args=(link_view_token, id_to_serve)).start()
+        data_to_be_sent = {'suffix_link': f'/adfly_link_page?id_to_serve={id_to_serve}', 'link_viewer_token': str(link_view_token)}
+        return str(data_to_be_sent)
 
 
     @app.route('/view_accomplished', methods=['GET'])
@@ -1516,14 +1515,14 @@ Links:</br>
     @app.route('/adfly_link_page', methods=['GET'])
     def _return_adfly_links():
         """
-        Generates and returns an adfly link page according to username provived
+        Generates and returns an adfly link page according to username provided
         :return: String: html data
         """
 
-        u_name = ""
-        if "u_name" in request.args:
-            u_name = request.args.get("u_name")
-        return return_adfly_link_page(u_name)
+        id_to_serve = 1
+        if "id_to_serve" in request.args:
+            id_to_serve = request.args.get("id_to_serve")
+        return return_adfly_link_page(id_to_serve)
 
 
     @app.route('/linkvertise_link_page', methods=['GET'])
