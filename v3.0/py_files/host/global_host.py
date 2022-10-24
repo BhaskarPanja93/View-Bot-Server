@@ -88,14 +88,8 @@ known_ips = {} ## map of IP to username
 logs = [] ## server logs stored here
 
 
-## touch database only when they are idle
+## touch user database only when it is idle
 user_data_db_connection_idle = True
-proxy_db_connection_idle = True
-def __check_proxy_db_idle():
-    global proxy_db_connection_idle
-    while not proxy_db_connection_idle:
-        sleep(0.1)
-    proxy_db_connection_idle = False
 def __check_user_data_db_idle():
     global user_data_db_connection_idle
     while not user_data_db_connection_idle:
