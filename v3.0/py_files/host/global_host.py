@@ -251,16 +251,16 @@ def generate_random_string(_min, _max):
     return string
 
 
-def link_view_token_add(token, id_to_serve):
+def link_view_token_add(token, username):
     """
     save a link-view token for 1000 seconds, then remove it if the token still exists
     :param token: String: the token to store
-    :param id_to_serve: Int: id the view belongs to
+    :param username: String: username the view belongs to
     :return: None
     """
 
     if token not in pending_link_view_token:
-        pending_link_view_token[token] = id_to_serve
+        pending_link_view_token[token] = username
         sleep(1000)
         if token in pending_link_view_token:
             del pending_link_view_token[token]
@@ -1412,7 +1412,7 @@ Links:</br>
         except:
             id_to_serve = 1
         link_view_token = generate_random_string(100, 500)
-        Thread(target=link_view_token_add, args=(link_view_token, id_to_serve)).start()
+        Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
         data_to_be_sent = {'suffix_link': f'/adfly_link_page?id_to_serve={id_to_serve}', 'link_viewer_token': str(link_view_token)}
         return str(data_to_be_sent)
 
