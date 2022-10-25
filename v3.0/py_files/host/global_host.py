@@ -92,8 +92,9 @@ logs = [] ## server logs stored here
 user_data_db_connection_idle = True
 def __check_user_data_db_idle():
     global user_data_db_connection_idle
-    while not user_data_db_connection_idle:
-        sleep(0.1)
+    for _ in range(200):
+        if not user_data_db_connection_idle:
+            sleep(0.01)
     user_data_db_connection_idle = False
 
 

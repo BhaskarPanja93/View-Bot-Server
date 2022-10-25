@@ -13,11 +13,13 @@ from os import system as system_caller
 
 
 ## dictionary to show on https://github.com/BhaskarPanja93/AllLinks.github.io
-final_dict_to_show_on_github = {'adfly_host_page_list':[],
-                                'adfly_user_tcp_connection_list':[],
+final_dict_to_show_on_github = {'viewbot_web_page_list':[],
+                                'viewbot_tcp_list':[],
+                                'adfly_host_page_list':[], #to be removed in later build
+                                'adfly_user_tcp_connection_list':[],#to be removed in later build
                                 'minecraft_survival_list':[],
                                 'minecraft_creative_list':[],
-                                'adfly_local_list':[]}
+                                }
 
 
 ## list of all auth tokens (will get removed as they are being used in code)
@@ -37,88 +39,110 @@ unused_auth_tokens = [
 ]
 
 
-
 ## all tunnels to be made along with their name in dictionary, port, other details
-tunnels_to_be_made = {1:{"key":"adfly_host_page_list",
-                                        "config":"""
-                                        region: ap
-                                        authtoken: REPLACE_AUTHTOKEN
-                                        web_addr: 127.0.0.1:INSPECT_PORT
-                                        inspect_db_size: -1
-                                        log_level: crit
-                                        tunnels:
-                                            adfly_host_page_list:
-                                                addr: 65500
-                                                inspect: false
-                                                proto: http
-                                                schemes:
-                                                    - https
-                                                    - http
-                                        version: "2"
-                                        """},
+tunnels_to_be_made = {
+1:{
+"key":"adfly_host_page_list",
+"config":"""
+    region: ap
+    authtoken: REPLACE_AUTHTOKEN
+    web_addr: 127.0.0.1:INSPECT_PORT
+    inspect_db_size: -1
+    log_level: crit
+    tunnels:
+    adfly_host_page_list:
+    addr: 65500
+    inspect: false
+    proto: http
+    schemes:
+    - https
+    - http
+    version: "2"
+"""},
 
-                      2:{"key":"adfly_user_tcp_connection_list",
-                                        "config":"""
-                                        region: ap
-                                        authtoken: REPLACE_AUTHTOKEN
-                                        web_addr: 127.0.0.1:INSPECT_PORT
-                                        inspect_db_size: -1
-                                        log_level: crit
-                                        tunnels:
-                                            adfly_user_tcp_connection_list:
-                                                addr: 65499
-                                                inspect: false
-                                                proto: tcp
-                                        version: "2"
-                                        """},
+2:{
+"key":"adfly_user_tcp_connection_list",
+"config":"""
+    region: ap
+    authtoken: REPLACE_AUTHTOKEN
+    web_addr: 127.0.0.1:INSPECT_PORT
+    inspect_db_size: -1
+    log_level: crit
+    tunnels:
+    adfly_user_tcp_connection_list:
+    addr: 65499
+    inspect: false
+    proto: tcp
+    version: "2"
+"""},
 
-                      3: {"key":"minecraft_survival_list",
-                                        "config":"""
-                                        region: in
-                                        authtoken: REPLACE_AUTHTOKEN
-                                        web_addr: 127.0.0.1:INSPECT_PORT
-                                        inspect_db_size: -1
-                                        log_level: crit
-                                        tunnels:
-                                            minecraft_survival_list:
-                                                addr: 50000
-                                                inspect: false
-                                                proto: tcp
-                                        version: "2"
-                                        """},
-                      4: {"key": "minecraft_creative_list",
-                                      "config": """
-                                      region: in
-                                      authtoken: REPLACE_AUTHTOKEN
-                                      web_addr: 127.0.0.1:INSPECT_PORT
-                                      inspect_db_size: -1
-                                      log_level: crit
-                                      tunnels:
-                                          minecraft_creative_list:
-                                              addr: 50001
-                                              inspect: false
-                                              proto: tcp
-                                      version: "2"
-                                      """},
-                      5:{"key":"adfly_local_list",
-                                    "config":"""
-                                    region: ap
-                                    authtoken: REPLACE_AUTHTOKEN
-                                    web_addr: 127.0.0.1:INSPECT_PORT
-                                    inspect_db_size: -1
-                                    log_level: crit
-                                    tunnels:
-                                        adfly_local_list:
-                                            addr: 60000
-                                            inspect: false
-                                            proto: http
-                                            schemes:
-                                                - http
-                                                - https
-                                    version: "2"
-                                    """},
-                      }
+3: {
+"key":"minecraft_survival_list",
+"config":"""
+    region: in
+    authtoken: REPLACE_AUTHTOKEN
+    web_addr: 127.0.0.1:INSPECT_PORT
+    inspect_db_size: -1
+    log_level: crit
+    tunnels:
+    minecraft_survival_list:
+    addr: 50000
+    inspect: false
+    proto: tcp
+    version: "2"
+"""},
 
+4: {
+"key": "minecraft_creative_list",
+"config": """
+    region: in
+    authtoken: REPLACE_AUTHTOKEN
+    web_addr: 127.0.0.1:INSPECT_PORT
+    inspect_db_size: -1
+    log_level: crit
+    tunnels:
+    minecraft_creative_list:
+    addr: 50001
+    inspect: false
+    proto: tcp
+    version: "2"
+"""},
+
+5:{
+"key":"viewbot_web_page_list",
+"config":"""
+    region: ap
+    authtoken: REPLACE_AUTHTOKEN
+    web_addr: 127.0.0.1:INSPECT_PORT
+    inspect_db_size: -1
+    log_level: crit
+    tunnels:
+    viewbot_web_page_list:
+    addr: 65500
+    inspect: false
+    proto: http
+    schemes:
+    - https
+    - http
+    version: "2"
+"""},
+
+6:{
+"key":"viewbot_tcp_list",
+"config":"""
+    region: ap
+    authtoken: REPLACE_AUTHTOKEN
+    web_addr: 127.0.0.1:INSPECT_PORT
+    inspect_db_size: -1
+    log_level: crit
+    tunnels:
+    viewbot_tcp_list:
+    addr: 65499
+    inspect: false
+    proto: tcp
+    version: "2"
+"""},
+}
 
 
 def check_ngrok_yml_location():
