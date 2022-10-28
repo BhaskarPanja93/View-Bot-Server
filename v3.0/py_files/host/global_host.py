@@ -95,7 +95,12 @@ def __check_user_data_db_idle():
     for _ in range(200):
         if not user_data_db_connection_idle:
             sleep(0.01)
-    user_data_db_connection_idle = False
+        else:
+            user_data_db_connection_idle = False
+            return
+    else:
+        log_threats('', 'userdb_idle_state', 0, '2secs elapsed db busy')
+        user_data_db_connection_idle = False
 
 
 ## initial values of network, CPU, RAM stats
@@ -286,9 +291,7 @@ def add_new_view(token):
     global user_data_db_connection_idle
     if token in pending_link_view_token:
         u_name_to_feed = pending_link_view_token[token]
-        __check_user_data_db_idle()
         old_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name_to_feed}'")][0][0])
-        user_data_db_connection_idle = True
         __check_user_data_db_idle()
         user_data_db_connection.cursor().execute(f"UPDATE user_data set total_views={old_views + 1} where u_name='{u_name_to_feed}'")
         user_data_db_connection.commit()
@@ -579,9 +582,7 @@ def host_manager(ip, connection):
                     user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
                     user_data_db_connection.commit()
                     user_data_db_connection_idle = True
-                    __check_user_data_db_idle()
                     instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
-                    user_data_db_connection_idle = True
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -598,23 +599,15 @@ def host_manager(ip, connection):
             u_name = response_dict['u_name'].strip().lower()
             password = response_dict['password'].strip().swapcase()
             network_adapters = response_dict['network_adapters']
-            __check_user_data_db_idle()
             all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-            user_data_db_connection_idle = True
             if u_name in all_u_names:
-                __check_user_data_db_idle()
                 user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
-                user_data_db_connection_idle = True
                 if check_password_hash(user_pw_hash, password):
                     add_to_logs(ip, 'Password Login (Host)', time() - s_time, u_name)
-                    __check_user_data_db_idle()
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    user_data_db_connection_idle = True
                     fernet = Fernet(key)
                     try:
-                        __check_user_data_db_idle()
                         old_network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
-                        user_data_db_connection_idle = True
                         old_network_adapters = eval(fernet.decrypt(old_network_adapters_encrypted))
                     except:
                         old_network_adapters = []
@@ -625,9 +618,7 @@ def host_manager(ip, connection):
                         user_data_db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
                         user_data_db_connection.commit()
                         user_data_db_connection_idle = True
-                    __check_user_data_db_idle()
                     instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
-                    user_data_db_connection_idle = True
                     real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                     if u_name not in known_ips[ip]:
                         known_ips[ip].append(u_name)
@@ -646,21 +637,15 @@ def host_manager(ip, connection):
             u_name = response_dict['u_name'].strip().lower()
             auth_token = response_dict['auth_token'].strip()
             network_adapters = response_dict['network_adapters']
-            __check_user_data_db_idle()
             all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-            user_data_db_connection_idle = True
             if u_name in all_u_names:
-                __check_user_data_db_idle()
                 instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
-                user_data_db_connection_idle = True
                 real_auth_token = instance_token[len(instance_token) - 100:len(instance_token)]
                 if auth_token == real_auth_token:
                     add_to_logs(ip, 'Auth Login (Host)', time() - s_time, u_name)
                     if u_name not in known_ips[ip]:
                         known_ips[ip].append(u_name)
-                    __check_user_data_db_idle()
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    user_data_db_connection_idle = True
                     fernet = Fernet(key)
                     try:
                         old_network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
@@ -760,34 +745,24 @@ def user_manager(ip, connection):
                         login_success = False
                         u_name = response_dict['u_name'].strip().lower()
                         password = response_dict['password'].strip().swapcase()
-                        __check_user_data_db_idle()
                         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-                        user_data_db_connection_idle = True
                         if u_name in all_u_names:
-                            __check_user_data_db_idle()
                             user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
-                            user_data_db_connection_idle = True
                             if check_password_hash(user_pw_hash, password):
                                 add_to_logs(ip, 'Password Login (User)', time() - s_time, u_name)
                                 if u_name not in known_ips[ip]:
                                     known_ips[ip].append(u_name)
-                                __check_user_data_db_idle()
                                 key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                                 encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                                user_data_db_connection_idle = True
                                 fernet = Fernet(key)
                                 old_ids = eval(fernet.decrypt(encoded_data).decode())
                                 fernet = Fernet(key)
                                 try:
-                                    __check_user_data_db_idle()
                                     network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
-                                    user_data_db_connection_idle = True
                                     network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
                                 except:
                                     network_adapters = []
-                                __check_user_data_db_idle()
                                 total_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
-                                user_data_db_connection_idle = True
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'u_name':str(u_name), 'self_ids': old_ids, 'total_views': total_views, 'network_adapters': network_adapters}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -806,10 +781,8 @@ def user_manager(ip, connection):
                     elif purpose == 'remove_account':
                         if login_success and u_name:
                             acc_id = int(response_dict['acc_id'])
-                            __check_user_data_db_idle()
                             key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                             encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                            user_data_db_connection_idle = True
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id == 'all_acc_ids':
@@ -843,10 +816,8 @@ def user_manager(ip, connection):
                         if login_success and u_name:
                             acc_id = response_dict['acc_id']
                             identifier = response_dict['identifier']
-                            __check_user_data_db_idle()
                             key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                             encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                            user_data_db_connection_idle = True
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id not in old_ids:
@@ -1450,12 +1421,9 @@ Links:</br>
         :return: String: suffix link
         """
 
-        global user_data_db_connection_idle
         u_name = my_u_name
         received_token = request.args.get('token')
-        __check_user_data_db_idle()
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
-        user_data_db_connection_idle = True
         if all_u_names and all_u_names[0]:
             u_name = all_u_names[0]
         try:
@@ -1463,10 +1431,8 @@ Links:</br>
                 u_name = my_u_name
             while True:
                 if u_name in all_u_names:
-                    __check_user_data_db_idle()
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    user_data_db_connection_idle = True
                     fernet = Fernet(key)
                     self_ids = eval(fernet.decrypt(encoded_data).decode())
                     if self_ids:
@@ -1514,18 +1480,12 @@ Links:</br>
             received_u_name = request.args.get('u_name').strip().lower()
         if 'token' in request.args:
             received_token = request.args.get('token')
-        __check_user_data_db_idle()
         instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{received_u_name}'")][0]
-        user_data_db_connection_idle = True
         if received_token == instance_token:
-            __check_user_data_db_idle()
             key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{received_u_name}'")][0][0]).encode()
-            user_data_db_connection_idle = True
             fernet = Fernet(key)
             try:
-                __check_user_data_db_idle()
                 network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{received_u_name}'")][0][0]).encode()
-                user_data_db_connection_idle = True
                 network_adapters = eval(fernet.decrypt(network_adapters_encrypted))
             except:
                 network_adapters = []
@@ -1542,7 +1502,6 @@ Links:</br>
         :return: String: dict containing status code
         """
 
-        global user_data_db_connection_idle
         received_u_name = ''
         received_token = ''
         if 'u_name' in request.args:
@@ -1550,10 +1509,8 @@ Links:</br>
         if 'token' in request.args:
             received_token = request.args.get('token')
         all_u_name = []
-        __check_user_data_db_idle()
         for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'"):
             all_u_name.append(row[0])
-        user_data_db_connection_idle = True
         if all_u_name and all_u_name[0]:
             u_name = all_u_name[0]
             if u_name and u_name == received_u_name:
@@ -1579,17 +1536,11 @@ Links:</br>
             u_name = request.args.get('u_name').strip().lower()
         if 'password' in request.args:
             password = request.args.get('password').strip().swapcase()
-        __check_user_data_db_idle()
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-        user_data_db_connection_idle = True
         if u_name in all_u_names:
-            __check_user_data_db_idle()
             user_pw_hash = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{u_name}'")][0][0]
-            user_data_db_connection_idle = True
             if check_password_hash(user_pw_hash, password):
-                __check_user_data_db_idle()
                 instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
-                user_data_db_connection_idle = True
                 data_to_be_sent = {'status_code': 0, 'u_name': u_name, 'token': instance_token}
             else:
                 data_to_be_sent = {'status_code': -1}
@@ -1632,42 +1583,29 @@ Links:</br>
         :return: String: html data
         """
 
-        global user_data_db_connection_idle
         request_start_time = time()
         if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
             log_threats(request.remote_addr, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
             return f"You are not authorised to visit this page"
         all_data = {}
-        __check_user_data_db_idle()
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-        user_data_db_connection_idle = True
         for u_name in all_u_names:
             all_data[u_name.upper()] = {}
-            __check_user_data_db_idle()
             key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-            user_data_db_connection_idle = True
             fernet = Fernet(key)  ###
-            __check_user_data_db_idle()
             encoded_old_acc_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-            user_data_db_connection_idle = True
             ids = eval(fernet.decrypt(encoded_old_acc_data).decode())
             all_data[u_name.upper()]["_ids"] = ids
-            __check_user_data_db_idle()
             total_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
-            user_data_db_connection_idle = True
             all_data[u_name.upper()]["total_views"] = total_views
-            __check_user_data_db_idle()
             encoded_network_adapters_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0])
-            user_data_db_connection_idle = True
             network_adapters = 0
             try:
                 network_adapters = eval(fernet.decrypt(encoded_network_adapters_data.encode()).decode())
             except:
                 pass
             all_data[u_name.upper()]["network_adapters"] = network_adapters
-            __check_user_data_db_idle()
             instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
-            user_data_db_connection_idle = True
             all_data[u_name.upper()]["instance_token"] = f'{instance_token[0:6]}...{instance_token[len(instance_token) - 6:len(instance_token)]}'
 
         table_data = ""
@@ -1694,9 +1632,10 @@ Links:</br>
         log_data = ''
         for log in logs:
             log_data+=log+'</br>'
-        threats_data = ''
+        threats_data = '<p style="color:red">'
         for line in open("txt_files/threats.txt", "r").readlines():
-            threats_data+=line+'</br>'
+            threats_data+=line
+        threats_data+='</p>'
         html = f"""
                 <html>
                 <head>
