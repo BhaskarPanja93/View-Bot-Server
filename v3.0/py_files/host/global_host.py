@@ -29,7 +29,6 @@ while True:
         del pip
 
 
-
 ## pre-installed modules
 from os import path, getcwd, system as system_caller
 import socket
@@ -45,7 +44,6 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 
-
 current_user_host_main_version = '2.4.2' ## latest user_host file version
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
 server_start_time = time() ## server start time as float
@@ -57,6 +55,7 @@ reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke',
 
 parent, _ = path.split(path.split(getcwd())[0])
 read_only_location = path.join(parent, 'read only') ## stores paragraphs, user database, proxy database
+
 
 parent, _ = path.split(getcwd())
 img_location = path.join(parent, 'req_imgs/Windows') ## stores all images
@@ -1473,7 +1472,6 @@ Links:</br>
         :return: String: dict containing network adaptors
         """
 
-        global user_data_db_connection_idle
         received_u_name = ''
         received_token = ''
         if 'u_name' in request.args:
@@ -1529,7 +1527,6 @@ Links:</br>
         :return: String: dict containing status code, username and token
         """
 
-        global user_data_db_connection_idle
         u_name = ''
         password = ''
         if 'u_name' in request.args:
@@ -1569,7 +1566,6 @@ Links:</br>
         :return: String: html data
         """
 
-        global user_data_db_connection_idle
         u_name = ""
         if "u_name" in request.args:
             u_name = request.args.get("u_name")
@@ -1632,9 +1628,9 @@ Links:</br>
         log_data = ''
         for log in logs:
             log_data+=log+'</br>'
-        threats_data = '<p style="color:red">'
+        threats_data = '<p style="color:red">THREATS'
         for line in open("txt_files/threats.txt", "r").readlines():
-            threats_data+=line
+            threats_data+='</br>'+line
         threats_data+='</p>'
         html = f"""
                 <html>
