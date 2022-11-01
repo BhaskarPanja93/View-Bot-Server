@@ -158,7 +158,7 @@ def __receive_from_connection(connection):
 
     data_bytes = b''
     length = b''
-    for _ in range(30):
+    for _ in range(50):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
             sleep(0.1)
@@ -170,7 +170,7 @@ def __receive_from_connection(connection):
 
     if len(length) == 8:
         length = int(length)
-        for _ in range(80):
+        for _ in range(100):
             data_bytes += connection.recv(length - len(data_bytes))
             sleep(0.1)
             if len(data_bytes) == length:

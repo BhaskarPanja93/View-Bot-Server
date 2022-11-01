@@ -194,40 +194,6 @@ def __send_to_connection(connection, data_bytes: bytes):
     connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
 
 
-def __receive_from_connection(connection):
-    """
-    Receive any data(max size 10^9 - 1 bytes) from the connected socket
-    Wait 30*0.1=3 secs to receive the 8 byte header, 80*0.1=8 secs to receive the main data
-    :param connection: socket.socket(): connected socket object
-    :return: bytes: the received data
-    """
-
-    data_bytes = b''
-    length = b''
-    for _ in range(30):
-        if len(length) != 8:
-            length += connection.recv(8 - len(length))
-            sleep(0.1)
-        else:
-            break
-    else:
-        return b''
-
-
-    if len(length) == 8:
-        length = int(length)
-        for _ in range(80):
-            data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.1)
-            if len(data_bytes) == length:
-                break
-        else:
-            return b''
-        return data_bytes
-    else:
-        return b''
-
-
 def update_github():
     """
     To send the current state of the final_dictionary to socket listening on port 50010. github updater program
