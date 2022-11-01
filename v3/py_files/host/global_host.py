@@ -36,12 +36,11 @@ from random import choice, randrange
 from threading import Thread
 from time import sleep, time, ctime
 import ipaddress
-import logging
 
-
+#import logging
 ## block logging of all flask outputs except errors
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+#log = logging.getLogger('werkzeug')
+#log.setLevel(logging.ERROR)
 
 
 current_user_host_main_version = '2.4.2' ## latest user_host file version
@@ -49,7 +48,7 @@ available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 5
 server_start_time = time() ## server start time as float
 
 
-my_u_name = 'bhaskar' ## account to credit free views
+admin_u_names = ['bhaskar', 'dec1lent'] ## account to credit free views
 reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/'] ## strings not allowed for usernames
 
 
@@ -158,7 +157,7 @@ def __receive_from_connection(connection):
 
     data_bytes = b''
     length = b''
-    for _ in range(50):
+    for _ in range(100):
         if len(length) != 8:
             length += connection.recv(8 - len(length))
             sleep(0.1)
@@ -170,7 +169,7 @@ def __receive_from_connection(connection):
 
     if len(length) == 8:
         length = int(length)
-        for _ in range(100):
+        for _ in range(200):
             data_bytes += connection.recv(length - len(data_bytes))
             sleep(0.1)
             if len(data_bytes) == length:
@@ -590,7 +589,7 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': -1, 'reason': 'Password too weak!'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # username taken
-                add_to_logs(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Uname not allowed")
+                log_threats(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Uname not allowed")
                 data_to_be_sent = {'status_code': -1, 'reason': 'Username taken. Try a different username!'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -624,11 +623,11 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': 0, 'auth_token': real_auth_token}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # password wrong
-                    add_to_logs(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Wrong Password")
+                    log_threats(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Wrong Password")
                     data_to_be_sent = {'status_code': -1, 'reason': 'Wrong Password!'}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # wrong username
-                add_to_logs(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Uname not found")
+                log_threats(ip, 'Password Login (Host)', time() - s_time, f"Denied {u_name} Uname not found")
                 data_to_be_sent = {'status_code': -1, 'reason': 'Username not found in database!'}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -662,11 +661,11 @@ def host_manager(ip, connection):
                     data_to_be_sent = {'status_code': 0, 'additional_data': {'auth_token': auth_token}}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # auth token wrong
-                    add_to_logs(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Auth")
+                    log_threats(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Auth Token")
                     data_to_be_sent = {'status_code': -1}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # wrong username
-                add_to_logs(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Uname")
+                log_threats(ip, 'Auth Login (Host)', time() - s_time, f"Denied {u_name} Wrong Uname")
                 data_to_be_sent = {'status_code': -1}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
@@ -735,7 +734,7 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Password too weak!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # username taken
-                            add_to_logs(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
+                            log_threats(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
                             expected_token = generate_random_string(10,200)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username taken. Try a different username!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -767,12 +766,12 @@ def user_manager(ip, connection):
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                                 login_success = True
                             else: # password wrong
-                                add_to_logs(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Wrong Password")
+                                log_threats(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Wrong Password")
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Wrong Password!'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:  # wrong username
-                            add_to_logs(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Uname not found")
+                            log_threats(ip, 'Password Login (User)', time() - s_time, f"Denied {u_name} Uname not found")
                             expected_token = generate_random_string(10, 200)
                             data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username not found in database!'}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
@@ -804,12 +803,12 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': 0, 'token': str(expected_token), 'additional_data': {'self_ids': old_ids}}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                             else:
-                                add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} unknown")
+                                log_threats(ip, 'Remove Account (User)', time() - s_time, f"{u_name} unknown")
                                 expected_token = generate_random_string(10, 200)
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} not found'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:
-                            add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
+                            log_threats(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
                     elif purpose == 'add_account':
                         if login_success and u_name:
@@ -847,7 +846,7 @@ def user_manager(ip, connection):
                                 data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason':f'Account {acc_id} already added'}
                                 __send_to_connection(connection, str(data_to_be_sent).encode())
                         else:
-                            add_to_logs(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
+                            log_threats(ip, 'Remove Account (User)', time() - s_time, f"{u_name} Not Logged in")
 
                     elif purpose == 'ping':
                         expected_token = generate_random_string(10, 200)
@@ -924,6 +923,7 @@ def accept_connections_from_users(port):
                     add_to_logs(public_ip, 'Login Req (Host)', 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
+                    log_threats('', 'host_auth', 0, 'IP not registered')
                     return
                 host_manager(public_ip, connection)
 
@@ -935,6 +935,7 @@ def accept_connections_from_users(port):
                     add_to_logs(public_ip, 'Login Req (User)', 0.0)
                     active_tcp_tokens[binding_token][1] = True
                 else:
+                    log_threats('', 'user_auth', 0, 'IP not registered')
                     return
                 user_manager(public_ip, connection)
 
@@ -970,18 +971,18 @@ def return_adfly_link_page(id_to_serve=1):
     return f"""<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
 
 
-def return_linkvertise_link_page(u_name):
+def return_linkvertise_link_page(id_to_serve):
     """
     Incomplete
-    :param u_name:
+    :param id_to_serve:
     :return:
     """
-    data = '<script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise(205957, {whitelist: [], blacklist: []});</script>'
+    data = f'<script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise({id_to_serve}, {{whitelist: [], blacklist: []}});</script>'
     for para_length in range(randrange(100, 400)):
         data += choice(paragraph_lines) + '.'
         if randrange(0, 5) == 1:
             data += f"<a href='{request.root_url.replace('http://', 'https://')}youtube_img?random={generate_random_string(1, 200)}'> CLICK HERE </a>"
-    html_data = f"""<HTML><HEAD><TITLE>Nothing's here {u_name}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
+    html_data = f"""<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE></HEAD><BODY>{data}</BODY></HTML>"""
     return html_data
 
 
@@ -1420,14 +1421,14 @@ Links:</br>
         :return: String: suffix link
         """
 
-        u_name = my_u_name
+        u_name = choice(admin_u_names)
         received_token = request.args.get('token')
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT u_name from user_data where instance_token='{received_token}'")]
         if all_u_names and all_u_names[0]:
             u_name = all_u_names[0]
         try:
             if randrange(1, 10) == 1:
-                u_name = my_u_name
+                u_name = choice(admin_u_names)
             while True:
                 if u_name in all_u_names:
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
@@ -1437,17 +1438,20 @@ Links:</br>
                     if self_ids:
                         id_to_serve = choice(sorted(self_ids))
                         break
-                    elif u_name != my_u_name:
-                        u_name = my_u_name
+                    elif u_name not in admin_u_names:
+                        u_name = choice(admin_u_names)
+                    elif u_name != 'bhaskar':
+                        u_name = 'bhaskar'
                     else:
                         raise ZeroDivisionError
                 else:
-                    u_name = my_u_name
+                    u_name = choice(admin_u_names)
         except:
             id_to_serve = 1
         link_view_token = generate_random_string(100, 500)
         Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
         data_to_be_sent = {'suffix_link': f'/adfly_link_page?id_to_serve={id_to_serve}', 'link_viewer_token': str(link_view_token)}
+        add_to_logs(request.remote_addr, 'suffix_link', 0, str(id_to_serve))
         return str(data_to_be_sent)
 
 
@@ -1461,6 +1465,7 @@ Links:</br>
         link_view_token = ''
         if 'view_token' in request.args:
             link_view_token = request.args.get('view_token')
+        add_to_logs(request.remote_addr, 'view_accomplised', 0)
         add_new_view(link_view_token)
         return ""
 
@@ -1489,6 +1494,7 @@ Links:</br>
                 network_adapters = []
             data_to_be_sent = {'status_code': 0, 'network_adapters': network_adapters}
         else:
+            log_threats(request.remote_addr, 'network_adapters', 0, f'Wrong token received {len(received_token)}{len(instance_token)}')
             data_to_be_sent = {'status_code': -1}
         return str(data_to_be_sent)
 
@@ -1514,8 +1520,10 @@ Links:</br>
             if u_name and u_name == received_u_name:
                 data_to_be_sent = {'status_code': 0}
             else:
+                log_threats(request.remote_addr, 'verify_instance_token', 0, 'wrong token or uname')
                 data_to_be_sent = {'status_code': -1}
         else:
+            log_threats(request.remote_addr, 'verify_instance_token', 0, 'wrong_token')
             data_to_be_sent = {'status_code': -1}
         return str(data_to_be_sent)
 
@@ -1540,8 +1548,10 @@ Links:</br>
                 instance_token = [row[0] for row in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name='{u_name}'")][0]
                 data_to_be_sent = {'status_code': 0, 'u_name': u_name, 'token': instance_token}
             else:
+                log_threats(request.remote_addr, 'request_instance_token', 0, f'wrong password {u_name}')
                 data_to_be_sent = {'status_code': -1}
         else:
+            log_threats(request.remote_addr, 'request_instance_token', 0, f'wrong uname {u_name}')
             data_to_be_sent = {'status_code': -1}
         return str(data_to_be_sent)
 
@@ -1556,6 +1566,7 @@ Links:</br>
         id_to_serve = 1
         if "id_to_serve" in request.args:
             id_to_serve = request.args.get("id_to_serve")
+        add_to_logs(request.remote_addr, 'adfly_page', 0, f"{id_to_serve=}")
         return return_adfly_link_page(id_to_serve)
 
 
@@ -1566,10 +1577,11 @@ Links:</br>
         :return: String: html data
         """
 
-        u_name = ""
-        if "u_name" in request.args:
-            u_name = request.args.get("u_name")
-        return return_linkvertise_link_page(u_name)
+        id_to_serve = 1
+        if "id_to_serve" in request.args:
+            id_to_serve = request.args.get("id_to_serve")
+        add_to_logs(request.remote_addr, 'adfly_page', 0, f"{id_to_serve=}")
+        return return_linkvertise_link_page(id_to_serve)
 
 
     @app.route('/admin', methods=['GET'])
@@ -1579,9 +1591,8 @@ Links:</br>
         :return: String: html data
         """
 
-        request_start_time = time()
-        if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") != my_u_name or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name = '{my_u_name}'")][0][0], request.args.get("password").strip().swapcase()):
-            log_threats(request.remote_addr, '/all_user_data', time() - request_start_time, "ILLEGAL REQUEST")
+        if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") not in admin_u_names or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name='{request.args.get('u_name')}'")][0][0], request.args.get("password").strip().swapcase()):
+            log_threats(request.remote_addr, '/all_user_data', 0, "ILLEGAL REQUEST")
             return f"You are not authorised to visit this page"
         all_data = {}
         all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
@@ -1664,7 +1675,7 @@ Links:</br>
                 </table>
                 """
 
-        add_to_logs(request.remote_addr, '/all_user_data', time() - request_start_time)
+        add_to_logs(request.remote_addr, '/all_user_data', 0)
         return html
 
 
@@ -1730,7 +1741,7 @@ Links:</br>
 
 ### PROXY OPERATIONS
 fetch_old_proxy_data()
-Thread(target=fetch_proxies_from_sites).start()
+#Thread(target=fetch_proxies_from_sites).start()
 Thread(target=re_add_old_proxies).start()
 Thread(target=write_proxy_stats).start()
 
