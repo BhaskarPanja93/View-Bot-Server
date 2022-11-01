@@ -157,21 +157,21 @@ def __receive_from_connection(connection):
 
     data_bytes = b''
     length = b''
-    for _ in range(100):
+    a = time()
+    while time() - a < 15:
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.1)
+            sleep(0.01)
         else:
             break
     else:
         return b''
-
-
     if len(length) == 8:
         length = int(length)
-        for _ in range(200):
+        b = time()
+        while time() - b < 5:
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.1)
+            sleep(0.01)
             if len(data_bytes) == length:
                 break
         else:
@@ -1175,8 +1175,6 @@ Failed: {len(failed_proxies_unique)}</br>
         :return: String: html data
         """
 
-        request_start_time = time()
-        add_to_logs(request.remote_addr, '/', time() - request_start_time)
         return f"""
 Server start time: {ctime(server_start_time)} IST</br>
 IP: {request.remote_addr}</br>

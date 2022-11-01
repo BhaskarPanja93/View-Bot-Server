@@ -1,6 +1,7 @@
 import socket
+import sys
 import webbrowser
-from os import popen, system as system_caller, path
+from os import popen, system as system_caller, path, getcwd
 from random import randrange
 from time import time, localtime, ctime
 from random import choice
@@ -97,6 +98,8 @@ def reprint_screen():
         print(f"""
 Current user_host version: {user_host_version}
 
+Location: {getcwd()} {sys.argv[0]}
+
 To change host account, login Here
 (only from current PC): 
 http://127.0.0.1:59999
@@ -179,19 +182,21 @@ def __send_to_connection(connection, data_bytes: bytes):
 def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
-    for _ in range(50):
+    a = time()
+    while time() - a < 15:
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.1)
+            sleep(0.01)
         else:
             break
     else:
         return b''
     if len(length) == 8:
         length = int(length)
-        for _ in range(100):
+        b = time()
+        while time() - b < 5:
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.1)
+            sleep(0.01)
             if len(data_bytes) == length:
                 break
         else:

@@ -129,19 +129,21 @@ def __send_to_connection(connection, data_bytes: bytes):
 def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
-    for _ in range(50):
+    a = time()
+    while time() - a < 15:
         if len(length) != 8:
             length += connection.recv(8 - len(length))
-            sleep(0.1)
+            sleep(0.01)
         else:
             break
     else:
         return b''
     if len(length) == 8:
         length = int(length)
-        for _ in range(50):
+        b = time()
+        while time() - b < 5:
             data_bytes += connection.recv(length - len(data_bytes))
-            sleep(0.1)
+            sleep(0.01)
             if len(data_bytes) == length:
                 break
         else:
