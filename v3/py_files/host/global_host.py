@@ -37,10 +37,10 @@ from threading import Thread
 from time import sleep, time, ctime
 import ipaddress
 
-#import logging
+import logging
 ## block logging of all flask outputs except errors
-#log = logging.getLogger('werkzeug')
-#log.setLevel(logging.ERROR)
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 
 current_user_host_main_version = '2.4.2' ## latest user_host file version
@@ -1592,89 +1592,76 @@ Links:</br>
         if "u_name" not in request.args or "password" not in request.args or request.args.get("u_name") not in admin_u_names or not check_password_hash([_ for _ in user_data_db_connection.cursor().execute(f"SELECT user_pw_hash from user_data where u_name='{request.args.get('u_name')}'")][0][0], request.args.get("password").strip().swapcase()):
             log_threats(request.remote_addr, '/all_user_data', 0, "ILLEGAL REQUEST")
             return f"You are not authorised to visit this page"
-        all_data = {}
-        all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
-        for u_name in all_u_names:
-            all_data[u_name.upper()] = {}
-            key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-            fernet = Fernet(key)  ###
-            encoded_old_acc_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
-            ids = eval(fernet.decrypt(encoded_old_acc_data).decode())
-            all_data[u_name.upper()]["_ids"] = ids
-            total_views = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0])
-            all_data[u_name.upper()]["total_views"] = total_views
-            encoded_network_adapters_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0])
-            network_adapters = 0
-            try:
-                network_adapters = eval(fernet.decrypt(encoded_network_adapters_data.encode()).decode())
-            except:
-                pass
-            all_data[u_name.upper()]["network_adapters"] = network_adapters
-            instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
-            all_data[u_name.upper()]["instance_token"] = f'{instance_token[0:6]}...{instance_token[len(instance_token) - 6:len(instance_token)]}'
 
-        table_data = ""
-        for u_name in all_data:
-            _id_data = ""
-            network_adapter_data = ""
+        def generator():
+            yield f"""
+<html>
+<head>
+<style>
+.with_borders {{
+border: 3px solid black;
+}}
+</style>
+<style>
+td, th {{
+font-size: 18px;
+}}
+table, th, td {{
+text-align: center;
+}}
+</style>
+</head>
+<body>"""
+            yield 'LOGS:</br>'
+            for line in logs:
+                yield line + '</br>'
+            yield '<p style="color:red">THREATS:</br>'
+            for line in open("txt_files/threats.txt", "r").readlines():
+                yield line + '</br>'
+            yield '</p>'
+            yield """
+<table class=with_borders>
+<tr>
+<th>U_Name
+<th>IDs
+<th>Total Views
+<th>Network Adapter
+<th>Instance Token
+</tr>"""
+            for u_name in [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]:
+                _id_data = ""
+                network_adapter_data = ""
+                key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
+                fernet = Fernet(key)  ###
+                encoded_old_acc_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                ids = eval(fernet.decrypt(encoded_old_acc_data).decode())
+                for _id in ids:
+                    _id_data += f"{_id} : {ids[_id]}</br>"
+                encoded_network_adapters_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0])
+                try:
+                    network_adapters = eval(fernet.decrypt(encoded_network_adapters_data.encode()).decode())
+                except:
+                    network_adapters = 0
+                if network_adapters != 0:
+                    for adapter in network_adapters:
+                        network_adapter_data += f"{adapter}</br>"
+                else:
+                    network_adapter_data += f"{network_adapters}</br>"
+                instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
+                instance_token = f'{instance_token[0:6]}...{instance_token[len(instance_token) - 6:len(instance_token)]}'
 
-            for _id in all_data[u_name]["_ids"]:
-                _id_data += f"{_id} : {all_data[u_name]['_ids'][_id]}</br>"
-            if all_data[u_name]["network_adapters"] != 0:
-                for adapter in all_data[u_name]["network_adapters"]:
-                    network_adapter_data += f"{adapter}</br>"
-            else:
-                network_adapter_data += f"{all_data[u_name]['network_adapters']}</br>"
-
-            table_data += f"""
-                        <tr>
-                        <th class=with_borders>{u_name}
-                        <td class=with_borders>{_id_data}
-                        <td class=with_borders>{all_data[u_name]["total_views"]}
-                        <td class=with_borders>{network_adapter_data}
-                        <td class=with_borders>{all_data[u_name]["instance_token"]}
-                        </tr>"""
-        log_data = ''
-        for log in logs:
-            log_data+=log+'</br>'
-        threats_data = '<p style="color:red">THREATS'
-        for line in open("txt_files/threats.txt", "r").readlines():
-            threats_data+='</br>'+line
-        threats_data+='</p>'
-        html = f"""
-                <html>
-                <head>
-                <style>
-                .with_borders {{
-                border: 3px solid black;
-                }}
-                </style>
-                <style>
-                td, th {{
-                font-size: 18px;
-                }}
-                table, th, td {{
-                text-align: center;
-                }}
-                </style>
-                </head>
-                <body>
-                <table class=with_borders>
-                <tr>
-                <th>U_Name
-                <th>IDs
-                <th>Total Views
-                <th>Network Adapter
-                <th>Instance Token
-                </tr>
-                {table_data}</br></br>
-                {log_data}</br></br>
-                {threats_data}</br></br>
-                </table>
-                """
+                yield f"""
+<tr>
+<th class=with_borders>{u_name}
+<td class=with_borders>{_id_data}
+<td class=with_borders>{[_ for _ in user_data_db_connection.cursor().execute(f"SELECT total_views from user_data where u_name = '{u_name}'")][0][0]}
+<td class=with_borders>{network_adapter_data}
+<td class=with_borders>{instance_token}
+</tr>"""
+            yield """</br></br></table>"""
 
         add_to_logs(request.remote_addr, '/all_user_data', 0)
-        return html
+        return app.response_class(generator())
 
 
     @app.route('/ping', methods=['GET'])
