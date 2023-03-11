@@ -1,12 +1,11 @@
 print('runner')
-next_file_code = 'adfly_stable_4'
-global_host_page = ''
-local_page = ""
+next_file_code = 'linkvertise_stable_4'
+local_page = "bhaskar.ddns.net"
 local_host_address = ()
 LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
-adfly_user_data_location = "C://adfly_user_data"
+viewbot_user_data_location = "C://user_data"
 from os import remove
 remove('runner.py')
 comment, current_ip, last_ip = str, int, str
@@ -39,22 +38,26 @@ def activate_windows():
         file.write(str(previous_data))
 
 
-def verify_global_site():
-    global global_host_page
+def fetch_global_addresses():
     while True:
         try:
-            if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
-                break
-            else:
-                _ = 1 / 0
-        except:
+            response = popen(f"curl https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
+            link_dict = eval(response.read())
             try:
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-                link_dict = eval(text)
-                global_host_page = choice(link_dict['adfly_host_page_list'])
+                global_host_page = choice(link_dict['global_host_page_list'])
             except:
-                print("Recheck internet connection?")
-                sleep(1)
+                global_host_page = choice(link_dict['adfly_host_page_list'])
+            try:
+                global_host_address = choice(link_dict['adfly_user_tcp_connection_list']).split(":")
+            except:
+                global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
+            global_host_address[-1] = int(global_host_address[-1])
+            global_host_address = tuple(global_host_address)
+            break
+        except:
+            print("Recheck internet connection?")
+            sleep(0.1)
+    return global_host_address, global_host_page
 
 
 def force_connect_local_host():
@@ -71,12 +74,15 @@ def force_connect_local_host():
 
 def fetch_and_update_local_host_address():
     global local_network_adapters
-    instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-    u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
+    instance_token = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['token']
+    u_name = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['u_name'].strip().lower()
     addresses_matched = False
     while not addresses_matched:
         try:
-            response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10).content
+            global_host_address, global_host_page = fetch_global_addresses()
+            response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10)
+            response.close()
+            response = response.content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
                 if response['status_code'] == 0:
@@ -98,8 +104,7 @@ def fetch_and_update_local_host_address():
                 else:
                     __restart_host_machine()
         except:
-            sleep(1)
-            verify_global_site()
+            pass
 
 
 def try_pinging_local_host_connection(ip):
@@ -201,6 +206,7 @@ def __get_global_ip(trial = 0):
         return ''
     for _ in range(3):
         try:
+            global_host_address, global_host_page = fetch_global_addresses()
             if get(f"{global_host_page}/ping").text == 'ping':
                 response = popen(f"curl {global_host_page}/ip").read()
                 if "Current_Visitor_IP:" in response:
@@ -208,8 +214,7 @@ def __get_global_ip(trial = 0):
                 else:
                     _ = 1/0
         except:
-            sleep(1)
-            verify_global_site()
+            pass
     return __get_global_ip(trial+1)
 
 
@@ -218,6 +223,7 @@ def run_instance(instance_name):
     try:
         while True:
             try:
+                global_host_address, global_host_page = fetch_global_addresses()
                 response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10).content
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
@@ -229,10 +235,12 @@ def run_instance(instance_name):
                         views += s
                 else:
                     _ = 1/0
-            except:
+            except Exception as e:
+                print(repr(e))
                 sleep(1)
                 fetch_and_update_local_host_address()
-    except:
+    except Exception as e:
+        print(repr(e))
         sleep(1)
         run_instance(instance_name)
 
@@ -342,9 +350,6 @@ try:
     start_time = previous_data['start_time'] + (time() - previous_data['stop_time'])
     views = previous_data['views']
     activated = previous_data['activated']
-    previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
-    with open("previous_data", 'w') as file:
-        file.write(str(previous_data))
 except:
     start_time = time()
     activated = False
@@ -356,8 +361,8 @@ if not activated:
 
 
 __clean_temps_directory()
-__disconnect_all_vpn()
 check_windscribe_logged_in()
+__disconnect_all_vpn()
 sleep(3)
 while not genuine_ip:
     genuine_ip = __get_global_ip()

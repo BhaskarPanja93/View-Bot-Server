@@ -1,9 +1,8 @@
 import socket
-import sys
 import webbrowser
-from os import popen, system as system_caller, path, getcwd
+from os import system as system_caller, path
 from random import randrange
-from time import time, localtime, ctime
+from time import time, ctime
 from random import choice
 from time import sleep
 from threading import Thread
@@ -11,7 +10,6 @@ from cryptography.fernet import Fernet
 from flask import Flask, request, redirect, make_response, render_template_string
 from ping3 import ping
 from turbo_flask import Turbo
-from psutil import virtual_memory
 from requests import get
 import logging
 
@@ -20,7 +18,7 @@ log1.setLevel(logging.ERROR)
 
 local_drive_name = 'C'
 if not path.exists(f"{local_drive_name}://"):
-    for _ascii in range(67,90+1):
+    for _ascii in range(67, 90 + 1):
         local_drive_name = chr(_ascii)
         if path.exists(f"{local_drive_name}://"):
             break
@@ -30,65 +28,33 @@ if not path.exists(f"{local_drive_name}://"):
         input()
         exit()
 
-data_location = f"{local_drive_name}://adfly_files"
-updates_location = f"{local_drive_name}://adfly_files/updates"
+data_location = f"{local_drive_name}://viewbot_files"
+updates_location = f"{local_drive_name}://viewbot_files/updates"
 user_host_version = ctime(float(open(f"{data_location}/version", 'r').read()))
 
-vbox_binary_idle = True
-vbox_binary_location = ''
-possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
-                           "D://Programas/Virtual Box/VBoxManage.exe",]
-
-for location in possible_vbox_locations:
-    if path.exists(location):
-        vbox_binary_location = location
-        break
-
-else:
-    print("VirtualBox path not found, \nMake sure you have Oracle Virtualbox installed, \nElse create a github issue here: \nhttps://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
-    input("You can ignore this warning by pressing 'Enter' but you will be missing out on features like automatic VM Manage, VM activities, VM uptimes, Per VM View etc.")
-
-vm_manager_start_vm = True
-default_per_vm_memory = 1228
-max_vm_count = default_max_vm_count = 0
-max_memory_percent = default_max_memory_percent = 70
-rtc_start = default_rtc_start = ['00','00']
-rtc_stop = default_rtc_stop = ['23','59']
-total_system_memory = virtual_memory()[0]
+vm_mac_to_name = {}
 PRIVATE_HOST_PORT = 59999
 PUBLIC_HOST_PORT = 60000
 LOCAL_CONNECTION_PORT = 59998
-global_host_address = ()
-global_host_page = ''
+#global_host_address = ()
+#global_host_page = 'http://bhaskar.ddns.net'
 host_cpu_percent, host_ram_percent = 0, 0
-vm_stop_queue = []
-vm_start_queue = []
-vm_long_data = {}  ## {Name:{key:value}}
-vm_short_data = {}  ## {UUID:{Name:value, MAC:value}}
-vm_mac_to_name = {} ##{MAC:[name1, name2]}
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
-reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/']
+reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select', 'savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/']
 public_vm_data = {}
 vm_stat_connections = {}
 windows_img_files = {}
 py_files = {}
 global_host_auth_data = {}
-messages_for_all = {'severe_info':[],
-                    'notification_info':[{'message': "If you want to change the username this Host is serving, Re-Login <a href='http://127.0.0.1:59999'>> HERE <</a>.</br>NOTE: This page can only be opened from the Host PC's browsers!!", "duration":10}],
-                    'success_info':[]}
-messages_for_host = {'severe_info':[{'message':"If you want to host this page globally, only use <a href='https://ngrok.com/'>> ngrok <</a> else it can be a security risk!!", 'duration':10}],
-                     'notification_info':[],
-                     'success_info':[]}
-
-
-def write_vms_to_be_used():
-    dict_to_write = {"vms_to_use": vms_to_use}
-    open(f"{data_location}/adfly_vm_manager", 'w').write(str(dict_to_write))
-
-
-def write_vm_metrics():
-    dict_to_write = {'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}
-    open(f"{data_location}/adfly_vm_metrics", 'w').write(str(dict_to_write))
+global_socket_connections = {}
+flask_messages_for_all = {'severe_info': [],
+                          'notification_info': [{'message': "If you want to change the username this Host is serving, Re-Login <a href='http://127.0.0.1:59999'>> HERE <</a>.</br>NOTE: This page can only be opened from the Host PC's browsers!!",
+                                                    "duration": 10}],
+                          'success_info': []}
+flask_messages_for_host = {'severe_info': [{'message': "If you want to host this page globally, only use <a href='https://ngrok.com/'>> ngrok <</a> else it can be a security risk!!",
+                                               'duration': 10}],
+                           'notification_info': [],
+                           'success_info': []}
 
 
 def reprint_screen():
@@ -96,9 +62,10 @@ def reprint_screen():
     while True:
         system_caller('cls')
         print(f"""
-Current user_host version: {user_host_version}
 
-Location: {getcwd()} {sys.argv[0]}
+Edge Connected to: 
+
+Current user_host version: {user_host_version}
 
 To change host account, login Here
 (only from current PC): 
@@ -111,48 +78,29 @@ To manage VMs and your account, login Here
         sleep(10)
 
 
-def verify_global_host_site():
-    global global_host_page
+
+def fetch_global_addresses():
     while True:
         try:
-            if type(ping('8.8.8.8')) == float:
-                break
-        except:
-            print("Please check your internet connection")
-    while True:
-        try:
-            if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
-                break
-            else:
-                print("Unable to connect to global host...")
-                _ = 1 / 0
-        except:
+            response = get("https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md", timeout=10)
+            response.close()
+            link_dict = eval(response.text)
             try:
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-                link_dict = eval(text)
-                global_host_page = choice(link_dict['adfly_host_page_list'])
+                global_host_page = choice(link_dict['global_host_page_list'])
             except:
-                sleep(1)
-
-
-def verify_global_host_address():
-    global global_host_address
-    while True:
-        try:
-            if type(ping('8.8.8.8')) == float:
-                break
-        except:
-            print("Please check your internet connection")
-    while True:
-        try:
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-            link_dict = eval(text)
-            host_ip, host_port = choice(link_dict['adfly_user_tcp_connection_list']).split(':')
-            host_port = int(host_port)
-            global_host_address = (host_ip, host_port)
+                global_host_page = choice(link_dict['adfly_host_page_list'])
+            try:
+                global_host_address = choice(link_dict['adfly_user_tcp_connection_list']).split(":")
+            except:
+                global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
+            global_host_address[-1] = int(global_host_address[-1])
+            global_host_address = tuple(global_host_address)
             break
         except:
-            sleep(1)
+            print("Recheck internet connection?")
+            sleep(0.1)
+    return global_host_address, global_host_page
+
 
 
 def force_connect_global_server():
@@ -165,18 +113,17 @@ def force_connect_global_server():
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
         try:
+            global_host_address, global_host_page = fetch_global_addresses()
             token = get(f"{global_host_page}/token_for_tcp_connection", timeout=10).text
             connection.connect(global_host_address)
             break
-        except Exception:
-            verify_global_host_site()
-            sleep(1)
-            verify_global_host_address()
+        except:
+            pass
     return connection, token
 
 
 def __send_to_connection(connection, data_bytes: bytes):
-    connection.sendall(str(len(data_bytes)).zfill(8).encode()+data_bytes)
+    connection.sendall(str(len(data_bytes)).zfill(8).encode() + data_bytes)
 
 
 def __receive_from_connection(connection):
@@ -211,215 +158,13 @@ def __try_closing_connection(connection):
         sleep(0.1)
         try:
             connection.close()
-        except :
+        except:
             pass
 
 
-def fetch_all_vm_info():
-    global vbox_binary_idle
-    for _ in range(10):
-        if not vbox_binary_idle:
-            sleep(0.1)
-    vbox_binary_idle = False
-    statement_lines = popen(f'\"{vbox_binary_location}\" list --long vms').readlines()
-    vbox_binary_idle = True
-    name = ''
-    for _line in statement_lines:
-        line = _line.strip()
-        if not line:
-            pass
-        key, value = '', ''
-        splitter_reached = False
-        for character in line:
-            if not splitter_reached:
-                key += character
-            else:
-                value += character
-            if character == ':':
-                splitter_reached = True
-        key, value = key.strip(), value.strip()
-        if key == 'Name:':
-            name = value
-            vm_long_data[name] = {}
-        if 'MAC:' in value:
-            network_data = value.split(',')
-            for data_pair in network_data:
-                if 'MAC:' in data_pair:
-                    vm_long_data[name]['MAC:'] = data_pair.split(':')[-1].strip()
-        else:
-            vm_long_data[name][key]=value
-    for name in vm_long_data:
-        if "UUID:" in vm_long_data[name] and "MAC:" in vm_long_data[name]:
-            uuid = vm_long_data[name]["UUID:"]
-            mac = vm_long_data[name]["MAC:"]
-            if mac in vm_mac_to_name:
-                if name not in vm_mac_to_name[mac]:
-                    vm_mac_to_name[mac].append(name)
-            else:
-                vm_mac_to_name[mac] = [name]
-            vm_short_data[uuid] = {'Name:': name, 'MAC:': mac}
-
-
-def get_vm_info(vm_info, info):
-    try:
-        if vm_info in return_all_vms():
-            vm_uuid = vm_info
-            if vm_uuid not in vm_short_data:
-                fetch_all_vm_info()
-            vm_name = vm_short_data[vm_uuid]['Name:']
-        else:
-            vm_name = vm_info
-
-        if vm_name not in vm_long_data or info not in vm_long_data[vm_name]:
-            fetch_all_vm_info()
-
-        if vm_name not in vm_long_data or info not in vm_long_data[vm_name]:
-            return ''
-
-        return vm_long_data[vm_name][info]
-
-    except:
-        return ''
-
-
-def return_all_vms():
-    global vbox_binary_idle
-    for _ in range(10):
-        if not vbox_binary_idle:
-            sleep(0.1)
-    vbox_binary_idle = False
-    statement_lines = popen(f'\"{vbox_binary_location}\" list vms').readlines()
-    vbox_binary_idle = True
-    return_set = set()
-    for _line in statement_lines:
-        line = _line.split()
-        for word in line:
-            if len(word)>2:
-                if word[0] == '{' and word[-1] == '}':
-                    word = word.replace('{','').replace('}','')
-                    return_set.add(word)
-    return return_set
-
-
-def return_running_vms():
-    global vbox_binary_idle
-    for _ in range(10):
-        if not vbox_binary_idle:
-            sleep(0.1)
-    vbox_binary_idle = False
-    statement_lines = popen(f'\"{vbox_binary_location}\" list runningvms').readlines()
-    vbox_binary_idle = True
-    return_set = set()
-    for _line in statement_lines:
-        line = _line.split()
-        for word in line:
-            if len(word)>2:
-                if word[0] == '{' and word[-1] == '}':
-                    word = word.replace('{','').replace('}','')
-                    return_set.add(word)
-    return return_set
-
-
-def return_stopped_vms():
-    return return_all_vms() - return_running_vms()
-
-
-def queue_vm_stop(uuid, delay=0.0, block=False):
-    global vbox_binary_idle
-    if not block:
-        Thread(target=queue_vm_stop, args=(uuid, delay, True,)).start()
-        return
-    sleep(delay)
-    if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
-        for _ in range(200):
-            if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
-                vm_stop_queue.append(uuid)
-                for _ in range(10):
-                    if not vbox_binary_idle:
-                        sleep(0.1)
-                vbox_binary_idle = False
-                system_caller(f'\"{vbox_binary_location}\" controlvm {uuid} acpipowerbutton')
-                vbox_binary_idle = True
-            sleep(0.1)
-            if uuid not in return_running_vms():
-                if uuid in vm_stop_queue:
-                    vm_stop_queue.remove(uuid)
-                break
-        else:
-            for _ in range(10):
-                if not vbox_binary_idle:
-                    sleep(0.1)
-            vbox_binary_idle = False
-            system_caller(f'\"{vbox_binary_location}\" controlvm {uuid} poweroff')
-            vbox_binary_idle = True
-            if uuid in vm_stop_queue:
-                vm_stop_queue.remove(uuid)
-
-
-def queue_vm_start(uuid, delay=0.0, block=False):
-    global vbox_binary_idle
-    if not block:
-        Thread(target=queue_vm_start, args=(uuid, delay, True,)).start()
-        return
-    sleep(delay)
-    for _ in range(10):
-        if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid not in return_running_vms():
-            vm_start_queue.append(uuid)
-            for _ in range(10):
-                if not vbox_binary_idle:
-                    sleep(0.1)
-            vbox_binary_idle = False
-            system_caller(f'\"{vbox_binary_location}\" startvm {uuid} --type headless')
-            vbox_binary_idle = True
-            sleep(1)
-            if uuid in return_running_vms():
-                if uuid in vm_start_queue:
-                    vm_start_queue.remove(uuid)
-                break
-
-
-def randomise_vm_mac(uuid):
-    global vbox_binary_idle
-    for _ in range(40):
-        if uuid in return_running_vms():
-            queue_vm_stop(uuid, 0, True)
-    for _ in range(10):
-        if not vbox_binary_idle:
-            sleep(0.1)
-    vbox_binary_idle = False
-    system_caller(f'\"{vbox_binary_location}\" modifyvm {uuid} --macaddress1 auto')
-    vbox_binary_idle = True
-    fetch_all_vm_info()
-
-
-def check_and_fix_repeated_mac_addresses(vm_to_check=None):
-    if not vm_to_check:
-        for _ in range(100):
-            allocated_mac_addresses = []
-            for uuid in vms_to_use:
-                mac_address = get_vm_info(uuid, 'MAC:')
-                if mac_address in allocated_mac_addresses:
-                    randomise_vm_mac(uuid)
-                    break
-                else:
-                    allocated_mac_addresses.append(mac_address)
-            else:
-                break
-    else:
-        for _ in range(100):
-            allocated_mac_addresses = []
-            for uuid in vms_to_use:
-                mac_address = get_vm_info(uuid, 'MAC:')
-                allocated_mac_addresses.append(mac_address)
-            mac_address = get_vm_info(vm_to_check, 'MAC:')
-            if mac_address in allocated_mac_addresses:
-                Thread(target=randomise_vm_mac, args=(vm_to_check,)).start()
-            else:
-                break
-
-
-def log_data(ip:str, request_type:str, processing_time: float,additional_data:str=''):
-    print(f"[{' '.join(ctime().split()[1:4])}][{round(processing_time*1000, 2)}ms] [{ip}] [{request_type}] {additional_data}")
+def log_data(ip: str, request_type: str, processing_time: float, additional_data: str = ''):
+    print(
+        f"[{' '.join(ctime().split()[1:4])}][{round(processing_time * 1000, 2)}ms] [{ip}] [{request_type}] {additional_data}")
 
 
 def u_name_matches_standard(u_name: str):
@@ -431,7 +176,7 @@ def u_name_matches_standard(u_name: str):
 
 def password_matches_standard(password: str):
     has_1_number = False
-    has_1_upper =False
+    has_1_upper = False
     has_1_lower = False
     for _ in password:
         if _.islower():
@@ -453,109 +198,6 @@ def generate_random_string(_min, _max):
     return string
 
 
-def vm_manager_time_manager():
-    global vm_manager_start_vm
-    current = [int(localtime()[3]), int(localtime()[4])]
-    start = [int(rtc_start[0]), int(rtc_start[1])]
-    stop = [int(rtc_stop[0]), int(rtc_stop[1])]
-    if stop[0] > start[0]:
-        if stop[0] > current[0] >= start[0]:
-            vm_manager_start_vm = True
-        elif stop[0] == current[0]:
-            if stop[1] > current[1]:
-                vm_manager_start_vm = True
-            else:
-                vm_manager_start_vm = False
-        elif current[0] == start[0]:
-            if current[1] >= start[1]:
-                vm_manager_start_vm = True
-            else:
-                vm_manager_start_vm = False
-        else:
-            vm_manager_start_vm = False
-
-    elif stop[0] < start [0]:
-        if stop[0] > current[0] > 0 or 24 > current[0] > start[0]:
-            vm_manager_start_vm = True
-        elif stop[0] == current[0]:
-            if stop[1] > current[1]:
-                vm_manager_start_vm = True
-            else:
-                vm_manager_start_vm = False
-        elif current[0] == start[0]:
-            if current[1] >= start[1]:
-                vm_manager_start_vm = True
-            else:
-                vm_manager_start_vm = False
-        else:
-            vm_manager_start_vm = False
-
-    elif stop[0] == start[0]:
-        if stop[0] == current[0] == start[0]:
-            if stop[1] > current[1] >= start[1]:
-                vm_manager_start_vm = True
-            else:
-                vm_manager_start_vm = False
-        else:
-            vm_manager_start_vm = False
-
-
-def vm_manager():
-    check_and_fix_repeated_mac_addresses()
-    while True:
-        sleep(2)
-        vm_manager_time_manager()
-        if vm_manager_start_vm:
-            total_system_memory, current_memory_percent = virtual_memory()[0], virtual_memory()[2]
-            per_vm_memory_percent = int((per_vm_memory*1024*1024/total_system_memory)*100)+2
-            all_running_vms = return_running_vms()
-            running_adfly_vms = []
-            for uuid in all_running_vms:
-                if uuid in vms_to_use:
-                    running_adfly_vms.append(uuid)
-            all_stopped_vms = return_stopped_vms()
-            stopped_adfly_vms = []
-            for uuid in all_stopped_vms:
-                if uuid in vms_to_use:
-                    stopped_adfly_vms.append(uuid)
-
-            if running_adfly_vms and (len(running_adfly_vms) + len(vm_start_queue) - len(vm_stop_queue)) > max_vm_count:
-                vms_to_stop_count = int((len(running_adfly_vms) - len(vm_stop_queue)) - max_vm_count)
-                if vms_to_stop_count:
-                    sleep(1)
-                    chosen_vm = choice(running_adfly_vms)
-                    if chosen_vm not in vm_stop_queue:
-                        queue_vm_stop(chosen_vm, 0)
-                        vms_to_stop_count -= 1
-
-            elif running_adfly_vms and current_memory_percent + (len(vm_start_queue)*per_vm_memory_percent) - (len(vm_stop_queue)*per_vm_memory_percent)  >= max_memory_percent:
-                vms_to_stop_count = int((current_memory_percent + (len(vm_start_queue)*per_vm_memory_percent) - (len(vm_stop_queue)*per_vm_memory_percent) - max_memory_percent)/per_vm_memory_percent)+1
-                if vms_to_stop_count:
-                    sleep(1)
-                    chosen_vm = choice(running_adfly_vms)
-                    if chosen_vm not in vm_stop_queue:
-                        queue_vm_stop(chosen_vm, 0)
-                        vms_to_stop_count -= 1
-            else:
-                vms_to_start_count = int(min(((max_memory_percent - current_memory_percent) // per_vm_memory_percent) + len(vm_stop_queue) - len(vm_start_queue), max_vm_count - len(vm_start_queue) - len(running_adfly_vms), len(vms_to_use) - len(vm_start_queue) - len(running_adfly_vms)))
-                if stopped_adfly_vms and vms_to_start_count:
-                    sleep(1)
-                    chosen_vm = choice(stopped_adfly_vms)
-                    if chosen_vm not in vm_stop_queue:
-                        queue_vm_start(chosen_vm, 0)
-                        vms_to_start_count -= 1
-                        queue_vm_stop(chosen_vm, 3600)
-
-        else:
-            all_running_vms = return_running_vms()
-            running_adfly_vms = []
-            for uuid in all_running_vms:
-                if uuid in vms_to_use:
-                    running_adfly_vms.append(uuid)
-            for uuid in running_adfly_vms:
-                queue_vm_stop(uuid, 0)
-
-
 def global_host_peering_authenticator():
     global global_host_auth_data
     global_host_auth_data = {}
@@ -568,9 +210,9 @@ def global_host_peering_authenticator():
     if global_host_auth_data:
         for u_name in global_host_auth_data:
             connection, binding_token = force_connect_global_server()
-            data_to_be_sent = {'purpose': 'host_authentication', 'binding_token':binding_token}
+            data_to_be_sent = {'purpose': 'host_authentication', 'binding_token': binding_token}
             __send_to_connection(connection, str(data_to_be_sent).encode())
-            data_to_send = {'purpose': 'auth_token', 'u_name':u_name, 'auth_token': global_host_auth_data[u_name]['auth_token'], 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
+            data_to_send = {'purpose': 'auth_token', 'u_name': u_name, 'auth_token': global_host_auth_data[u_name]['auth_token'], 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
             __send_to_connection(connection, str(data_to_send).encode())
             response = __receive_from_connection(connection)
             if response[0] == 123 and response[-1] == 125:
@@ -628,10 +270,11 @@ def remove_viewer(viewer_id):
             pass
 
 
-def process_form_action(viewer_id:str, form:dict):
+def process_form_action(viewer_id: str, form: dict):
     if form['purpose'] == 'base_form':
         if form['choice'] == 'create_new_account':
-            force_send_flask_data(return_html_body('public_create_new_account_form'), 'private_div', viewer_id, 'update', 0, 0)
+            force_send_flask_data(return_html_body('public_create_new_account_form'), 'private_div', viewer_id,
+                                  'update', 0, 0)
             send_new_csrf_token('create_new_account', viewer_id)
         elif form['choice'] == 'login':
             force_send_flask_data(return_html_body('public_login_form'), 'private_div', viewer_id, 'update', 0, 0)
@@ -643,7 +286,8 @@ def process_form_action(viewer_id:str, form:dict):
         password1 = form['password1']
         password2 = form['password2']
         if not u_name_matches_standard(username):
-            force_send_flask_data("Username not allowed(has unwanted characters or words)", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data("Username not allowed(has unwanted characters or words)", 'severe_info', viewer_id,
+                                  'new_div', 0, 3)
             return
         if password2 != password1:
             force_send_flask_data("Password don't match", 'severe_info', viewer_id, 'new_div', 0, 3)
@@ -653,7 +297,8 @@ def process_form_action(viewer_id:str, form:dict):
             return
         else:
             password = password1
-        div_name = force_send_flask_data(f'[WAITING] [Create New Account] Waiting for previous operations!', 'notification_info', viewer_id, 'new_div', 0, 0)
+        div_name = force_send_flask_data(f'[WAITING] [Create New Account] Waiting for previous operations!',
+                                         'notification_info', viewer_id, 'new_div', 0, 0)
         while True:
             try:
                 token = active_viewers[viewer_id]['global_host_send_token']
@@ -662,14 +307,16 @@ def process_form_action(viewer_id:str, form:dict):
                     break
             except:
                 sleep(0.1)
-        force_send_flask_data(f'[WAITING] [Create New Account] Waiting for server to respond!', div_name, viewer_id, 'update', 0, 0)
-        send_data = {'token':token, 'purpose':'create_new_account', 'u_name':username, 'password':password}
+        force_send_flask_data(f'[WAITING] [Create New Account] Waiting for server to respond!', div_name, viewer_id,
+                              'update', 0, 0)
+        send_data = {'token': token, 'purpose': 'create_new_account', 'u_name': username, 'password': password}
         connection = active_viewers[viewer_id]['global_host_connection']
         try:
             __send_to_connection(connection, str(send_data).encode())
             response_string = __receive_from_connection(connection)
         except:
-            force_send_flask_data(f"[FAILURE] [Create New Account] server connection error", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[FAILURE] [Create New Account] server connection error", 'severe_info', viewer_id,
+                                  'new_div', 0, 3)
             force_send_flask_data('', div_name, viewer_id, 'remove', 0, 0)
             account_div_manager(viewer_id, reconnect=True)
             return
@@ -678,7 +325,8 @@ def process_form_action(viewer_id:str, form:dict):
             response_dict = eval(response_string)
             active_viewers[viewer_id]['global_host_send_token'] = response_dict['token']
             if response_dict['status_code'] == 0:
-                force_send_flask_data(f"[SUCCESS] [Create New Account] Account Created", 'success_info', viewer_id, 'new_div', 0, 3)
+                force_send_flask_data(f"[SUCCESS] [Create New Account] Account Created", 'success_info', viewer_id,
+                                      'new_div', 0, 3)
                 additional_data = response_dict['additional_data']
                 active_viewers[viewer_id]['additional_data'] = additional_data
                 active_viewers[viewer_id]['u_name'] = username
@@ -688,13 +336,15 @@ def process_form_action(viewer_id:str, form:dict):
             elif response_dict['status_code'] > 0:
                 force_send_flask_data(f"[NOTE] {response_dict['reason']}", 'success_info', viewer_id, 'new_div', 0, 3)
         else:
-                force_send_flask_data(f"[ERROR] [Create New Account] Something went wrong", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[ERROR] [Create New Account] Something went wrong", 'severe_info', viewer_id,
+                                  'new_div', 0, 3)
 
 
     elif form['purpose'] == 'login':
         username = form['username'].strip().lower()
         password = form['password']
-        div_name = force_send_flask_data(f'[WAITING] [Login] Waiting for previous operations!', 'notification_info', viewer_id, 'new_div', 0, 0)
+        div_name = force_send_flask_data(f'[WAITING] [Login] Waiting for previous operations!', 'notification_info',
+                                         viewer_id, 'new_div', 0, 0)
         while True:
             try:
                 token = active_viewers[viewer_id]['global_host_send_token']
@@ -704,13 +354,14 @@ def process_form_action(viewer_id:str, form:dict):
             except:
                 sleep(0.1)
         force_send_flask_data(f'[WAITING] [Login] Waiting for server to respond!', div_name, viewer_id, 'update', 0, 0)
-        send_data = {'token':token, 'purpose':'login', 'u_name':username, 'password':password}
+        send_data = {'token': token, 'purpose': 'login', 'u_name': username, 'password': password}
         connection = active_viewers[viewer_id]['global_host_connection']
         try:
             __send_to_connection(connection, str(send_data).encode())
             response_string = __receive_from_connection(connection)
         except:
-            force_send_flask_data(f"[FAILURE] [Login] server connection error", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[FAILURE] [Login] server connection error", 'severe_info', viewer_id, 'new_div', 0,
+                                  3)
             force_send_flask_data('', div_name, viewer_id, 'remove', 0, 0)
             account_div_manager(viewer_id, reconnect=True)
             return
@@ -734,7 +385,8 @@ def process_form_action(viewer_id:str, form:dict):
 
     elif form['purpose'] == 'remove_account':
         acc_id = form['acc_id']
-        div_name = force_send_flask_data(f'[WAITING] [Remove Account] Waiting for previous operations!', 'notification_info', viewer_id, 'new_div', 0, 0)
+        div_name = force_send_flask_data(f'[WAITING] [Remove Account] Waiting for previous operations!',
+                                         'notification_info', viewer_id, 'new_div', 0, 0)
         while True:
             try:
                 token = active_viewers[viewer_id]['global_host_send_token']
@@ -743,14 +395,16 @@ def process_form_action(viewer_id:str, form:dict):
                     break
             except:
                 sleep(0.1)
-        force_send_flask_data(f'[WAITING] [Remove Account] Waiting for server to respond!', div_name, viewer_id, 'update', 0, 0)
-        send_data = {'token':token, 'purpose':'remove_account', 'acc_id': acc_id}
+        force_send_flask_data(f'[WAITING] [Remove Account] Waiting for server to respond!', div_name, viewer_id,
+                              'update', 0, 0)
+        send_data = {'token': token, 'purpose': 'remove_account', 'acc_id': acc_id}
         connection = active_viewers[viewer_id]['global_host_connection']
         try:
             __send_to_connection(connection, str(send_data).encode())
             response_string = __receive_from_connection(connection)
         except:
-            force_send_flask_data(f"[FAILURE] [Remove Account] server connection error", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[FAILURE] [Remove Account] server connection error", 'severe_info', viewer_id,
+                                  'new_div', 0, 3)
             force_send_flask_data('', div_name, viewer_id, 'remove', 0, 0)
             account_div_manager(viewer_id, reconnect=True)
             return
@@ -759,7 +413,8 @@ def process_form_action(viewer_id:str, form:dict):
             response_dict = eval(response_string)
             active_viewers[viewer_id]['global_host_send_token'] = response_dict['token']
             if response_dict['status_code'] == 0:
-                force_send_flask_data(f"[SUCCESS] [Remove Account] Account Removed", 'success_info', viewer_id, 'new_div', 0, 3)
+                force_send_flask_data(f"[SUCCESS] [Remove Account] Account Removed", 'success_info', viewer_id,
+                                      'new_div', 0, 3)
                 additional_data = response_dict['additional_data']
                 render_account_manage_table(viewer_id, additional_data['self_ids'])
             elif response_dict['status_code'] < 0:
@@ -769,14 +424,16 @@ def process_form_action(viewer_id:str, form:dict):
                 additional_data = response_dict['additional_data']
                 render_account_manage_table(viewer_id, additional_data['self_ids'])
         else:
-            force_send_flask_data(f"[ERROR] [Remove Account] Something went wrong", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[ERROR] [Remove Account] Something went wrong", 'severe_info', viewer_id, 'new_div',
+                                  0, 3)
 
 
     elif form['purpose'] == 'add_account':
         send_new_csrf_token('add_account', viewer_id)
         acc_id = int(form['acc_id'])
         identifier = form['identifier']
-        div_name = force_send_flask_data(f'[WAITING] [Add Account] Waiting for previous operations!', 'notification_info', viewer_id, 'new_div', 0, 0)
+        div_name = force_send_flask_data(f'[WAITING] [Add Account] Waiting for previous operations!',
+                                         'notification_info', viewer_id, 'new_div', 0, 0)
         while True:
             try:
                 token = active_viewers[viewer_id]['global_host_send_token']
@@ -785,14 +442,16 @@ def process_form_action(viewer_id:str, form:dict):
                     break
             except:
                 sleep(0.1)
-        force_send_flask_data(f'[WAITING] [Add Account] Waiting for server to respond!', div_name, viewer_id, 'update', 0, 0)
-        send_data = {'token':token, 'purpose':'add_account', 'acc_id': acc_id, 'identifier': identifier}
+        force_send_flask_data(f'[WAITING] [Add Account] Waiting for server to respond!', div_name, viewer_id, 'update',
+                              0, 0)
+        send_data = {'token': token, 'purpose': 'add_account', 'acc_id': acc_id, 'identifier': identifier}
         connection = active_viewers[viewer_id]['global_host_connection']
         try:
             __send_to_connection(connection, str(send_data).encode())
             response_string = __receive_from_connection(connection)
         except:
-            force_send_flask_data(f"[FAILURE] [Add Account] server connection error", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[FAILURE] [Add Account] server connection error", 'severe_info', viewer_id,
+                                  'new_div', 0, 3)
             force_send_flask_data('', div_name, viewer_id, 'remove', 0, 0)
             account_div_manager(viewer_id, reconnect=True)
             return
@@ -801,20 +460,24 @@ def process_form_action(viewer_id:str, form:dict):
             response_dict = eval(response_string)
             active_viewers[viewer_id]['global_host_send_token'] = response_dict['token']
             if response_dict['status_code'] == 0:
-                force_send_flask_data(f"[SUCCESS] [Add Account] Account Added", 'success_info', viewer_id, 'new_div', 0, 3)
+                force_send_flask_data(f"[SUCCESS] [Add Account] Account Added", 'success_info', viewer_id, 'new_div', 0,
+                                      3)
                 additional_data = response_dict['additional_data']
                 active_viewers[viewer_id]['additional_data'] = additional_data
                 render_account_manage_table(viewer_id, additional_data['self_ids'])
             elif response_dict['status_code'] < 0:
-                force_send_flask_data(f"[DENIED] [Add Account] {response_dict['reason']}", 'severe_info', viewer_id, 'new_div', 0, 3)
+                force_send_flask_data(f"[DENIED] [Add Account] {response_dict['reason']}", 'severe_info', viewer_id,
+                                      'new_div', 0, 3)
             elif response_dict['status_code'] > 0:
-                force_send_flask_data(f"[NOTE] [Add Account] {response_dict['reason']}", 'success_info', viewer_id, 'new_div', 0, 3)
+                force_send_flask_data(f"[NOTE] [Add Account] {response_dict['reason']}", 'success_info', viewer_id,
+                                      'new_div', 0, 3)
                 additional_data = response_dict['additional_data']
                 render_account_manage_table(viewer_id, additional_data['self_ids'])
         else:
-            force_send_flask_data(f"[ERROR] [Add Account] Something went wrong", 'severe_info', viewer_id, 'new_div', 0, 3)
+            force_send_flask_data(f"[ERROR] [Add Account] Something went wrong", 'severe_info', viewer_id, 'new_div', 0,
+                                  3)
 
-
+    """
     elif form['purpose'] == 'add_vm':
         uuid = form['vm_uuid']
         Thread(target=check_and_fix_repeated_mac_addresses, args=(uuid,)).start()
@@ -878,9 +541,10 @@ def process_form_action(viewer_id:str, form:dict):
         force_send_flask_data(f"[SUCCESS] [Turn Off VM] {uuid} will stop in 20secs", 'success_info', viewer_id, 'new_div', 0, 3)
         queue_vm_stop(uuid, 0, True)
         force_send_flask_data(f"[SUCCESS] [Turn Off VM] {uuid} stopped", 'success_info', viewer_id, 'new_div', 0, 3)
+    """
 
 
-def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str, method:str, user_delay:int, duration:int, actual_delay:int=0):
+def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str, method: str, user_delay: int, duration: int, actual_delay: int = 0):
     try:
         if viewer_id not in turbo_app.clients:
             return
@@ -893,7 +557,7 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
             return
         if method == 'new_div':
             while True:
-                div_counter = generate_random_string(5,10)
+                div_counter = generate_random_string(5, 10)
                 new_div_name = f"{expected_div_name}_{div_counter}"
                 if new_div_name not in active_viewers[viewer_id]['html_data']:
                     force_send_flask_data(f"""<div id='{new_div_name}'></div><div id='{expected_div_name}_create'></div>""", f'{expected_div_name}_create', viewer_id, 'replace', 0, 0)
@@ -945,7 +609,8 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
                         sleep(0.1)
                 if duration:
                     user_delay = duration
-                    Thread(target=force_send_flask_data, args=('', expected_div_name, viewer_id, 'remove', user_delay, 0)).start()
+                    Thread(target=force_send_flask_data,
+                           args=('', expected_div_name, viewer_id, 'remove', user_delay, 0)).start()
     except:
         pass
 
@@ -959,9 +624,9 @@ def __fetch_image_from_global_host(img_name):
             if img_name in windows_img_files and 'version' in windows_img_files[img_name]:
                 version = windows_img_files[img_name]['version']
             else:
-                windows_img_files[img_name]={'verified': None, 'version': 0}
+                windows_img_files[img_name] = {'verified': None, 'version': 0}
                 version = 0
-            verify_global_host_site()
+            global_host_address, global_host_page = fetch_global_addresses()
             s_time = time()
             response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=10).content
             response_time = time() - s_time
@@ -970,16 +635,16 @@ def __fetch_image_from_global_host(img_name):
                 response = eval(response)
                 if response['img_name'] == img_name:
                     if response['version'] != version:
-                        windows_img_files[img_name] = {'data': response['data'], 'img_size': response['size'],'version': response['version'], 'verified':True}
+                        windows_img_files[img_name] = {'data': response['data'], 'img_size': response['size'], 'version': response['version'], 'verified': True}
                     else:
                         windows_img_files[img_name]['verified'] = True
                     break
             else:
-                _ = 1/0
+                _ = 1 / 0
         except:
             sleep(1)
     else:
-        windows_img_files[img_name]={'verified': False, 'version': 0}
+        windows_img_files[img_name] = {'verified': False, 'version': 0}
 
 
 def __fetch_py_file_from_global_host(file_code):
@@ -991,9 +656,9 @@ def __fetch_py_file_from_global_host(file_code):
             if file_code in py_files and 'version' in py_files[file_code]:
                 version = py_files[file_code]['version']
             else:
-                py_files[file_code]={'verified': None, 'version': 0}
+                py_files[file_code] = {'verified': None, 'version': 0}
                 version = 0
-            verify_global_host_site()
+            global_host_address, global_host_page = fetch_global_addresses()
             s_time = time()
             response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=10).content
             response_time = time() - s_time
@@ -1002,16 +667,16 @@ def __fetch_py_file_from_global_host(file_code):
                 response = eval(response)
                 if response['file_code'] == str(file_code):
                     if response['version'] != version:
-                        py_files[file_code] = {'data':response['data'], 'verified':True, 'version':response['version']}
+                        py_files[file_code] = {'data': response['data'], 'verified': True, 'version': response['version']}
                     else:
                         py_files[file_code]['verified'] = True
                     break
             else:
-                _ = 1/0
+                _ = 1 / 0
         except:
             sleep(1)
     else:
-        py_files[file_code]={'verified': False, 'version': 0}
+        py_files[file_code] = {'verified': False, 'version': 0}
 
 
 def invalidate_all_images(interval):
@@ -1054,7 +719,7 @@ def vm_connection_manager():
 
             elif purpose == 'stat_connection_establish':
                 mac_address = request_data['mac_address']
-                mac_address_encrypted = f"{mac_address}-{generate_random_string(10,20)}".upper()
+                mac_address_encrypted = f"{mac_address}-{generate_random_string(10, 20)}".upper()
                 vm_stat_connections[mac_address_encrypted] = connection
                 log_data(address, 'Vm Started sending Data', time() - s_time)
 
@@ -1138,7 +803,7 @@ def render_account_manage_table(viewer_id, self_ids):
         account_manage_tbody = ""
         for account_id in self_ids:
             while True:
-                purpose = f'remove_account-{generate_random_string(20,30)}'
+                purpose = f'remove_account-{generate_random_string(20, 30)}'
                 if purpose not in account_manage_purpose_list:
                     break
             account_manage_purpose_list.append(purpose)
@@ -1156,124 +821,17 @@ def render_account_manage_table(viewer_id, self_ids):
                     _ = _[30::]
                 identifier += _
             account_manage_tbody += f"<tr><td class='with_borders'>{account_id}</td><td class='with_borders'>{identifier}</td><td class='with_borders'>{button_data}</td></tr>"
-        force_send_flask_data(return_html_body('public_account_manage_remove_table').replace('REPLACE_TBODY', account_manage_tbody), 'account_manage_remove_table', viewer_id, 'update', 0, 0)
+        force_send_flask_data(
+            return_html_body('public_account_manage_remove_table').replace('REPLACE_TBODY', account_manage_tbody),
+            'account_manage_remove_table', viewer_id, 'update', 0, 0)
         for purpose in account_manage_purpose_list:
             send_new_csrf_token(purpose, viewer_id)
         active_viewers[viewer_id]['account_manage_purpose_list'] = account_manage_purpose_list
     else:
         account_manage_tbody = "<tr><td colspan=2>None</td></tr>"
-        force_send_flask_data(return_html_body('public_account_manage_remove_table').replace('REPLACE_TBODY', account_manage_tbody), 'account_manage_remove_table', viewer_id, 'update', 0, 0)
-
-
-def render_vms_manage_tables(viewer_id):
-    vms_manage_purpose_list = active_viewers[viewer_id]['vms_manage_purpose_list']
-    for purpose in vms_manage_purpose_list:
-        invalidate_csrf_token(purpose, viewer_id)
-    vms_to_skip = list(set(vm_short_data) - set(vms_to_use))
-    vms_manage_purpose_list = []
-    if vms_to_use:
-        vms_remove_tbody = ""
-        for vm_uuid in vms_to_use:
-            vm_name = get_vm_info(vm_uuid, 'Name:')
-            while True:
-                purpose = f'remove_vm-{generate_random_string(20, 30)}'
-                if purpose not in vms_manage_purpose_list:
-                    break
-            vms_manage_purpose_list.append(purpose)
-            button_data = f"""<form id='base_form' method='post' action='/action/'>
-                        <div id='{purpose}_csrf_token'></div>
-                        <input type=hidden name='purpose' value='{purpose}'>
-                        <input type=hidden name='vm_name' value='{vm_name}'>
-                        <input type=hidden name='vm_uuid' value='{vm_uuid}'>
-                        <button type=submit>Remove</button>
-                        </form>"""
-            vms_remove_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
-    else:
-        vms_remove_tbody = "<tr><td colspan=2>None</td></tr>"
-    if vms_to_skip:
-        vms_add_tbody = ""
-        for vm_uuid in vms_to_skip:
-            vm_name = get_vm_info(vm_uuid, 'Name:')
-            while True:
-                purpose = f'add_vm-{generate_random_string(20, 30)}'
-                if purpose not in vms_manage_purpose_list:
-                    break
-            vms_manage_purpose_list.append(purpose)
-            button_data = f"""<form id='base_form' method='post' action='/action/'>
-                                <div id='{purpose}_csrf_token'></div>
-                                <input type=hidden name='purpose' value='{purpose}'>
-                                <input type=hidden name='vm_name' value='{vm_name}'>
-                                <input type=hidden name='vm_uuid' value='{vm_uuid}'>
-                                <button type=submit>Add</button>
-                                </form>"""
-            vms_add_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
-    else:
-        vms_add_tbody = "<tr><td colspan=2>None</td></tr>"
-    force_send_flask_data(return_html_body('public_vms_manage_remove_table').replace('REPLACE_TBODY', vms_remove_tbody), 'vm_manage_remove_table', viewer_id, 'update', 0, 0)
-    force_send_flask_data(return_html_body('public_vms_manage_add_table').replace('REPLACE_TBODY', vms_add_tbody), 'vm_manage_add_table', viewer_id, 'update', 0, 0)
-    for purpose in vms_manage_purpose_list:
-        send_new_csrf_token(purpose, viewer_id)
-    active_viewers[viewer_id]['vms_manage_purpose_list'] = vms_manage_purpose_list
-
-
-def render_bot_metrics_table(viewer_id):
-    global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
-    purpose = f'vms_metric_update-{generate_random_string(10,30)}'
-    force_send_flask_data(return_html_body('public_vms_metric_table').replace('REPLACE_PURPOSE', purpose).replace('REPLACE_DEFAULT_PER_VM_MEMORY', str(default_per_vm_memory)).replace('REPLACE_DEFAULT_MAX_MEMORY','70').replace('REPLACE_PER_VM_MEMORY', str(per_vm_memory)).replace('REPLACE_MAX_VM_COUNT', str(max_vm_count)).replace('REPLACE_MAX_MEMORY_PERCENT', str(max_memory_percent)).replace('REPLACE_BOT_START_TIME_HOUR', rtc_start[0]).replace('REPLACE_BOT_START_TIME_MINUTE', rtc_start[1]).replace('REPLACE_BOT_STOP_TIME_HOUR', rtc_stop[0]).replace('REPLACE_BOT_STOP_TIME_MINUTE', rtc_stop[1]), 'vms_metric_table', viewer_id, 'update', 0, 0)
-    send_new_csrf_token(purpose, viewer_id)
-
-
-def render_running_bots_table(viewer_id):
-    while viewer_id in active_viewers and viewer_id in turbo_app.clients:
-        live_vm_manage_purpose_list = active_viewers[viewer_id]['live_vm_manage_purpose_list']
-        for purpose in live_vm_manage_purpose_list:
-            invalidate_csrf_token(purpose, viewer_id)
-        live_vm_manage_purpose_list = []
-        running_vms = return_running_vms()
-        stopped_vms = return_stopped_vms()
-        turn_off_vm_tbody = "<tr><td colspan=2>None</td></tr>"
-        if running_vms:
-            turn_off_vm_tbody = ""
-            for vm_uuid in running_vms:
-                vm_name = get_vm_info(vm_uuid, 'Name:')
-                while True:
-                    purpose = f'turn_off_vm-{generate_random_string(20, 30)}'
-                    if purpose not in live_vm_manage_purpose_list:
-                        break
-                live_vm_manage_purpose_list.append(purpose)
-                button_data = f"""<form id='base_form' method='post' action='/action/'>
-                            <div id='{purpose}_csrf_token'></div>
-                            <input type=hidden name='purpose' value='{purpose}'>
-                            <input type=hidden name='vm_name' value='{vm_name}'>
-                            <input type=hidden name='vm_uuid' value='{vm_uuid}'>
-                            <button type=submit>Turn off</button>
-                            </form>"""
-                turn_off_vm_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
-        turn_on_vm_tbody = "<tr><td colspan=2>None</td></tr>"
-        if stopped_vms:
-            turn_on_vm_tbody = ""
-            for vm_uuid in stopped_vms:
-                vm_name = get_vm_info(vm_uuid, 'Name:')
-                while True:
-                    purpose = f'turn_on_vm-{generate_random_string(20, 30)}'
-                    if purpose not in live_vm_manage_purpose_list:
-                        break
-                live_vm_manage_purpose_list.append(purpose)
-                button_data = f"""<form id='base_form' method='post' action='/action/'>
-                            <div id='{purpose}_csrf_token'></div>
-                            <input type=hidden name='purpose' value='{purpose}'>
-                            <input type=hidden name='vm_name' value='{vm_name}'>
-                            <input type=hidden name='vm_uuid' value='{vm_uuid}'>
-                            <button type=submit>Turn on</button>
-                            </form>"""
-                turn_on_vm_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
-        force_send_flask_data(return_html_body('public_turn_on_vm_table').replace('REPLACE_TBODY', turn_on_vm_tbody), 'turn_on_vm_table', viewer_id, 'update', 0, 0)
-        force_send_flask_data(return_html_body('public_turn_off_vm_table').replace('REPLACE_TBODY', turn_off_vm_tbody), 'turn_off_vm_table', viewer_id, 'update', 0, 0)
-        for purpose in live_vm_manage_purpose_list:
-            send_new_csrf_token(purpose, viewer_id)
-        active_viewers[viewer_id]['live_vm_manage_purpose_list'] = live_vm_manage_purpose_list
-        while viewer_id in active_viewers and viewer_id in turbo_app.clients and running_vms == return_running_vms() and stopped_vms == return_stopped_vms():
-            sleep(2)
+        force_send_flask_data(
+            return_html_body('public_account_manage_remove_table').replace('REPLACE_TBODY', account_manage_tbody),
+            'account_manage_remove_table', viewer_id, 'update', 0, 0)
 
 
 def public_div_manager(real_cookie, viewer_id):
@@ -1283,17 +841,25 @@ def public_div_manager(real_cookie, viewer_id):
             break
     else:
         return
-    default_csrf_tokens = {'account_choice':'', 'base_form': '', 'add_account': ''}
-    default_html_data = {'logout':'', 'scripts':'', 'private_div':'', 'public_div':'', 'debug_data':'', 'severe_info':'', 'notification_info':'', 'success_info':'', 'welcome_username':'', 'total_views':''}
-    active_viewers[viewer_id] = {'u_name': None,'need_vm_updates': True, 'real_cookie': real_cookie, 'flask_secret_key': flask_secret_key, 'turbo_app': turbo_app, 'html_data':default_html_data, 'csrf_tokens':default_csrf_tokens, 'can_receive_flask_data': True, 'account_manage_purpose_list':[], 'vms_manage_purpose_list':[], 'live_vm_manage_purpose_list':[]}
+    default_csrf_tokens = {'account_choice': '', 'base_form': '', 'add_account': ''}
+    default_html_data = {'logout': '', 'scripts': '', 'private_div': '', 'public_div': '', 'debug_data': '',
+                         'severe_info': '', 'notification_info': '', 'success_info': '', 'welcome_username': '',
+                         'total_views': ''}
+    active_viewers[viewer_id] = {'u_name': None, 'need_vm_updates': True, 'real_cookie': real_cookie,
+                                 'flask_secret_key': flask_secret_key, 'turbo_app': turbo_app,
+                                 'html_data': default_html_data, 'csrf_tokens': default_csrf_tokens,
+                                 'can_receive_flask_data': True, 'account_manage_purpose_list': [],
+                                 'vms_manage_purpose_list': [], 'live_vm_manage_purpose_list': []}
     Thread(target=remove_viewer, args=(viewer_id,)).start()
     Thread(target=account_div_manager, args=(viewer_id,)).start()
-    for message_dict in messages_for_all['severe_info']:
+    for message_dict in flask_messages_for_all['severe_info']:
         force_send_flask_data(message_dict['message'], 'severe_info', viewer_id, 'new_div', 0, message_dict['duration'])
-    for message_dict in messages_for_all['notification_info']:
-        force_send_flask_data(message_dict['message'], 'notification_info', viewer_id, 'new_div', 1, message_dict['duration'])
-    for message_dict in messages_for_all['success_info']:
-        force_send_flask_data(message_dict['message'], 'success_info', viewer_id, 'new_div', 0, message_dict['duration'])
+    for message_dict in flask_messages_for_all['notification_info']:
+        force_send_flask_data(message_dict['message'], 'notification_info', viewer_id, 'new_div', 1,
+                              message_dict['duration'])
+    for message_dict in flask_messages_for_all['success_info']:
+        force_send_flask_data(message_dict['message'], 'success_info', viewer_id, 'new_div', 0,
+                              message_dict['duration'])
     force_send_flask_data(return_html_script('public_table_script'), 'scripts', viewer_id, 'new_div', 0, 0)
     while viewer_id in active_viewers and viewer_id in turbo_app.clients:
         if active_viewers[viewer_id]['need_vm_updates']:
@@ -1307,10 +873,11 @@ def public_div_manager(real_cookie, viewer_id):
                     for name in public_vm_data[mac_address]['vm_name']:
                         vm_name_list += f"{name}</br>"
                     public_div_body += f'''<tr><td class='with_borders'>{real_mac_address}</td>'''  # mac address
-                    public_div_body += f'''<td class='with_borders'>{vm_name_list}</td>''' # vm name
+                    public_div_body += f'''<td class='with_borders'>{vm_name_list}</td>'''  # vm name
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['uptime']}</td>'''  # uptime
                     public_div_body += f'''<td class='with_borders'>{public_vm_data[mac_address]['views']}</td>'''  # views
-            force_send_flask_data(return_html_body('public_vm_div').replace("REPLACE_TBODY", public_div_body), 'public_div', viewer_id, 'update', 0, 0)
+            force_send_flask_data(return_html_body('public_vm_div').replace("REPLACE_TBODY", public_div_body),
+                                  'public_div', viewer_id, 'update', 0, 0)
         elif active_viewers['html_data']['public_div'] != '':
             force_send_flask_data('', 'public_div', viewer_id, 'update', 0, 0)
         sleep(1.1)
@@ -1319,7 +886,7 @@ def public_div_manager(real_cookie, viewer_id):
 def account_div_manager(viewer_id, reconnect=False):
     div_name = force_send_flask_data('[WAITING] Waiting for server!', 'notification_info', viewer_id, 'new_div', 0, 0)
     global_host_connection, binding_token = force_connect_global_server()
-    data_to_be_sent = {'purpose': 'user_authentication', 'binding_token':binding_token}
+    data_to_be_sent = {'purpose': 'user_authentication', 'binding_token': binding_token}
     __send_to_connection(global_host_connection, str(data_to_be_sent).encode())
     received_data = __receive_from_connection(global_host_connection)
     if received_data[0] == 123 and received_data[-1] == 125:
@@ -1354,33 +921,41 @@ def account_div_manager(viewer_id, reconnect=False):
     force_send_flask_data(f"Welcome back {additional_data['u_name']}", 'welcome_username', viewer_id, 'update', 0, 0)
     force_send_flask_data(f"Total views: {additional_data['total_views']}", 'total_views', viewer_id, 'update', 0, 0)
     render_account_manage_table(viewer_id, additional_data['self_ids'])
-    force_send_flask_data(return_html_body('public_account_manage_add_table'), 'account_manage_add_table', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_account_manage_add_table'), 'account_manage_add_table', viewer_id,
+                          'update', 0, 0)
     send_new_csrf_token('add_account', viewer_id)
     if additional_data['u_name'] in global_host_auth_data:
-        for message_dict in messages_for_host['severe_info']:
-            force_send_flask_data(message_dict['message'], 'severe_info', viewer_id, 'new_div', 0, message_dict['duration'])
-        for message_dict in messages_for_host['notification_info']:
-            force_send_flask_data(message_dict['message'], 'notification_info', viewer_id, 'new_div', 0, message_dict['duration'])
-        for message_dict in messages_for_host['success_info']:
-            force_send_flask_data(message_dict['message'], 'success_info', viewer_id, 'new_div', 0, message_dict['duration'])
-        Thread(target=render_vms_manage_tables, args=(viewer_id,)).start()
-        Thread(target=render_bot_metrics_table, args=(viewer_id,)).start()
-        Thread(target=render_running_bots_table, args=(viewer_id,)).start()
+        for message_dict in flask_messages_for_host['severe_info']:
+            force_send_flask_data(message_dict['message'], 'severe_info', viewer_id, 'new_div', 0,
+                                  message_dict['duration'])
+        for message_dict in flask_messages_for_host['notification_info']:
+            force_send_flask_data(message_dict['message'], 'notification_info', viewer_id, 'new_div', 0,
+                                  message_dict['duration'])
+        for message_dict in flask_messages_for_host['success_info']:
+            force_send_flask_data(message_dict['message'], 'success_info', viewer_id, 'new_div', 0,
+                                  message_dict['duration'])
+        # Thread(target=render_vms_manage_tables, args=(viewer_id,)).start()
+        # Thread(target=render_bot_metrics_table, args=(viewer_id,)).start()
+        # Thread(target=render_running_bots_table, args=(viewer_id,)).start()
     else:
-        force_send_flask_data("<tr><td class='with_borders' colspan=2><font COLOR=RED>Management tools unavailable because current account is not host account</font></td></tr>", 'vm_manage_remove_table', viewer_id, 'replace', 0, 0)
+        force_send_flask_data(
+            "<tr><td class='with_borders' colspan=2><font COLOR=RED>Management tools unavailable because current account is not host account</font></td></tr>",
+            'vm_manage_remove_table', viewer_id, 'replace', 0, 0)
         force_send_flask_data("", 'vms_metric_table', viewer_id, 'remove', 0, 0)
         force_send_flask_data("", 'running_vms_table', viewer_id, 'remove', 0, 0)
 
 
 def send_new_csrf_token(purpose, viewer_id):
     csrf_token = generate_random_string(30, 50)
-    force_send_flask_data(f'<input type="hidden" name="csrf_token" value="{csrf_token}">', f'{purpose}_csrf_token', viewer_id, 'update', 0, 0)
+    force_send_flask_data(f'<input type="hidden" name="csrf_token" value="{csrf_token}">', f'{purpose}_csrf_token',
+                          viewer_id, 'update', 0, 0)
     active_viewers[viewer_id]['csrf_tokens'][purpose] = csrf_token
 
 
 def invalidate_csrf_token(purpose, viewer_id):
     csrf_token = ''
-    force_send_flask_data(f'<input type="hidden" name="csrf_token" value="{csrf_token}">', f'{purpose}_csrf_token', viewer_id, 'update', 0, 0)
+    force_send_flask_data(f'<input type="hidden" name="csrf_token" value="{csrf_token}">', f'{purpose}_csrf_token',
+                          viewer_id, 'update', 0, 0)
     active_viewers[viewer_id]['csrf_tokens'][purpose] = csrf_token
 
 
@@ -1394,17 +969,16 @@ def private_flask_operations():
     app.secret_key = flask_secret_key
     app.SESSION_COOKIE_SECURE = True
     csrf_tokens = []
+
     def manage_csrf_tokens(token):
         csrf_tokens.append(token)
         sleep(60)
         if token in csrf_tokens:
             csrf_tokens.remove(token)
 
-
     @app.route('/favicon.ico')
     def private_favicon():
         return redirect('https://avatars.githubusercontent.com/u/101955196')
-
 
     @app.route('/', methods=['GET'])
     def private_root_url():
@@ -1417,18 +991,19 @@ def private_flask_operations():
         else:
             u_name = ''
         while True:
-            _token = generate_random_string(100,200)
+            _token = generate_random_string(100, 200)
             if _token not in csrf_tokens:
                 break
         Thread(target=manage_csrf_tokens, args=(_token,)).start()
-        response = make_response(render_template_string(return_html_body('private_base').replace("REPLACE_CSRF_TOKEN", _token).replace("REPLACE_REASON", reason).replace("REPLACE_U_NAME", u_name)))
+        response = make_response(render_template_string(
+            return_html_body('private_base').replace("REPLACE_CSRF_TOKEN", _token).replace("REPLACE_REASON",
+                                                                                           reason).replace(
+                "REPLACE_U_NAME", u_name)))
         return response
-
 
     @app.route('/action/', methods=['GET'])
     def private_wrong_path():
         return redirect('/')
-
 
     @app.route('/action/', methods=['POST'])
     def private_action():
@@ -1443,9 +1018,11 @@ def private_flask_operations():
             username = form_dict['username'].strip().lower()
             password = form_dict['password']
             connection, binding_token = force_connect_global_server()
-            data_to_send = {'purpose': 'host_authentication', 'binding_token':binding_token}
+            data_to_send = {'purpose': 'host_authentication', 'binding_token': binding_token}
             __send_to_connection(connection, str(data_to_send).encode())
-            data_to_send = {'purpose': "login", "u_name": username, "password": password, 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
+            data_to_send = {'purpose': "login", "u_name": username, "password": password,
+                            'network_adapters': [i[4][0] for i in
+                                                 socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
             __send_to_connection(connection, str(data_to_send).encode())
             response = __receive_from_connection(connection)
             if response[0] == 123 and response[-1] == 125:
@@ -1470,9 +1047,11 @@ def private_flask_operations():
             elif not password_matches_standard(password2):
                 return redirect(f"/?reason=Password too weak!!&u_name={username}")
             connection, binding_token = force_connect_global_server()
-            data_to_send = {'purpose': 'host_authentication', 'binding_token':binding_token}
+            data_to_send = {'purpose': 'host_authentication', 'binding_token': binding_token}
             __send_to_connection(connection, str(data_to_send).encode())
-            data_to_send = {'purpose': "create_new_account", "u_name":username, "password": password2, 'network_adapters': [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
+            data_to_send = {'purpose': "create_new_account", "u_name": username, "password": password2,
+                            'network_adapters': [i[4][0] for i in
+                                                 socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]}
             __send_to_connection(connection, str(data_to_send).encode())
             response = __receive_from_connection(connection)
             if response[0] == 123 and response[-1] == 125:
@@ -1494,6 +1073,7 @@ def public_flask_operations():
     app.secret_key = flask_secret_key
     app.SESSION_COOKIE_SECURE = True
     turbo_app = Turbo(app)
+
     @turbo_app.user_id
     def get_user_id():
         cookie_data = {}
@@ -1505,7 +1085,8 @@ def public_flask_operations():
             cookie_data = eval(cookie_dict_string)
             if cookie_data['VIEWER_ID'] not in turbo_app.clients:
                 if cookie_data['HTTP_USER_AGENT'] == request.environ['HTTP_USER_AGENT']:
-                    if 'HTTP_X_FORWARDED_FOR' in cookie_data and cookie_data['HTTP_X_FORWARDED_FOR'] == request.environ['HTTP_X_FORWARDED_FOR']:
+                    if 'HTTP_X_FORWARDED_FOR' in cookie_data and cookie_data['HTTP_X_FORWARDED_FOR'] == request.environ[
+                        'HTTP_X_FORWARDED_FOR']:
                         verified = True
                     elif 'REMOTE_ADDR' in cookie_data and cookie_data['REMOTE_ADDR'] == request.environ['REMOTE_ADDR']:
                         verified = True
@@ -1516,21 +1097,18 @@ def public_flask_operations():
         if verified and cookie_data:
             return cookie_data['VIEWER_ID']
 
-
     @app.route('/favicon.ico')
     def public_favicon():
         return redirect('https://avatars.githubusercontent.com/u/101955196')
-
 
     @app.route('/action/', methods=['GET'])
     def public_wrong_path():
         return redirect('/')
 
-
     @app.route('/', methods=['GET'])
     def public_root_url():
         while True:
-            viewer_id = generate_random_string(10,20)
+            viewer_id = generate_random_string(10, 20)
             if viewer_id not in turbo_app.clients:
                 break
         cookie_data = {}
@@ -1552,7 +1130,6 @@ def public_flask_operations():
         Thread(target=public_div_manager, args=(real_cookie, viewer_id,)).start()
         return response
 
-
     @app.route('/action/', methods=['POST'])
     def public_action():
         verified = False
@@ -1564,9 +1141,11 @@ def public_flask_operations():
             viewer_id = cookie_data['VIEWER_ID']
             if not viewer_id:
                 return ''
-            if cookie_data['VIEWER_ID'] in turbo_app.clients and real_cookie == active_viewers[viewer_id]['real_cookie']:
+            if cookie_data['VIEWER_ID'] in turbo_app.clients and real_cookie == active_viewers[viewer_id][
+                'real_cookie']:
                 if cookie_data['HTTP_USER_AGENT'] == request.environ['HTTP_USER_AGENT']:
-                    if 'HTTP_X_FORWARDED_FOR' in cookie_data and cookie_data['HTTP_X_FORWARDED_FOR'] == request.environ['HTTP_X_FORWARDED_FOR']:
+                    if 'HTTP_X_FORWARDED_FOR' in cookie_data and cookie_data['HTTP_X_FORWARDED_FOR'] == request.environ[
+                        'HTTP_X_FORWARDED_FOR']:
                         verified = True
                     elif 'REMOTE_ADDR' in cookie_data and cookie_data['REMOTE_ADDR'] == request.environ['REMOTE_ADDR']:
                         verified = True
@@ -1578,7 +1157,8 @@ def public_flask_operations():
             if 'purpose' not in form:
                 return ''
             purpose = form['purpose']
-            if 'csrf_token' not in form or active_viewers[viewer_id]['csrf_tokens'][purpose] != form['csrf_token'] or form['csrf_token'] == '':
+            if 'csrf_token' not in form or active_viewers[viewer_id]['csrf_tokens'][purpose] != form['csrf_token'] or \
+                    form['csrf_token'] == '':
                 return ''
             if verified:
                 del form['csrf_token']
@@ -1591,10 +1171,11 @@ def public_flask_operations():
                         if 'script' in div_name:
                             force_send_flask_data('', div_name, viewer_id, 'remove', 0, 0)
 
-                    force_send_flask_data('Successfully logged out<meta http-equiv = "refresh" content = "1; url = /" />', 'private_div', viewer_id, 'update', 0, 0)
+                    force_send_flask_data(
+                        'Successfully logged out<meta http-equiv = "refresh" content = "1; url = /" />', 'private_div',
+                        viewer_id, 'update', 0, 0)
                     Thread(target=remove_viewer, args=(viewer_id,))
         return ''
-
 
     @app.route('/ip', methods=['GET'])
     def _return_public_global_ip():
@@ -1603,11 +1184,9 @@ def public_flask_operations():
             ip = request.environ['HTTP_X_FORWARDED_FOR']
         return ip
 
-
     @app.route('/ping', methods=['GET'])
     def _return_public_ping():
         return "ping"
-
 
     @app.route('/del', methods=['GET'])
     def _delete_all_img_py_files():
@@ -1615,18 +1194,17 @@ def public_flask_operations():
         windows_img_files, py_files = {}, {}
         return "Deleted"
 
-
     @app.route('/py_files', methods=["GET"])
     def _return_py_files():
         if "file_code" not in request.args:
             return ""
         file_code = request.args.get("file_code")
-        while file_code not in py_files or 'version' not in py_files[file_code] or not py_files[file_code]['version'] or py_files[file_code]['verified'] is None:
+        while file_code not in py_files or 'version' not in py_files[file_code] or not py_files[file_code]['version'] or \
+                py_files[file_code]['verified'] is None:
             Thread(target=__fetch_py_file_from_global_host, args=(file_code,)).start()
             sleep(1)
         data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
         return str(data_to_be_sent)
-
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
@@ -1636,8 +1214,12 @@ def public_flask_operations():
         while img_name not in windows_img_files or 'version' not in windows_img_files[img_name] or windows_img_files[img_name]['version'] == 0 or windows_img_files[img_name]['verified'] is None:
             Thread(target=__fetch_image_from_global_host, args=(img_name,)).start()
             sleep(1)
-        if "version" not in request.args or windows_img_files[img_name]['version'] != float(request.args.get("version")) or float(request.args.get("version")) == 0:
-            data_to_be_sent = {'image_name': str(img_name), 'image_data': windows_img_files[img_name]['data'], 'image_size': windows_img_files[img_name]['img_size'], 'version': windows_img_files[img_name]['version']}
+        if "version" not in request.args or windows_img_files[img_name]['version'] != float(
+                request.args.get("version")) or float(request.args.get("version")) == 0:
+            data_to_be_sent = {'image_name': str(img_name),
+                               'image_data': windows_img_files[img_name]['data'],
+                               'image_size': windows_img_files[img_name]['img_size'],
+                               'version': windows_img_files[img_name]['version']}
         else:
             data_to_be_sent = {'image_name': str(img_name)}
         return str(data_to_be_sent)
@@ -1645,7 +1227,7 @@ def public_flask_operations():
     app.run(host='0.0.0.0', port=PUBLIC_HOST_PORT, debug=False, use_reloader=False, threaded=True)
 
 
-def return_html_script(script_name:str):
+def return_html_script(script_name: str):
     if script_name == 'public_table_script':
         return """
         <style>
@@ -1684,7 +1266,7 @@ def return_html_script(script_name:str):
         return script_name
 
 
-def return_html_body(html_name:str):
+def return_html_body(html_name: str):
     if html_name == 'private_base':
         return """
 <script>
@@ -1954,7 +1536,473 @@ REPLACE_TBODY
         return html_name
 
 
-## Take data from storage
+global_host_peering_authenticator()
+Thread(target=private_flask_operations).start()
+Thread(target=public_flask_operations).start()
+Thread(target=vm_connection_manager).start()
+Thread(target=invalidate_all_py_files, args=(60 * 60 * 1,)).start()
+Thread(target=invalidate_all_images, args=(60 * 60 * 2,)).start()
+Thread(target=update_vm_responses).start()
+sleep(0.5)
+reprint_screen()
+
+'''
+
+## VM RELATED - Deprecated (On Hold)
+
+vm_manager_start_vm = True
+default_per_vm_memory = 1228
+max_vm_count = default_max_vm_count = 0
+max_memory_percent = default_max_memory_percent = 70
+rtc_start = default_rtc_start = ['00','00']
+rtc_stop = default_rtc_stop = ['23','59']
+total_system_memory = virtual_memory()[0]
+vm_stop_queue = []
+vm_start_queue = []
+vm_long_data = {}  ## {Name:{key:value}}
+vm_short_data = {}  ## {UUID:{Name:value, MAC:value}}
+vm_mac_to_name = {} ##{MAC:[name1, name2]}
+def write_vms_to_be_used():
+    dict_to_write = {"vms_to_use": vms_to_use}
+    open(f"{data_location}/adfly_vm_manager", 'w').write(str(dict_to_write))
+
+
+def write_vm_metrics():
+    dict_to_write = {'per_vm_memory': per_vm_memory, 'max_vm_count': max_vm_count, 'max_memory_percent': max_memory_percent, 'rtc_start': rtc_start, 'rtc_stop': rtc_stop}
+    open(f"{data_location}/adfly_vm_metrics", 'w').write(str(dict_to_write))
+
+
+def fetch_all_vm_info():
+    global vbox_binary_idle
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    statement_lines = popen(f'\"{vbox_binary_location}\" list --long vms').readlines()
+    vbox_binary_idle = True
+    name = ''
+    for _line in statement_lines:
+        line = _line.strip()
+        if not line:
+            pass
+        key, value = '', ''
+        splitter_reached = False
+        for character in line:
+            if not splitter_reached:
+                key += character
+            else:
+                value += character
+            if character == ':':
+                splitter_reached = True
+        key, value = key.strip(), value.strip()
+        if key == 'Name:':
+            name = value
+            vm_long_data[name] = {}
+        if 'MAC:' in value:
+            network_data = value.split(',')
+            for data_pair in network_data:
+                if 'MAC:' in data_pair:
+                    vm_long_data[name]['MAC:'] = data_pair.split(':')[-1].strip()
+        else:
+            vm_long_data[name][key]=value
+    for name in vm_long_data:
+        if "UUID:" in vm_long_data[name] and "MAC:" in vm_long_data[name]:
+            uuid = vm_long_data[name]["UUID:"]
+            mac = vm_long_data[name]["MAC:"]
+            if mac in vm_mac_to_name:
+                if name not in vm_mac_to_name[mac]:
+                    vm_mac_to_name[mac].append(name)
+            else:
+                vm_mac_to_name[mac] = [name]
+            vm_short_data[uuid] = {'Name:': name, 'MAC:': mac}
+
+
+def get_vm_info(vm_info, info):
+    try:
+        if vm_info in return_all_vms():
+            vm_uuid = vm_info
+            if vm_uuid not in vm_short_data:
+                fetch_all_vm_info()
+            vm_name = vm_short_data[vm_uuid]['Name:']
+        else:
+            vm_name = vm_info
+
+        if vm_name not in vm_long_data or info not in vm_long_data[vm_name]:
+            fetch_all_vm_info()
+
+        if vm_name not in vm_long_data or info not in vm_long_data[vm_name]:
+            return ''
+
+        return vm_long_data[vm_name][info]
+
+    except:
+        return ''
+
+
+def return_all_vms():
+    global vbox_binary_idle
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    statement_lines = popen(f'\"{vbox_binary_location}\" list vms').readlines()
+    vbox_binary_idle = True
+    return_set = set()
+    for _line in statement_lines:
+        line = _line.split()
+        for word in line:
+            if len(word)>2:
+                if word[0] == '{' and word[-1] == '}':
+                    word = word.replace('{','').replace('}','')
+                    return_set.add(word)
+    return return_set
+
+
+def return_running_vms():
+    global vbox_binary_idle
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    statement_lines = popen(f'\"{vbox_binary_location}\" list runningvms').readlines()
+    vbox_binary_idle = True
+    return_set = set()
+    for _line in statement_lines:
+        line = _line.split()
+        for word in line:
+            if len(word)>2:
+                if word[0] == '{' and word[-1] == '}':
+                    word = word.replace('{','').replace('}','')
+                    return_set.add(word)
+    return return_set
+
+
+def return_stopped_vms():
+    return return_all_vms() - return_running_vms()
+
+
+def queue_vm_stop(uuid, delay=0.0, block=False):
+    global vbox_binary_idle
+    if not block:
+        Thread(target=queue_vm_stop, args=(uuid, delay, True,)).start()
+        return
+    sleep(delay)
+    if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
+        for _ in range(200):
+            if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid in return_running_vms():
+                vm_stop_queue.append(uuid)
+                for _ in range(10):
+                    if not vbox_binary_idle:
+                        sleep(0.1)
+                vbox_binary_idle = False
+                system_caller(f'\"{vbox_binary_location}\" controlvm {uuid} acpipowerbutton')
+                vbox_binary_idle = True
+            sleep(0.1)
+            if uuid not in return_running_vms():
+                if uuid in vm_stop_queue:
+                    vm_stop_queue.remove(uuid)
+                break
+        else:
+            for _ in range(10):
+                if not vbox_binary_idle:
+                    sleep(0.1)
+            vbox_binary_idle = False
+            system_caller(f'\"{vbox_binary_location}\" controlvm {uuid} poweroff')
+            vbox_binary_idle = True
+            if uuid in vm_stop_queue:
+                vm_stop_queue.remove(uuid)
+
+
+def queue_vm_start(uuid, delay=0.0, block=False):
+    global vbox_binary_idle
+    if not block:
+        Thread(target=queue_vm_start, args=(uuid, delay, True,)).start()
+        return
+    sleep(delay)
+    for _ in range(10):
+        if uuid not in vm_start_queue and uuid not in vm_stop_queue and uuid not in return_running_vms():
+            vm_start_queue.append(uuid)
+            for _ in range(10):
+                if not vbox_binary_idle:
+                    sleep(0.1)
+            vbox_binary_idle = False
+            system_caller(f'\"{vbox_binary_location}\" startvm {uuid} --type headless')
+            vbox_binary_idle = True
+            sleep(1)
+            if uuid in return_running_vms():
+                if uuid in vm_start_queue:
+                    vm_start_queue.remove(uuid)
+                break
+
+
+def randomise_vm_mac(uuid):
+    global vbox_binary_idle
+    for _ in range(40):
+        if uuid in return_running_vms():
+            queue_vm_stop(uuid, 0, True)
+    for _ in range(10):
+        if not vbox_binary_idle:
+            sleep(0.1)
+    vbox_binary_idle = False
+    system_caller(f'\"{vbox_binary_location}\" modifyvm {uuid} --macaddress1 auto')
+    vbox_binary_idle = True
+    fetch_all_vm_info()
+
+
+def check_and_fix_repeated_mac_addresses(vm_to_check=None):
+    if not vm_to_check:
+        for _ in range(100):
+            allocated_mac_addresses = []
+            for uuid in vms_to_use:
+                mac_address = get_vm_info(uuid, 'MAC:')
+                if mac_address in allocated_mac_addresses:
+                    randomise_vm_mac(uuid)
+                    break
+                else:
+                    allocated_mac_addresses.append(mac_address)
+            else:
+                break
+    else:
+        for _ in range(100):
+            allocated_mac_addresses = []
+            for uuid in vms_to_use:
+                mac_address = get_vm_info(uuid, 'MAC:')
+                allocated_mac_addresses.append(mac_address)
+            mac_address = get_vm_info(vm_to_check, 'MAC:')
+            if mac_address in allocated_mac_addresses:
+                Thread(target=randomise_vm_mac, args=(vm_to_check,)).start()
+            else:
+                break
+
+
+
+def vm_manager_time_manager():
+    global vm_manager_start_vm
+    current = [int(localtime()[3]), int(localtime()[4])]
+    start = [int(rtc_start[0]), int(rtc_start[1])]
+    stop = [int(rtc_stop[0]), int(rtc_stop[1])]
+    if stop[0] > start[0]:
+        if stop[0] > current[0] >= start[0]:
+            vm_manager_start_vm = True
+        elif stop[0] == current[0]:
+            if stop[1] > current[1]:
+                vm_manager_start_vm = True
+            else:
+                vm_manager_start_vm = False
+        elif current[0] == start[0]:
+            if current[1] >= start[1]:
+                vm_manager_start_vm = True
+            else:
+                vm_manager_start_vm = False
+        else:
+            vm_manager_start_vm = False
+
+    elif stop[0] < start [0]:
+        if stop[0] > current[0] > 0 or 24 > current[0] > start[0]:
+            vm_manager_start_vm = True
+        elif stop[0] == current[0]:
+            if stop[1] > current[1]:
+                vm_manager_start_vm = True
+            else:
+                vm_manager_start_vm = False
+        elif current[0] == start[0]:
+            if current[1] >= start[1]:
+                vm_manager_start_vm = True
+            else:
+                vm_manager_start_vm = False
+        else:
+            vm_manager_start_vm = False
+
+    elif stop[0] == start[0]:
+        if stop[0] == current[0] == start[0]:
+            if stop[1] > current[1] >= start[1]:
+                vm_manager_start_vm = True
+            else:
+                vm_manager_start_vm = False
+        else:
+            vm_manager_start_vm = False
+
+
+def vm_manager():
+    check_and_fix_repeated_mac_addresses()
+    while True:
+        sleep(2)
+        vm_manager_time_manager()
+        if vm_manager_start_vm:
+            total_system_memory, current_memory_percent = virtual_memory()[0], virtual_memory()[2]
+            per_vm_memory_percent = int((per_vm_memory*1024*1024/total_system_memory)*100)+2
+            all_running_vms = return_running_vms()
+            running_adfly_vms = []
+            for uuid in all_running_vms:
+                if uuid in vms_to_use:
+                    running_adfly_vms.append(uuid)
+            all_stopped_vms = return_stopped_vms()
+            stopped_adfly_vms = []
+            for uuid in all_stopped_vms:
+                if uuid in vms_to_use:
+                    stopped_adfly_vms.append(uuid)
+
+            if running_adfly_vms and (len(running_adfly_vms) + len(vm_start_queue) - len(vm_stop_queue)) > max_vm_count:
+                vms_to_stop_count = int((len(running_adfly_vms) - len(vm_stop_queue)) - max_vm_count)
+                if vms_to_stop_count:
+                    sleep(1)
+                    chosen_vm = choice(running_adfly_vms)
+                    if chosen_vm not in vm_stop_queue:
+                        queue_vm_stop(chosen_vm, 0)
+                        vms_to_stop_count -= 1
+
+            elif running_adfly_vms and current_memory_percent + (len(vm_start_queue)*per_vm_memory_percent) - (len(vm_stop_queue)*per_vm_memory_percent)  >= max_memory_percent:
+                vms_to_stop_count = int((current_memory_percent + (len(vm_start_queue)*per_vm_memory_percent) - (len(vm_stop_queue)*per_vm_memory_percent) - max_memory_percent)/per_vm_memory_percent)+1
+                if vms_to_stop_count:
+                    sleep(1)
+                    chosen_vm = choice(running_adfly_vms)
+                    if chosen_vm not in vm_stop_queue:
+                        queue_vm_stop(chosen_vm, 0)
+                        vms_to_stop_count -= 1
+            else:
+                vms_to_start_count = int(min(((max_memory_percent - current_memory_percent) // per_vm_memory_percent) + len(vm_stop_queue) - len(vm_start_queue), max_vm_count - len(vm_start_queue) - len(running_adfly_vms), len(vms_to_use) - len(vm_start_queue) - len(running_adfly_vms)))
+                if stopped_adfly_vms and vms_to_start_count:
+                    sleep(1)
+                    chosen_vm = choice(stopped_adfly_vms)
+                    if chosen_vm not in vm_stop_queue:
+                        queue_vm_start(chosen_vm, 0)
+                        vms_to_start_count -= 1
+                        queue_vm_stop(chosen_vm, 3600)
+
+        else:
+            all_running_vms = return_running_vms()
+            running_adfly_vms = []
+            for uuid in all_running_vms:
+                if uuid in vms_to_use:
+                    running_adfly_vms.append(uuid)
+            for uuid in running_adfly_vms:
+                queue_vm_stop(uuid, 0)
+
+
+def render_vms_manage_tables(viewer_id):
+    vms_manage_purpose_list = active_viewers[viewer_id]['vms_manage_purpose_list']
+    for purpose in vms_manage_purpose_list:
+        invalidate_csrf_token(purpose, viewer_id)
+    vms_to_skip = list(set(vm_short_data) - set(vms_to_use))
+    vms_manage_purpose_list = []
+    if vms_to_use:
+        vms_remove_tbody = ""
+        for vm_uuid in vms_to_use:
+            vm_name = get_vm_info(vm_uuid, 'Name:')
+            while True:
+                purpose = f'remove_vm-{generate_random_string(20, 30)}'
+                if purpose not in vms_manage_purpose_list:
+                    break
+            vms_manage_purpose_list.append(purpose)
+            button_data = f"""<form id='base_form' method='post' action='/action/'>
+                        <div id='{purpose}_csrf_token'></div>
+                        <input type=hidden name='purpose' value='{purpose}'>
+                        <input type=hidden name='vm_name' value='{vm_name}'>
+                        <input type=hidden name='vm_uuid' value='{vm_uuid}'>
+                        <button type=submit>Remove</button>
+                        </form>"""
+            vms_remove_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
+    else:
+        vms_remove_tbody = "<tr><td colspan=2>None</td></tr>"
+    if vms_to_skip:
+        vms_add_tbody = ""
+        for vm_uuid in vms_to_skip:
+            vm_name = get_vm_info(vm_uuid, 'Name:')
+            while True:
+                purpose = f'add_vm-{generate_random_string(20, 30)}'
+                if purpose not in vms_manage_purpose_list:
+                    break
+            vms_manage_purpose_list.append(purpose)
+            button_data = f"""<form id='base_form' method='post' action='/action/'>
+                                <div id='{purpose}_csrf_token'></div>
+                                <input type=hidden name='purpose' value='{purpose}'>
+                                <input type=hidden name='vm_name' value='{vm_name}'>
+                                <input type=hidden name='vm_uuid' value='{vm_uuid}'>
+                                <button type=submit>Add</button>
+                                </form>"""
+            vms_add_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
+    else:
+        vms_add_tbody = "<tr><td colspan=2>None</td></tr>"
+    force_send_flask_data(return_html_body('public_vms_manage_remove_table').replace('REPLACE_TBODY', vms_remove_tbody), 'vm_manage_remove_table', viewer_id, 'update', 0, 0)
+    force_send_flask_data(return_html_body('public_vms_manage_add_table').replace('REPLACE_TBODY', vms_add_tbody), 'vm_manage_add_table', viewer_id, 'update', 0, 0)
+    for purpose in vms_manage_purpose_list:
+        send_new_csrf_token(purpose, viewer_id)
+    active_viewers[viewer_id]['vms_manage_purpose_list'] = vms_manage_purpose_list
+
+
+def render_bot_metrics_table(viewer_id):
+    global vm_manager_start_vm, per_vm_memory, max_vm_count, max_memory_percent, rtc_start, rtc_stop
+    purpose = f'vms_metric_update-{generate_random_string(10,30)}'
+    force_send_flask_data(return_html_body('public_vms_metric_table').replace('REPLACE_PURPOSE', purpose).replace('REPLACE_DEFAULT_PER_VM_MEMORY', str(default_per_vm_memory)).replace('REPLACE_DEFAULT_MAX_MEMORY','70').replace('REPLACE_PER_VM_MEMORY', str(per_vm_memory)).replace('REPLACE_MAX_VM_COUNT', str(max_vm_count)).replace('REPLACE_MAX_MEMORY_PERCENT', str(max_memory_percent)).replace('REPLACE_BOT_START_TIME_HOUR', rtc_start[0]).replace('REPLACE_BOT_START_TIME_MINUTE', rtc_start[1]).replace('REPLACE_BOT_STOP_TIME_HOUR', rtc_stop[0]).replace('REPLACE_BOT_STOP_TIME_MINUTE', rtc_stop[1]), 'vms_metric_table', viewer_id, 'update', 0, 0)
+    send_new_csrf_token(purpose, viewer_id)
+
+
+def render_running_bots_table(viewer_id):
+    while viewer_id in active_viewers and viewer_id in turbo_app.clients:
+        live_vm_manage_purpose_list = active_viewers[viewer_id]['live_vm_manage_purpose_list']
+        for purpose in live_vm_manage_purpose_list:
+            invalidate_csrf_token(purpose, viewer_id)
+        live_vm_manage_purpose_list = []
+        running_vms = return_running_vms()
+        stopped_vms = return_stopped_vms()
+        turn_off_vm_tbody = "<tr><td colspan=2>None</td></tr>"
+        if running_vms:
+            turn_off_vm_tbody = ""
+            for vm_uuid in running_vms:
+                vm_name = get_vm_info(vm_uuid, 'Name:')
+                while True:
+                    purpose = f'turn_off_vm-{generate_random_string(20, 30)}'
+                    if purpose not in live_vm_manage_purpose_list:
+                        break
+                live_vm_manage_purpose_list.append(purpose)
+                button_data = f"""<form id='base_form' method='post' action='/action/'>
+                            <div id='{purpose}_csrf_token'></div>
+                            <input type=hidden name='purpose' value='{purpose}'>
+                            <input type=hidden name='vm_name' value='{vm_name}'>
+                            <input type=hidden name='vm_uuid' value='{vm_uuid}'>
+                            <button type=submit>Turn off</button>
+                            </form>"""
+                turn_off_vm_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
+        turn_on_vm_tbody = "<tr><td colspan=2>None</td></tr>"
+        if stopped_vms:
+            turn_on_vm_tbody = ""
+            for vm_uuid in stopped_vms:
+                vm_name = get_vm_info(vm_uuid, 'Name:')
+                while True:
+                    purpose = f'turn_on_vm-{generate_random_string(20, 30)}'
+                    if purpose not in live_vm_manage_purpose_list:
+                        break
+                live_vm_manage_purpose_list.append(purpose)
+                button_data = f"""<form id='base_form' method='post' action='/action/'>
+                            <div id='{purpose}_csrf_token'></div>
+                            <input type=hidden name='purpose' value='{purpose}'>
+                            <input type=hidden name='vm_name' value='{vm_name}'>
+                            <input type=hidden name='vm_uuid' value='{vm_uuid}'>
+                            <button type=submit>Turn on</button>
+                            </form>"""
+                turn_on_vm_tbody += f"""<tr><td class='with_borders'>{vm_name}</td><td class='with_borders'>{button_data}</td></tr>"""
+        force_send_flask_data(return_html_body('public_turn_on_vm_table').replace('REPLACE_TBODY', turn_on_vm_tbody), 'turn_on_vm_table', viewer_id, 'update', 0, 0)
+        force_send_flask_data(return_html_body('public_turn_off_vm_table').replace('REPLACE_TBODY', turn_off_vm_tbody), 'turn_off_vm_table', viewer_id, 'update', 0, 0)
+        for purpose in live_vm_manage_purpose_list:
+            send_new_csrf_token(purpose, viewer_id)
+        active_viewers[viewer_id]['live_vm_manage_purpose_list'] = live_vm_manage_purpose_list
+        while viewer_id in active_viewers and viewer_id in turbo_app.clients and running_vms == return_running_vms() and stopped_vms == return_stopped_vms():
+            sleep(2)
+
+vbox_binary_idle = True
+vbox_binary_location = ''
+possible_vbox_locations = ["C://Program Files/Oracle/VirtualBox/VBoxManage.exe",
+                           "D://Programas/Virtual Box/VBoxManage.exe",]
+
+for location in possible_vbox_locations:
+    if path.exists(location):
+        vbox_binary_location = location
+        break
+
+else:
+    print("VirtualBox path not found, \nMake sure you have Oracle Virtualbox installed, \nElse create a github issue here: \nhttps://github.com/BhaskarPanja93/Adfly-View-Bot-Client/discussions")
+    input("You can ignore this warning by pressing 'Enter' but you will be missing out on features like automatic VM Manage, VM activities, VM uptimes, Per VM View etc.")
+
 try:
     vms_to_use = eval(open(f"{data_location}/adfly_vm_manager").read())['vms_to_use']
     vms_to_use = list(set(vms_to_use))
@@ -1977,17 +2025,10 @@ except:
     rtc_stop = default_rtc_stop
     write_vm_metrics()
 
-global_host_peering_authenticator()
 try:
     fetch_all_vm_info()
 except:
     pass
 Thread(target=vm_manager).start()
-Thread(target=private_flask_operations).start()
-Thread(target=public_flask_operations).start()
-Thread(target=vm_connection_manager).start()
-Thread(target=invalidate_all_py_files, args=(60*60*1,)).start()
-Thread(target=invalidate_all_images, args=(60*60*2,)).start()
-Thread(target=update_vm_responses).start()
-sleep(0.5)
-reprint_screen()
+'''
+

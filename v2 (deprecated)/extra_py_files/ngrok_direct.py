@@ -190,7 +190,7 @@ def __receive_from_connection(connection):
             while True:
                 if type(ping('8.8.8.8')) == float:
                     break
-            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>','').replace('\n','')
+            text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/').public_text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"').replace('<br>', '').replace('\n', '')
             link_dict = eval(text)
             main_link = choice(link_dict['host_page_list'])
             return main_link

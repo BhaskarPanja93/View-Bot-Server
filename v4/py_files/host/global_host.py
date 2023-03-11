@@ -2,8 +2,8 @@
 To host individual ngrok tunnels for each port with their new API
 Modifications required:
 Rename brand name to Project viewbot
-Split all adfly and linkvertise functions
 """
+import sys
 
 ## modules that require installation
 while True:
@@ -32,62 +32,24 @@ while True:
 
 
 ## pre-installed modules
-from os import path, getcwd, system as system_caller, popen
+from os import path, getcwd, system as system_caller, popen, rename, remove
 import socket
 from random import choice, randrange
 from threading import Thread
 from time import sleep, time, ctime
 import ipaddress
 import logging
+time_stored = time()
+
 ## block logging of all flask outputs except errors
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
-
-
-current_user_host_main_version = '2.4.2' ## latest user_host file version
-available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
-server_start_time = time() ## server start time as float
-
-
-admin_u_names = ['bhaskar', 'dec1lent'] ## account to credit free views
-reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/'] ## strings not allowed for usernames
-
-
-parent, _ = path.split(path.split(getcwd())[0])
-read_only_location = path.join(parent, 'read only') ## stores paragraphs, user database, proxy database
-
-
-parent, _ = path.split(getcwd())
-img_location = path.join(parent, 'req_imgs/Windows') ## stores all images
-
-
-HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1)) ## list of all ports flask web page should listen on
-USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1)) ##list of all ports socket connection should listen on
-
-
-user_data_db_connection = sqlite3.connect(f'{read_only_location}/user_data.db', check_same_thread=False) ## user database
-proxy_db_connection = sqlite3.connect(f'{read_only_location}/proxy.db', check_same_thread=False) ## proxy database
-paragraph_lines = open(f'{read_only_location}/paragraph.txt', 'rb').read().decode().split('.') ## paragraph
-host_files_location = getcwd() + '/py_files/host'  ## location for all server codes
-adfly_stable_file_location = getcwd() + '/py_files/adfly/stable' ## location for all stable client codes
-adfly_beta_file_location = getcwd() + '/py_files/adfly/beta' ## location for all beta client codes
-linkvertise_stable_file_location = getcwd() + '/py_files/linkvertise/stable' ## location for all stable client codes
-proxy_checker_file_location = getcwd() +'/py_files/common/proxy_checker' ## location for proxy checking client codes
-
-
-proxy_db_last_change = 0 ## proxy database last modified time as float
-last_proxy_modified = 0 ## proxy in  memory last modified time as float
-pending_link_view_token = {} ## stores token to fulfill a view
-active_tcp_tokens = {} ## stores tokens for user_host to make connections along with their IP
-check_ip_list = [] ## stores IP reported by a proxy VM
-all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set() ## all proxies of each type (set for storing unique values)
-python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'adfly':{'stable':{}, 'beta':{}}, 'linkvertise':{'stable':{}, 'beta':{}}, 'proxy_checker':{}} ## cache of all python files required according to time modified
-windows_img_files = {} ## cache of all image files required according to time modified
-executable_files = {} ## cache of all .exe files required according to time modified
-known_ips = {} ## map of IP to username
-logs = [] ## server logs stored here
-active_admins = {}
-ip_ban_remove_time = {}
+for _ in sys.modules:
+    log = logging.getLogger(_)
+    log.setLevel(logging.ERROR)
+    try:
+        cli = sys.modules[_]
+        cli.show_server_banner = lambda *x: None
+    except:
+        pass
 
 
 ## touch user database only when it is idle
@@ -138,6 +100,28 @@ def server_stats_updater():
         network_out = round((bits_out * 8) / 1024 / 1024, 3)
         if network_out > max_network_out:
             max_network_out = network_out
+
+
+def clean_DB(db_location, db_name, table_names:list):
+    temp_name = db_location + generate_random_string(1,5) + db_name
+    rename(db_location+db_name, temp_name)
+    old_DB = sqlite3.connect(temp_name, check_same_thread=False)
+    open(db_location+db_name, 'wb').close()
+    new_DB = sqlite3.connect(db_location+db_name, check_same_thread=False)
+    for table in table_names:
+        table_data = ""
+        for _ in old_DB.cursor().execute(f"PRAGMA table_info({table})"):
+            table_data += f"""{_[1]} {_[2]}{" DEFAULT "+_[4] if _[4] else ''},"""
+        new_table_syntax = f"""CREATE TABLE {table} ({table_data[:-1]});"""
+        new_DB.cursor().execute(new_table_syntax)
+
+        ### table created
+        for _ in old_DB.cursor().execute(f"SELECT * FROM {table}"):
+            new_DB.cursor().execute(f"""INSERT INTO {table} VALUES {"('"+_[0]+"')" if len(_) == 1 else _}""")
+        new_DB.commit()
+    old_DB.close()
+    new_DB.close()
+    remove(temp_name)
 
 
 def __send_to_connection(connection, data_bytes: bytes):
@@ -581,7 +565,7 @@ def host_manager(ip, connection):
                     fernet = Fernet(key)
                     network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
                     __check_user_data_db_idle()
-                    user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
+                    user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, linkvertise_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
                     user_data_db_connection.commit()
                     user_data_db_connection_idle = True
                     instance_token = [_ for _ in user_data_db_connection.cursor().execute(f"SELECT instance_token from user_data where u_name = '{u_name}'")][0][0]
@@ -725,7 +709,7 @@ def user_manager(ip, connection):
                                 network_adapters = []
                                 network_adapters = fernet.encrypt(str(network_adapters).encode()).decode()
                                 __check_user_data_db_idle()
-                                user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, self_adfly_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
+                                user_data_db_connection.cursor().execute(f"INSERT into user_data (u_name, linkvertise_ids, decrypt_key, network_adapters, user_pw_hash, instance_token) values ('{u_name}', '{self_ids}', '{key.decode()}', '{network_adapters}', '{user_pw_hash}', '{generate_random_string(1000, 5000)}')")
                                 user_data_db_connection.commit()
                                 user_data_db_connection_idle = True
                                 expected_token = generate_random_string(10, 200)
@@ -755,7 +739,7 @@ def user_manager(ip, connection):
                                 if u_name not in known_ips[ip]:
                                     known_ips[ip].append(u_name)
                                 key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                                encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                                encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT linkvertise_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                                 fernet = Fernet(key)
                                 old_ids = eval(fernet.decrypt(encoded_data).decode())
                                 fernet = Fernet(key)
@@ -784,7 +768,7 @@ def user_manager(ip, connection):
                         if login_success and u_name:
                             acc_id = int(response_dict['acc_id'])
                             key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                            encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                            encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT linkvertise_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id == 'all_acc_ids':
@@ -792,7 +776,7 @@ def user_manager(ip, connection):
                                 old_ids = {}
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 __check_user_data_db_idle()
-                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set linkvertise_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
                                 user_data_db_connection_idle = True
                             elif acc_id in old_ids:
@@ -800,7 +784,7 @@ def user_manager(ip, connection):
                                 del old_ids[acc_id]
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 __check_user_data_db_idle()
-                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set linkvertise_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
                                 user_data_db_connection_idle = True
                                 expected_token = generate_random_string(10, 200)
@@ -819,7 +803,7 @@ def user_manager(ip, connection):
                             acc_id = response_dict['acc_id']
                             identifier = response_dict['identifier']
                             key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                            encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                            encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT linkvertise_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                             fernet = Fernet(key)
                             old_ids = eval(fernet.decrypt(encoded_data).decode())
                             if acc_id not in old_ids:
@@ -827,7 +811,7 @@ def user_manager(ip, connection):
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 __check_user_data_db_idle()
-                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set linkvertise_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
                                 user_data_db_connection_idle = True
                                 expected_token = generate_random_string(10, 200)
@@ -838,7 +822,7 @@ def user_manager(ip, connection):
                                 old_ids[acc_id] = identifier
                                 new_ids = fernet.encrypt(str(old_ids).encode())
                                 __check_user_data_db_idle()
-                                user_data_db_connection.cursor().execute(f"UPDATE user_data set self_adfly_ids='{new_ids.decode()}' where u_name='{u_name}'")
+                                user_data_db_connection.cursor().execute(f"UPDATE user_data set linkvertise_ids='{new_ids.decode()}' where u_name='{u_name}'")
                                 user_data_db_connection.commit()
                                 user_data_db_connection_idle = True
                                 expected_token = generate_random_string(10, 200)
@@ -866,6 +850,49 @@ def user_manager(ip, connection):
                 _ = 1/0
         except:
             _ = 1/0
+
+
+def file_sender(connection):
+    while True:
+        try:
+            response_string = __receive_from_connection(connection).strip()
+            if response_string and response_string[0] == 123 and response_string[-1] == 125 and b'eval' not in response_string:
+                response_dict = eval(response_string)
+                if response_dict["type"] == "image":
+                    img_name = response_dict["img_name"]
+                    if '/' in img_name or '\\' in img_name:
+                        return str({'img_name': "-100"})
+                    current_version, data, size = return_img_file(img_name)
+                    if not data:
+                        return str({'img_name': "-100"})
+                    if 'version' in response_dict and response_dict['version']:
+                        version = float(response_dict['version'])
+                    else:
+                        version = 0
+                    if version == current_version:
+                        return_data = str({'img_name': img_name, 'version': current_version}).encode()
+                    else:
+                        return_data = str({'img_name': img_name, 'version': current_version, 'data': data, 'size': size}).encode()
+                    __send_to_connection(connection, return_data)
+
+                elif response_dict["type"] == "file":
+                    file_code = response_dict["file_code"]
+                    current_version, data = return_py_file(file_code)
+                    if not data:
+                        return str({'file_code': "-100"})
+                    if 'version' in response_dict and response_dict["version"]:
+                        version = float(response_dict["version"])
+                    else:
+                        version = 0
+                    if version == current_version:
+                        return_data = str({'file_code': file_code, 'version': current_version}).encode()
+                    else:
+                        return_data = str({'file_code': file_code, 'version': current_version, 'data': data}).encode()
+                    __send_to_connection(connection, return_data)
+
+        except:
+            __try_closing_connection(connection)
+            break
 
 
 def accept_connections_from_users(port):
@@ -946,6 +973,11 @@ def accept_connections_from_users(port):
                     return
                 user_manager(public_ip, connection)
 
+
+            elif purpose == 'file_request':
+                file_sender(connection)
+
+
             else:
                 __try_closing_connection(connection)
         except:
@@ -962,49 +994,7 @@ def return_py_file(file_id):
     :return: Int, Bytes: version of the file(time created or last modified), file data in bytes
     """
 
-    if file_id == 'adfly_stable_1' or file_id == 'stable_1':
-        if ('vm_main.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/vm_main.py') != python_files['adfly']['stable']['vm_main.py']['version']):
-            python_files['adfly']['stable']['vm_main.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/vm_main.py'), 'file': open(f'{adfly_stable_file_location}/vm_main.py', 'rb').read()}
-        return python_files['adfly']['stable']['vm_main.py']['version'], python_files['adfly']['stable']['vm_main.py']['file']
-    elif file_id == 'adfly_stable_2' or file_id == 'stable_2':
-        if ('client_uname_checker.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/client_uname_checker.py') != python_files['adfly']['stable']['client_uname_checker.py']['version']):
-            python_files['adfly']['stable']['client_uname_checker.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/client_uname_checker.py'), 'file': open(f'{adfly_stable_file_location}/client_uname_checker.py', 'rb').read()}
-        return python_files['adfly']['stable']['client_uname_checker.py']['version'], python_files['adfly']['stable']['client_uname_checker.py']['file']
-    elif file_id == 'adfly_stable_3' or file_id == 'stable_3':
-        if ('runner.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/runner.py') != python_files['adfly']['stable']['runner.py']['version']):
-            python_files['adfly']['stable']['runner.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/runner.py'), 'file': open(f'{adfly_stable_file_location}/runner.py', 'rb').read()}
-        return python_files['adfly']['stable']['runner.py']['version'], python_files['adfly']['stable']['runner.py']['file']
-    elif file_id == 'adfly_stable_4' or file_id == 'stable_4':
-        if ('ngrok_direct.py' not in python_files['adfly']['stable']) or (path.getmtime(f'{adfly_stable_file_location}/ngrok_direct.py') != python_files['adfly']['stable'][f'ngrok_direct.py']['version']):
-            python_files['adfly']['stable'][f'ngrok_direct.py'] = {'version': path.getmtime(f'{adfly_stable_file_location}/ngrok_direct.py'), 'file': open(f'{adfly_stable_file_location}/ngrok_direct.py', 'rb').read()}
-            python_files['adfly']['stable'][f'ngrok_direct.py']['version'] = path.getmtime(f'{adfly_stable_file_location}/ngrok_direct.py')
-            python_files['adfly']['stable'][f'ngrok_direct.py']['file'] = open(f'{adfly_stable_file_location}/ngrok_direct.py', 'rb').read()
-        return python_files['adfly']['stable'][f'ngrok_direct.py']['version'], python_files['adfly']['stable'][f'ngrok_direct.py']['file']
-
-    ####
-
-    elif file_id == 'adfly_beta_1' or file_id == 'beta_1':
-        if ('vm_main.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/vm_main.py') != python_files['adfly']['beta']['vm_main.py']['version']):
-            python_files['adfly']['beta']['vm_main.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/vm_main.py'), 'file': open(f'{adfly_beta_file_location}/vm_main.py', 'rb').read()}
-        return python_files['adfly']['beta']['vm_main.py']['version'], python_files['adfly']['beta']['vm_main.py']['file']
-    elif file_id == 'adfly_beta_2' or file_id == 'beta_2':
-        if ('client_uname_checker.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/client_uname_checker.py') != python_files['adfly']['beta']['client_uname_checker.py']['version']):
-            python_files['adfly']['beta']['client_uname_checker.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/client_uname_checker.py'), 'file': open(f'{adfly_beta_file_location}/client_uname_checker.py', 'rb').read()}
-        return python_files['adfly']['beta']['client_uname_checker.py']['version'], python_files['adfly']['beta']['client_uname_checker.py']['file']
-    elif file_id == 'adfly_beta_3' or file_id == 'beta_3':
-        if ('runner.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/runner.py') != python_files['adfly']['beta']['runner.py']['version']):
-            python_files['adfly']['beta']['runner.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/runner.py'), 'file': open(f'{adfly_beta_file_location}/runner.py', 'rb').read()}
-        return python_files['adfly']['beta']['runner.py']['version'], python_files['adfly']['beta']['runner.py']['file']
-    elif file_id == 'adfly_beta_4' or file_id == 'beta_4':
-        if ('ngrok_direct.py' not in python_files['adfly']['beta']) or (path.getmtime(f'{adfly_beta_file_location}/ngrok_direct.py') != python_files['adfly']['beta'][f'ngrok_direct.py']['version']):
-            python_files['adfly']['beta'][f'ngrok_direct.py'] = {'version': path.getmtime(f'{adfly_beta_file_location}/ngrok_direct.py'), 'file': open(f'{adfly_beta_file_location}/ngrok_direct.py', 'rb').read()}
-            python_files['adfly']['beta'][f'ngrok_direct.py']['version'] = path.getmtime(f'{adfly_beta_file_location}/ngrok_direct.py')
-            python_files['adfly']['beta'][f'ngrok_direct.py']['file'] = open(f'{adfly_beta_file_location}/ngrok_direct.py', 'rb').read()
-        return python_files['adfly']['beta'][f'ngrok_direct.py']['version'], python_files['adfly']['beta'][f'ngrok_direct.py']['file']
-
-    ####
-
-    elif file_id == 'proxy_checker_1':
+    if file_id == 'proxy_checker_1':
         if ('vm_main.py' not in python_files['common']['proxy_checker']) or (path.getmtime(f'{proxy_checker_file_location}/vm_main.py') != python_files['common']['proxy_checker']['vm_main.py']['version']):
             python_files['common']['proxy_checker']['vm_main.py'] = {'version': path.getmtime(f'{proxy_checker_file_location}/vm_main.py'), 'file': open(f'{proxy_checker_file_location}/vm_main.py', 'rb').read()}
         return python_files['common']['proxy_checker']['vm_main.py']['version'], python_files['common']['proxy_checker']['vm_main.py']['file']
@@ -1015,7 +1005,7 @@ def return_py_file(file_id):
 
     ####
 
-    if file_id == 'linkvertise_stable_1':
+    if file_id == 'linkvertise_stable_1' or file_id =="adfly_stable_1":
         if ('vm_main.py' not in python_files['linkvertise']['stable']) or (path.getmtime(f'{linkvertise_stable_file_location}/vm_main.py') != python_files['linkvertise']['stable']['vm_main.py']['version']):
             python_files['linkvertise']['stable']['vm_main.py'] = {'version': path.getmtime(f'{linkvertise_stable_file_location}/vm_main.py'), 'file': open(f'{linkvertise_stable_file_location}/vm_main.py', 'rb').read()}
         return python_files['linkvertise']['stable']['vm_main.py']['version'], python_files['linkvertise']['stable']['vm_main.py']['file']
@@ -1214,14 +1204,12 @@ IP: {request.remote_addr}</br>
 This page is deprecated. Kindly follow instructions on how to run the new bot <a href='https://github.com/BhaskarPanja93/Adfly-View-Bot-Client'>=>  Here  </a></br>
 Links:</br>
 <a href='https://github.com/BhaskarPanja93/AllLinks.github.io'>=>  All Links Repository  </a></br>
-<a href='/time_table'>=> College Schedule  </a></br>
 <a href='/favicon.ico'>=>  Brand Icon  </a></br>
 <a href='/ip'>=>  Your IP  </a></br>
 <a href='/2048'>=>  Download Game2048.exe  </a></br>
 <a href='/sender'>=>  Download Sender.exe for file transfer </a></br>
 <a href='/receiver'>=>  Download Receiver.exe for file transfer </a></br>
 <a href='/clone_vm'>=>  Download CloneVM.exe for mass cloning Virtual machines </a></br>
-<a href='/adfly_link_page'>=>  Demo AdFly link page </a></br>
 <a href='/linkvertise_link_page'>=>  Demo Linkvertise link page </a></br>
 <a href='/proxy_request'>=>  All Proxies  </a></br>
 <a href='/debug'>=>  Developer debug data  </a></br>
@@ -1445,10 +1433,10 @@ Links:</br>
         return f'{proxy} {status}'
 
 
-    @app.route('/adfly_suffix_link', methods=['GET'])
+    @app.route('/linkvertise_suffix_link', methods=['GET'])
     def _return_suffix_link():
         """
-        Client receives the adfly suffix link (/adfly_link_page?id_to_serve={id})
+        Client receives the linkvertise suffix link (/linkvertise_link_page?id_to_serve={id})
         :return: String: suffix link
         """
 
@@ -1463,7 +1451,7 @@ Links:</br>
             while True:
                 if u_name in all_u_names:
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
-                    encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                    encoded_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT linkvertise_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
                     self_ids = eval(fernet.decrypt(encoded_data).decode())
                     if self_ids:
@@ -1481,7 +1469,7 @@ Links:</br>
             id_to_serve = 1
         link_view_token = generate_random_string(100, 500)
         Thread(target=link_view_token_add, args=(link_view_token, u_name)).start()
-        data_to_be_sent = {'suffix_link': f'/adfly_link_page?id_to_serve={id_to_serve}', 'link_viewer_token': str(link_view_token)}
+        data_to_be_sent = {'suffix_link': f'/linkvertise_link_page?id_to_serve={id_to_serve}', 'link_viewer_token': str(link_view_token)}
         add_to_logs(request.remote_addr, 'suffix_link', 0, str(id_to_serve))
         return str(data_to_be_sent)
 
@@ -1587,44 +1575,18 @@ Links:</br>
         return str(data_to_be_sent)
 
 
-    @app.route('/adfly_link_page', methods=['GET'])
-    def _return_adfly_links():
-        """
-        Generates and returns an adfly link page according to username provided
-        :return: String: html data
-        """
-
-        id_to_serve = 1
-        if "id_to_serve" in request.args:
-            id_to_serve = request.args.get("id_to_serve")
-        add_to_logs(request.remote_addr, 'adfly_page', 0, f"{id_to_serve=}")
-        head = f'''
-<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE>
-<script type="text/javascript">
-var adfly_protocol = 'https';
-var adfly_id = {id_to_serve};
-var adfly_advert = 'int';
-var popunder = false;
-var exclude_domains = [];
-</script>
-<script src="https://cdn.adf.ly/js/link-converter.js"></script></HEAD><BODY>'''
-        return head+link_paragraph
-
-
     @app.route('/linkvertise_link_page', methods=['GET'])
     def _return_linkvertise_links():
         """
-        Generates and returns a linkvertise link page according to username provived
+        Generates and returns a linkvertise link page according to ID provided
         :return: String: html data
         """
 
-        id_to_serve = 205957
+        id_to_serve = 488699
         if "id_to_serve" in request.args:
             id_to_serve = request.args.get("id_to_serve")
-        add_to_logs(request.remote_addr, 'adfly_page', 0, f"{id_to_serve=}")
-        head = f'''<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE>
-                                <script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script>
-                                <script>linkvertise({id_to_serve}, {{whitelist: [], blacklist: []}});</script>'''
+        add_to_logs(request.remote_addr, 'linkvertise_page', 0, f"{id_to_serve=}")
+        head = f'''<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE><script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise({id_to_serve}, {{whitelist: [], blacklist: []}});</script>'''
         return head+link_paragraph
 
 
@@ -1679,7 +1641,7 @@ text-align: center;
                 network_adapter_data = ""
                 key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                 fernet = Fernet(key)  ###
-                encoded_old_acc_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT self_adfly_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
+                encoded_old_acc_data = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT linkvertise_ids from user_data where u_name = '{u_name}'")][0][0]).encode()
                 ids = eval(fernet.decrypt(encoded_old_acc_data).decode())
                 for _id in ids:
                     _id_data += f"{_id} : {ids[_id]}</br>"
@@ -1718,11 +1680,6 @@ text-align: center;
     @app.route('/favicon.ico')
     def _return_favicon():
         return send_from_directory(directory=getcwd()+'/image_files', path='image.png')
-
-
-    @app.route('/time_table')
-    def _return_time_table():
-        return send_from_directory(directory=getcwd()+'/image_files', path='time_table.png')
 
 
     @app.route('/sender')
@@ -1830,7 +1787,7 @@ Command: <input type="command" name="command"></br>
 
     @app.route('/text', methods=['GET'])
     def _return_text():
-        return text
+        return public_text
 
     @app.route('/text_change', methods=['GET'])
     def _text_change_get():
@@ -1839,7 +1796,7 @@ Command: <input type="command" name="command"></br>
         return f"""
     <html>
     <body>
-    Current: {text}
+    Current: {public_text}
     <form method='post' action='/text_change'>
     Command: <input type="new_text" name="new_text"></br>
     </br><button type=submit>Update</button>
@@ -1852,20 +1809,90 @@ Command: <input type="command" name="command"></br>
     def _text_change_post():
         if not __check_admin_logged_in(request.cookies, request.remote_addr, request.user_agent, request.host):
             return redirect(f"{request.root_url}/admin?next_page={request.url}")
-        global text
-        text = request.form.get("new_text")
+        global public_text
+        public_text = request.form.get("new_text")
         return redirect(request.url)
 
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
-text="https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x86"
+
+print(f"All Functions Declared in {round(time()-time_stored, 2)} seconds")
+time_stored = time()
+
+
+current_user_host_main_version = '2.4.2' ## latest user_host file version
+available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
+server_start_time = time() ## server start time as float
+
+
+admin_u_names = ['bhaskar', 'dec1lent'] ## admin accounts
+reserved_u_names_words = ['admin', 'invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/'] ## strings not allowed for usernames
+
+
+parent, _ = path.split(path.split(getcwd())[0])
+read_only_location = path.join(parent, 'read only')+'/' ## stores paragraphs, user database, proxy database
+
+
+parent, _ = path.split(getcwd())
+img_location = path.join(parent, 'req_imgs/Windows') ## stores all images
+
+
+HOST_MAIN_WEB_PORT_LIST = list(range(65500, 65500 + 1)) ## list of all ports flask web page should listen on
+USER_CONNECTION_PORT_LIST = list(range(65499, 65499 + 1)) ##list of all ports socket connection should listen on
+
+
+paragraph_lines = open(f'{read_only_location}paragraph.txt', 'rb').read().decode().split('.') ## paragraph
+host_files_location = getcwd() + '/py_files/host'  ## location for all server codes
+linkvertise_stable_file_location = getcwd() + '/py_files/linkvertise/stable' ## location for all stable client codes
+proxy_checker_file_location = getcwd() +'/py_files/common/proxy_checker' ## location for proxy checking client codes
+
+
+proxy_db_last_change = 0 ## proxy database last modified time as float
+last_proxy_modified = 0 ## proxy in  memory last modified time as float
+pending_link_view_token = {} ## stores token to fulfill a view
+active_tcp_tokens = {} ## stores tokens for user_host to make connections along with their IP
+check_ip_list = [] ## stores IP reported by a proxy VM
+all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_proxies_unique = set(), set(), set(), set() ## all proxies of each type (set for storing unique values)
+python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'linkvertise':{'stable':{}, 'beta':{}}, 'proxy_checker':{}} ## cache of all python files required according to time modified
+windows_img_files = {} ## cache of all image files required according to time modified
+executable_files = {} ## cache of all .exe files required according to time modified
+known_ips = {} ## map of IP to username
+logs = [] ## server logs stored here
+active_admins = {}
+ip_ban_remove_time = {}
+
+
+public_text= "No Text Saved"
+
 
 link_paragraph = ''
 for para_length in range(randrange(100, 150)):
     link_paragraph += choice(paragraph_lines) + '.'
     if randrange(0, 5) == 1:
-        link_paragraph += f"<a href='/youtube_img?random={generate_random_string(1, 20)}'> CLICK HERE </a>"
+        link_paragraph += f"<a href='/youtube_img?random={generate_random_string(1, 200)}'> CLICK HERE </a>"
 link_paragraph += "</BODY></HTML>"
+
+
+print(f"All Variables Declared in {round(time()-time_stored, 2)} seconds")
+time_stored = time()
+
+
+user_data_file_name = "user_data.db"
+clean_DB(read_only_location, user_data_file_name, ["user_data"])
+proxy_file_name = "proxy.db"
+clean_DB(read_only_location, proxy_file_name, ["working_proxies", "failed_proxies", "unchecked_proxies"])
+
+
+print(f"All DB Cleaned in {round(time()-time_stored, 2)} seconds")
+time_stored = time()
+
+
+user_data_db_connection = sqlite3.connect(read_only_location+user_data_file_name, check_same_thread=False) ## user database
+proxy_db_connection = sqlite3.connect(read_only_location+proxy_file_name, check_same_thread=False) ## proxy database
+
+
+print(f"All DB Connected in {round(time()-time_stored, 2)} seconds")
+time_stored = time()
 
 
 ### SELF STATUS
@@ -1882,3 +1909,6 @@ fetch_old_proxy_data()
 Thread(target=fetch_proxies_from_sites).start()
 Thread(target=re_add_old_proxies).start()
 Thread(target=write_proxy_stats).start()
+
+
+print(f"Main Thread ended in {round(time()-time_stored, 2)} seconds")

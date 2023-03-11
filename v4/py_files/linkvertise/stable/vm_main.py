@@ -1,5 +1,5 @@
-self_file_code = 'adfly_stable_1'
-next_file_code = 'adfly_stable_2'
+self_file_code = 'linkvertise_stable_1'
+next_file_code = 'linkvertise_stable_2'
 print(self_file_code)
 try:
     vm_main_version = float(open('vm_main_version', 'r').read())
@@ -28,41 +28,54 @@ while True:
 from time import sleep
 from random import choice
 from requests import get
-from os import path, mkdir, system as system_caller
+from os import path, mkdir, system as system_caller, rename
 
-global_host_page = ''
+LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 adfly_user_data_location = "C://adfly_user_data"
+viewbot_user_data_location = "C://user_data"
 
-if not path.exists(adfly_user_data_location):
-    mkdir(adfly_user_data_location)
 
-def verify_global_site():
-    global global_host_page
+if path.exists(adfly_user_data_location):
+    rename(adfly_user_data_location, viewbot_user_data_location)
+    rename(f"{viewbot_user_data_location}/adfly_user_data", f"{viewbot_user_data_location}/user_data")
+if not path.exists(viewbot_user_data_location):
+    mkdir(viewbot_user_data_location)
+
+
+def fetch_global_addresses():
     while True:
         try:
-            print(f'Trying to connect to global_page at {global_host_page}')
-            if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
-                break
-            else:
-                _ = 1 / 0
-        except:
+            response = get("https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md", timeout=10)
+            response.close()
+            link_dict = eval(response.text)
             try:
-                print("Global host ping failed. Rechecking from github...")
-                text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-                link_dict = eval(text)
-                global_host_page = choice(link_dict['adfly_host_page_list'])
+                global_host_page = choice(link_dict['global_host_page_list'])
             except:
-                print("Unable to connect to github. Recheck internet connection?")
-                sleep(1)
+                global_host_page = choice(link_dict['adfly_host_page_list'])
+            try:
+                global_host_address = choice(link_dict['adfly_user_tcp_connection_list']).split(":")
+            except:
+                global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
+            global_host_address[-1] = int(global_host_address[-1])
+            global_host_address = tuple(global_host_address)
+            break
+        except:
+            print("Recheck internet connection?")
+            sleep(0.1)
+    return global_host_address, global_host_page
+
+
 
 ## Check self version
 system_caller('cls')
 print("Checking vm main version...\n\n")
 while True:
-    verify_global_site()
     try:
-        response = get(f"{global_host_page}/py_files?file_code={self_file_code}&version={vm_main_version}", timeout=10).content
+        global_host_address, global_host_page = fetch_global_addresses()
+        response = get(f"{global_host_page}/py_files?file_code={self_file_code}&version={vm_main_version}", timeout=10)
+        response.close()
+        response = response.content
         if response[0] == 123 and response[-1] == 125:
             response = eval(response)
             if response['file_code'] == self_file_code:
@@ -77,24 +90,27 @@ while True:
                 else:
                     print("No new Updates")
                     break
+        else:
+            _ = 1 / 0
     except:
-        sleep(1)
+        pass
 
 ## Download next file
 while True:
     try:
-        verify_global_site()
-        if get(f"{global_host_page}/ping").text != 'ping':
-            _ = 1/0
-        print('waiting for next file', next_file_code)
-        received_data = get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=10).content
+        global_host_address, global_host_page = fetch_global_addresses()
+        response = get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=10)
+        response.close()
+        received_data = response.content
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
             if received_data['file_code'] == next_file_code:
                 with open('client_uname_checker.py', 'wb') as file:
                     file.write(received_data['data'])
                 break
+        else:
+           _ = 1 / 0
     except:
-        sleep(1)
+        pass
 import client_uname_checker
 client_uname_checker.run()

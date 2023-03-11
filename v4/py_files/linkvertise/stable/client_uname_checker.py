@@ -1,12 +1,13 @@
+from os import popen
+
 print('uname checker')
-next_file_code = 'adfly_stable_3'
-global_host_page = ''
+next_file_code = 'linkvertise_stable_3'
 local_host_address = ()
 local_page = ''
 LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
-adfly_user_data_location = "C://adfly_user_data"
+viewbot_user_data_location = "C://user_data"
 def run():
     global local_page, local_network_adapters, local_host_address
     from os import remove, system as system_caller
@@ -18,32 +19,39 @@ def run():
     from requests import get
     import subprocess
 
-    def verify_global_site():
-        global global_host_page
+    def fetch_global_addresses():
         while True:
             try:
-                if get(f"{global_host_page}/ping", timeout=10).text == 'ping':
-                    break
-                else:
-                    _ = 1 / 0
-            except:
+                response = popen(f"curl https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
+                link_dict = eval(response.read())
                 try:
-                    text = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10).text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-                    link_dict = eval(text)
-                    global_host_page = choice(link_dict['adfly_host_page_list'])
+                    global_host_page = choice(link_dict['global_host_page_list'])
                 except:
-                    print("Recheck internet connection?")
-                    sleep(1)
+                    global_host_page = choice(link_dict['adfly_host_page_list'])
+                try:
+                    global_host_address = choice(link_dict['adfly_user_tcp_connection_list']).split(":")
+                except:
+                    global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
+                global_host_address[-1] = int(global_host_address[-1])
+                global_host_address = tuple(global_host_address)
+                break
+            except:
+                print("Recheck internet connection?")
+                sleep(0.1)
+        return global_host_address, global_host_page
 
 
     def fetch_and_update_local_host_address():
         global local_network_adapters
-        instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-        u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
+        instance_token = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['token']
+        u_name = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['u_name'].strip().lower()
         addresses_matched = False
         while not addresses_matched:
             try:
-                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10).content
+                global_host_address, global_host_page = fetch_global_addresses()
+                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10)
+                response.close()
+                response = response.content
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
                     if response['status_code'] == 0:
@@ -65,8 +73,7 @@ def run():
                     else:
                         __restart_host_machine()
             except:
-                sleep(1)
-                verify_global_site()
+                pass
 
 
     def try_pinging_local_host_connection(ip):
@@ -130,13 +137,15 @@ def run():
     def try_matching_token(u_name, instance_token):
         while True:
             try:
-                verify_global_site()
-                response = get(f"{global_host_page}/verify_instance_token?u_name={u_name}&token={instance_token}", timeout=10).content
+                global_host_address, global_host_page = fetch_global_addresses()
+                response = get(f"{global_host_page}/verify_instance_token?u_name={u_name}&token={instance_token}", timeout=10)
+                response.close()
+                response = response.content
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
                     if response['status_code'] == 0:
                         new_data = {'token': instance_token, 'u_name': u_name, 'checked': False}
-                        open(f"{adfly_user_data_location}/adfly_user_data", 'wb').write(str(new_data).encode())
+                        open(f"{viewbot_user_data_location}/user_data", 'wb').write(str(new_data).encode())
                         break
                     elif response['status_code'] == -1:
                         try_username_password()
@@ -150,14 +159,17 @@ def run():
         while True:
             user_name = input('enter username: ').strip().lower()
             password = input('enter password: ')
-            response = get(f"{global_host_page}/request_instance_token?u_name={user_name}&password={password}", timeout=10).content
+            global_host_address, global_host_page = fetch_global_addresses()
+            response = get(f"{global_host_page}/request_instance_token?u_name={user_name}&password={password}", timeout=10)
+            response.close()
+            response = response.content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
                 if response['status_code'] == 0:
                     instance_token = response['token']
                     u_name = response['u_name']
                     new_data = {'token': instance_token, 'u_name': u_name, 'checked': True}
-                    open(f"{adfly_user_data_location}/adfly_user_data", 'wb').write(str(new_data).encode())
+                    open(f"{viewbot_user_data_location}/user_data", 'wb').write(str(new_data).encode())
                     print('Login success\n')
                     sleep(3)
                     break
@@ -165,15 +177,14 @@ def run():
                     print("Wrong Username-Password combination\n")
 
     system_caller('cls')
-    verify_global_site()
     try:
-        instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-        u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
+        instance_token = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['token']
+        u_name = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['u_name'].strip().lower()
     except:
         instance_token = b''
         u_name = b''
     new_data = {'token': instance_token, 'u_name': u_name, 'checked': False}
-    open(f"{adfly_user_data_location}/adfly_user_data", 'wb').write(str(new_data).encode())
+    open(f"{viewbot_user_data_location}/user_data", 'wb').write(str(new_data).encode())
     if instance_token and u_name:
         try_matching_token(u_name, instance_token)
     else:
@@ -181,7 +192,9 @@ def run():
     fetch_and_update_local_host_address()
     while True:
         try:
-            response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10).content
+            response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10)
+            response.close()
+            response = response.content
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
                 if response['file_code'] == next_file_code:
@@ -191,5 +204,5 @@ def run():
         except:
             sleep(1)
             fetch_and_update_local_host_address()
-    subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
-    #subprocess.Popen('python runner.py')
+    #subprocess.Popen('python runner.py', creationflags=subprocess.CREATE_NO_WINDOW)
+    subprocess.Popen('python runner.py')

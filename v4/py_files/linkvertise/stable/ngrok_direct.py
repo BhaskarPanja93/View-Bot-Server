@@ -1,18 +1,19 @@
+from os import popen
+
 print('stable instance')
-global_host_page = ''
 local_page = ''
 local_host_address = ()
 LOCAL_HOST_PORT = 59998
 LOCAL_PAGE_PORT = 60000
 local_network_adapters = []
-adfly_user_data_location = "C://adfly_user_data"
-start_time  = ''
+viewbot_user_data_location = "C://user_data"
+start_time  = 0.0
 link_viewer_token = ''
-chrome_opened = False
 img_dict = {}
+link = 'http://bhaskar.ddns.net'
 
 def run(__img_dict, _global_host_page = '', _local_page = ''):
-    global global_host_page, local_page, chrome_opened
+    global local_page, link, img_dict
     #from os import remove
     #remove('instance.py')
     global start_time, link_viewer_token
@@ -25,7 +26,6 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
     import pyautogui
     from requests import get
     local_page = _local_page
-    global_host_page = _global_host_page
 
     ###
     #img_dict = __img_dict
@@ -34,36 +34,35 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
     #system_caller(f'windscribe-cli.exe connect "{loc}"')
     ###
 
-
-    def verify_global_site():
-        global global_host_page
+    def fetch_global_addresses():
         while True:
             try:
-                response = get(f"{global_host_page}/ping", timeout=10)
-                response.close()
-                if response.text == 'ping':
-                    break
-                else:
-                    _ = 1 / 0
-            except:
+                response = popen(f"curl https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
+                link_dict = eval(response.read())
                 try:
-                    response = get('https://bhaskarpanja93.github.io/AllLinks.github.io/', timeout=10)
-                    response.close()
-                    text = response.text.split('<p>')[-1].split('</p>')[0].replace('‘', '"').replace('’', '"').replace('“', '"').replace('”', '"')
-                    link_dict = eval(text)
-                    global_host_page = choice(link_dict['adfly_host_page_list'])
+                    global_host_page = choice(link_dict['global_host_page_list'])
                 except:
-                    print("Recheck internet connection?")
-                    sleep(0.1)
-
+                    global_host_page = choice(link_dict['adfly_host_page_list'])
+                try:
+                    global_host_address = choice(link_dict['adfly_user_tcp_connection_list']).split(":")
+                except:
+                    global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
+                global_host_address[-1] = int(global_host_address[-1])
+                global_host_address = tuple(global_host_address)
+                break
+            except:
+                print("Recheck internet connection?")
+                sleep(0.1)
+        return global_host_address, global_host_page
 
     def fetch_and_update_local_host_address():
         global local_network_adapters
-        instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-        u_name = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['u_name'].strip().lower()
+        instance_token = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['token']
+        u_name = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['u_name'].strip().lower()
         addresses_matched = False
         while not addresses_matched:
             try:
+                global_host_address, global_host_page = fetch_global_addresses()
                 response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10)
                 response.close()
                 response = response.content
@@ -76,6 +75,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                             sleep(10)
                             fetch_and_update_local_host_address()
                         for ip in local_network_adapters:
+                            print(ip)
                             Thread(target=try_pinging_local_host_connection, args=(ip,)).start()
                         for _ in range(10):
                             if local_host_address != () and local_page != '':
@@ -88,8 +88,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                     else:
                         __restart_host_machine()
             except:
-                sleep(1)
-                verify_global_site()
+                pass
 
 
     def try_pinging_local_host_connection(ip):
@@ -112,6 +111,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
             response.close()
             if response.text == 'ping':
                 local_page = page
+                print(f"{local_page = }")
         except:
             pass
 
@@ -155,22 +155,6 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
         sleep(2)
 
 
-    """def __close_chrome_safe():
-        global chrome_opened
-        for sign in ['chrome close region 1', 'chrome close region 2']:
-            chrome_close_region = __find_image_on_screen(img_name=sign, confidence=0.8)
-            if chrome_close_region:
-                coordinates = __find_image_on_screen(img_name='chrome close', region=chrome_close_region, confidence=0.9)
-                if coordinates:
-                    __click(coordinates)
-                    chrome_opened = False
-                    break
-        coordinates = __find_image_on_screen(img_name='chrome download exit', confidence=0.9)
-        if coordinates:
-            __click(coordinates)
-            chrome_opened = False"""
-
-
     def __fetch_image_from_host(img_name, timeout=10):
         global img_dict
         if img_name in img_dict:
@@ -180,24 +164,25 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
         else:
             version = -1
         try:
-            response = get(f"{local_page}img_files?img_name={img_name}&version={version}", timeout=timeout)
+            response = get(f"{local_page}/img_files?img_name={img_name}&version={version}", timeout=timeout)
             response.close()
             response = response.content
         except Exception as e:
             print(repr(e))
             sleep(0.1)
-            #fetch_and_update_local_host_address()
             return __fetch_image_from_host(img_name)
         try:
             if response[0] == 123 and response[-1] == 125:
                 response = eval(response)
-                if response['img_name'] == img_name:
-                    if 'data' in response:
-                        img_dict[img_name] = {'img_data': response['data'], 'version': response['version'], 'img_size': response['size'], 'updated': time()}
+                if response['image_name'] == img_name:
+                    if 'image_data' in response:
+                        img_dict[img_name] = {'img_data': response['image_data'], 'version': response['version'], 'img_size': response['image_size'], 'updated': time()}
                     else:
                         img_dict[img_name]['updated'] = time()
                 else:
-                    print(f'wrong image received {img_name} : {response["img_name"]}')
+                    print(f'wrong image received {img_name} : {response["image_size"]}')
+            else:
+                raise ZeroDivisionError
         except Exception as e:
             print(1, repr(e))
             __fetch_image_from_host(img_name)
@@ -253,54 +238,41 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
         start_time = time()
         while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 700:
+            if int(time() - start_time) >= 300:
                 __restart_host_machine()
                 break
 
 
     def get_link():
-        return "https://f25e-103-27-2-41.in.ngrok.io/linkvertise_link_page"
-        """def fetch_main_link():
-            try:
-                if get(f"{global_host_page}/ping").text == 'ping':
-                    return global_host_page
-            except:
-                sleep(0.1)
-                verify_global_site()
-        def fetch_side_link():
-            global link_viewer_token
-            instance_token = eval(open(f"{adfly_user_data_location}/adfly_user_data", 'rb').read())['token']
-            received_data = get(f"{global_host_page}/adfly_suffix_link?token={instance_token}", timeout=10).content
-            if received_data[0] == 123 and received_data[-1] == 125:
-                received_data = eval(received_data)
-                link_viewer_token = received_data['link_viewer_token']
-                side_link = received_data['suffix_link']
-                return side_link
-
         while True:
+            side_link = ''
             try:
-                side_link = fetch_side_link()
+                global_host_address, global_host_page = fetch_global_addresses()
+                global link_viewer_token
+                instance_token = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['token']
+                received_data = get(f"{global_host_page}/linkvertise_suffix_link?token={instance_token}", timeout=10).content
+                if received_data[0] == 123 and received_data[-1] == 125:
+                    received_data = eval(received_data)
+                    link_viewer_token = received_data['link_viewer_token']
+                    side_link = received_data['suffix_link']
                 if '?' in side_link:
                     break
             except:
                 pass
         while True:
             try:
-                main_link = fetch_main_link()
-                if 'http' in main_link:
+                if 'http' in global_host_page:
                     break
+                else:
+                    global_host_address, global_host_page = fetch_global_addresses()
             except:
                 pass
-        return str(main_link + side_link)"""
+        return str(global_host_page + side_link)
 
-
+    fetch_and_update_local_host_address()
     current_cond = ''
-    comment = ''
-    __close_chrome_forced()
-    __start_chrome_forced()
     pyautogui.FAILSAFE = False
     start_time = time()
-    link = 'https://f25e-103-27-2-41.in.ngrok.io/linkvertise_link_page'
     success = False
     failure = False
     Thread(target=restart_if_slow_instance).start()
@@ -323,7 +295,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
              },
         'ngrok_direct_open':
             {'images': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
-             'next_cond': ['captcha_solving'], 'need_scroll': '0*0', 'wait': 10, 'confidence': 0.8,
+             'next_cond': ['captcha_solving'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': True, 'link_clicked': False}
              },
         'unsolvable_captcha':
@@ -356,14 +328,14 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': True, 'article_page_open': True, 'articles_read': False}
              },
-        'pre_special_ad': {'images': ['linkvertise buff gaming download', 'linkvertise avg secure browser', 'linkvertise opera gx', 'linkvertise avast secure browser', 'linkvertise pc app store'],
+        'pre_special_ad': {'images': ['linkvertise buff gaming download', 'linkvertise avg secure browser', 'linkvertise opera gx', 'linkvertise avast secure browser', 'linkvertise pc app store', 'linkvertise browser extension for chrome'],
                            'next_cond': ['special_ad_processing'], 'need_scroll': '1*-50', 'wait': 3, 'confidence': 0.85,
                            'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                                    'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
                                    'big_ad_open': False, 'special_ad_waiting': False, 'special_ad_viewed': False,
                                    'buff': False, 'avg': False, 'opera_gx': False, 'avast': False, 'pc_store': False}
                            },
-        'special_ad_processing': {'images': ['linkvertise install and sign up an account', 'linkvertise install and launch avg browser', 'linkvertise install and launch opera gx', 'linkvertise install and launch the browser', 'linkvertise install and launch pc app store'],
+        'special_ad_processing': {'images': ['linkvertise install and sign up an account', 'linkvertise install and launch avg browser', 'linkvertise install and launch opera gx', 'linkvertise install and launch the browser', 'linkvertise install and launch pc app store', 'linkvertise add the extension to chrome'],
                                   'next_cond': ['waiting_big_ad'], 'need_scroll': '1*-500', 'wait': 10, 'confidence': 0.85,
                                   'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                                           'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
@@ -376,7 +348,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                                    'big_ad_open': True}
                            },
         'post_big_ad':
-            {'images': ['linkvertise get website'],
+            {'images': ['linkvertise get website 1', 'linkvertise get website 2'],
              'next_cond': ['final_go_to_website'], 'need_scroll': '2*-100', 'wait': 0, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                  'linkvertise_reached': True, 'article_page_open': False,'free_access_complete': True,
@@ -410,8 +382,9 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
         }
 
 
-
         thread_name = Thread()
+        __close_chrome_forced()
+        __start_chrome_forced()
         for condition_name in possible_screen_conditions:
             for img_name in possible_screen_conditions[condition_name]['images']:
                 sleep(0.01)
@@ -443,6 +416,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                         break
                     confidence = possible_screen_conditions[condition]['confidence']
                     scroll_amount = possible_screen_conditions[condition]['need_scroll'].split('*')
+                    print(f"scrolling {possible_screen_conditions[condition]['need_scroll']} for {current_cond}")
                     for freq in range(int(scroll_amount[0])+1):
                         coordinates = __find_image_on_screen(img_name=sign, confidence=confidence)
                         if coordinates:
@@ -451,9 +425,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                             condition_found = True
                             break
                         pyautogui.scroll(int(scroll_amount[1]))
-
-
-
+                    print("scroll complete")
 
 
             if current_cond == 'chrome_restore':
@@ -540,10 +512,11 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                 pyautogui.moveTo(coordinates)
                 coordinates = None
                 while not coordinates:
-                    pyautogui.scroll(-500)
-                    coordinates = __find_image_on_screen('linkvertise free access with ads', confidence=0.8)
+                    print("free access with ads not on screen")
+                    pyautogui.scroll(-100)
+                    coordinates = __find_image_on_screen('linkvertise free access with ads', confidence=0.7)
                     if not coordinates:
-                        coordinates = __find_image_on_screen('linkvertise free access', confidence=0.8)
+                        coordinates = __find_image_on_screen('linkvertise free access', confidence=0.7)
                 __click(coordinates)
                 special_conditions['free_access_complete'] = True
 
@@ -607,8 +580,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
     return [int(success), comment, img_dict]
 
 try:
-    run({}, 'https://f25e-103-27-2-41.in.ngrok.io/', 'https://f25e-103-27-2-41.in.ngrok.io/')
+    run(img_dict, "", "")
 except Exception as e:
     print(repr(e))
-
-input("end")
+print("Program End")
