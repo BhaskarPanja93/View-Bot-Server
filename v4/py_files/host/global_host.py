@@ -1586,7 +1586,7 @@ Links:</br>
         if "id_to_serve" in request.args:
             id_to_serve = request.args.get("id_to_serve")
         add_to_logs(request.remote_addr, 'linkvertise_page', 0, f"{id_to_serve=}")
-        head = f'''<HTML><HEAD><TITLE>Nothing's here {id_to_serve}</TITLE><script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise({id_to_serve}, {{whitelist: [], blacklist: []}});</script>'''
+        head = f'''<HTML><HEAD><TITLE>{request.remote_addr}</TITLE><script src="https://publisher.linkvertise.com/cdn/linkvertise.js"></script><script>linkvertise({id_to_serve}, {{whitelist: [], blacklist: []}});</script>'''
         return head+link_paragraph
 
 

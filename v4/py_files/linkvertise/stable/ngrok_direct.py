@@ -9,11 +9,12 @@ local_network_adapters = []
 viewbot_user_data_location = "C://user_data"
 start_time  = 0.0
 link_viewer_token = ''
+comment = ''
 img_dict = {}
 link = 'http://bhaskar.ddns.net'
 
-def run(__img_dict, _global_host_page = '', _local_page = ''):
-    global local_page, link, img_dict
+def run(__local_page = ''):
+    global local_page, link, img_dict, comment
     #from os import remove
     #remove('instance.py')
     global start_time, link_viewer_token
@@ -25,19 +26,13 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
     from PIL import Image
     import pyautogui
     from requests import get
-    local_page = _local_page
+    local_page = __local_page
 
-    ###
-    #img_dict = __img_dict
-    #locations = ["Mountain", "Ranch", "Cub", "Snow", "Vice", "Empire", "Precedent", "Dogg", "Cobain", "Expo 67", "Comfort Zone", "The 6", "Granville", "Vansterdam", "Jardin", "Seine", "Castle", "Wurstchen", "Wiener", "Canal", "Red Light", "Tulip", "Fjord", "No Vampires", "Alphorn", "Lindenhof", "Crumpets", "Custard", "Ataturk", "Victoria", ]
-    #loc = choice(locations)
-    #system_caller(f'windscribe-cli.exe connect "{loc}"')
-    ###
 
     def fetch_global_addresses():
         while True:
             try:
-                response = popen(f"curl https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
+                response = popen(f"curl -s https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
                 link_dict = eval(response.read())
                 try:
                     global_host_page = choice(link_dict['global_host_page_list'])
@@ -238,7 +233,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
         start_time = time()
         while not success and not failure:
             sleep(10)
-            if int(time() - start_time) >= 300:
+            if int(time() - start_time) >= 400:
                 __restart_host_machine()
                 break
 
@@ -270,7 +265,6 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
         return str(global_host_page + side_link)
 
     fetch_and_update_local_host_address()
-    current_cond = ''
     pyautogui.FAILSAFE = False
     start_time = time()
     success = False
@@ -290,77 +284,86 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
              },
         'blank_chrome':
             {'images': ['search box 1', 'search box 2'],
-             'next_cond': ['ngrok_direct_open'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.85,
+             'next_cond': ['ngrok_visit_site'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.85,
              'req': {'just_opened': True, }
+             },
+        'ngrok_visit_site':
+            {'images': ['linkvertise ngrok visit site'],
+             'next_cond': ['ngrok_direct_open'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.8,
+             'req': {'just_opened': False, 'webpage_opened': True, 'link_clicked': False}
              },
         'ngrok_direct_open':
             {'images': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
-             'next_cond': ['captcha_solving'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.8,
+             'next_cond': ['cookie_accept'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': True, 'link_clicked': False}
              },
-        'unsolvable_captcha':
-            {'images': ['unsolvable captcha'],
-             'next_cond': ['captcha_solving', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
+        'cookie_accept':
+            {'images': ['linkvertise cookie accept'],
+             'next_cond': ['captcha', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False}
              },
-        'captcha_solving':
+        'unsolvable_captcha':
+            {'images': ['unsolvable captcha'],
+             'next_cond': ['captcha', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
+             'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
+                     'linkvertise_reached': False}
+             },
+        'captcha':
             {'images': ['linkvertise im not a robot', 'linkvertise captcha solver'],
-             'next_cond': ['captcha_solving'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.85,
+             'next_cond': ['captcha'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False}
              },
         'linkvertise_top':
             {'images': ['linkvertise post captcha', 'linkvertise top'],
-             'next_cond': ['discover_articles'], 'need_scroll': '0*0', 'wait': 0, 'confidence': 0.85,
+             'next_cond': ['discover_articles'], 'need_scroll': '0*0', 'wait': 4, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False, 'article_page_open': False, 'articles_read': False}
              },
         'discover_articles':
-            {'images': ['linkvertise discover articles'],
-             'next_cond': ['close_articles'], 'need_scroll': '2*-50', 'wait': 7, 'confidence': 0.85,
+            {'images': ['linkvertise discover articles', 'linkvertise discover interesting articles'],
+             'next_cond': ['close_articles'], 'need_scroll': '5*-20', 'wait': 7, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': True, 'article_page_open': False, 'articles_read': False}
              },
         'close_articles':
             {'images': ['linkvertise ad close'],
-             'next_cond': ['pre_special_ad'], 'need_scroll': '1*200', 'wait': 0, 'confidence': 0.85,
+             'next_cond': ['pre_special_ad'], 'need_scroll': '10*20', 'wait': 0, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': True, 'article_page_open': True, 'articles_read': False}
              },
         'pre_special_ad': {'images': ['linkvertise buff gaming download', 'linkvertise avg secure browser', 'linkvertise opera gx', 'linkvertise avast secure browser', 'linkvertise pc app store', 'linkvertise browser extension for chrome'],
-                           'next_cond': ['special_ad_processing'], 'need_scroll': '1*-50', 'wait': 3, 'confidence': 0.85,
+                           'next_cond': ['special_ad_processing'], 'need_scroll': '2*-20', 'wait': 3, 'confidence': 0.85,
                            'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                                    'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
-                                   'big_ad_open': False, 'special_ad_waiting': False, 'special_ad_viewed': False,
-                                   'buff': False, 'avg': False, 'opera_gx': False, 'avast': False, 'pc_store': False}
+                                   'big_ad_open': False, 'special_ad_waiting': False, 'special_ad_viewed': False}
                            },
-        'special_ad_processing': {'images': ['linkvertise install and sign up an account', 'linkvertise install and launch avg browser', 'linkvertise install and launch opera gx', 'linkvertise install and launch the browser', 'linkvertise install and launch pc app store', 'linkvertise add the extension to chrome'],
-                                  'next_cond': ['waiting_big_ad'], 'need_scroll': '1*-500', 'wait': 10, 'confidence': 0.85,
+        'special_ad_processing': {'images': ['linkvertise install and', 'linkvertise install and sign up an account', 'linkvertise install and launch avg browser', 'linkvertise install and launch opera gx', 'linkvertise install and launch the browser', 'linkvertise install and launch pc app store', 'linkvertise add the extension to chrome'],
+                                  'next_cond': ['waiting_big_ad'], 'need_scroll': '5*-20', 'wait': 10, 'confidence': 0.85,
                                   'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                                           'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
                                           'big_ad_open': True}
                                   },
         'waiting_big_ad': {'images': ['linkvertise waiting for completion'],
-                           'next_cond': [], 'need_scroll': '2*-500', 'wait': 10, 'confidence': 0.85,
+                           'next_cond': [], 'need_scroll': '5*-20', 'wait': 10, 'confidence': 0.85,
                            'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                                   'linkvertise_reached': False, 'article_page_open': False, 'free_access_complete': True,
+                                   'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
                                    'big_ad_open': True}
                            },
         'post_big_ad':
             {'images': ['linkvertise get website 1', 'linkvertise get website 2'],
-             'next_cond': ['final_go_to_website'], 'need_scroll': '2*-100', 'wait': 0, 'confidence': 0.8,
+             'next_cond': ['final_go_to_website'], 'need_scroll': '2*-50', 'wait': 0, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                  'linkvertise_reached': True, 'article_page_open': False,'free_access_complete': True,
                  'big_ad_open': True, 'special_ad_viewed': False}
              },
 
         'final_go_to_website':
-            {'images': ['linkvertise continue to website'],
-             'next_cond': [], 'need_scroll': '2*-50', 'wait': 0, 'confidence': 0.85, 'article_page_open': False,
+            {'images': ['linkvertise continue to website 1', 'linkvertise continue to website 2'],
+             'next_cond': [], 'need_scroll': '2*-50', 'wait': 0, 'confidence': 0.75, 'article_page_open': False,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                 'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
-                 'big_ad_open': False}
+                 'linkvertise_reached': True, 'article_page_open': False, 'big_ad_open': False}
              },
         'yt_reached': {'images': ['yt logo 1', 'yt logo 2'],
                        'next_cond': [], 'need_scroll': '0*0', 'wait': 0, 'confidence': 0.85, 'article_page_open': False,
@@ -378,7 +381,6 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
             'linkvertise_reached': False, 'article_page_open': False, 'articles_read': False, 'free_access_complete': False, 'big_ad_open':False,
             'big_ad_opened': False, 'special_ad_processing': False, 'special_ad_waiting': False, 'special_ad_viewed': False,
 
-            'buff': False, 'avg': False, 'opera_gx': False, 'avast': False, 'pc_store': False
         }
 
 
@@ -391,6 +393,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                 thread_name = Thread(target=__fetch_image_from_host, args=(img_name,))
                 thread_name.start()
         thread_name.join()
+        current_cond = ''
         while not success and not failure:
             sleep(randrange(0,4))
             conditions_to_check = [].__add__(possible_screen_conditions[current_cond]['next_cond']).__add__(list(possible_screen_conditions.keys()))
@@ -399,11 +402,13 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
             coordinates = [0, 0, 0, 0]
             condition_found = False
             found_sign = ''
+            print()
+            print()
             for condition in conditions_to_check:
                 requirement_fulfilled = True
                 if condition_found:
+                    print(f"\n\nFound: {current_cond} : {found_sign}")
                     break
-
                 for field in possible_screen_conditions[condition]['req']:
                     if possible_screen_conditions[condition]['req'][field] != special_conditions[field]:
                         requirement_fulfilled = False
@@ -411,13 +416,13 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                         break
                 if not requirement_fulfilled:
                     continue
-                for sign in possible_screen_conditions[condition]['images']:
-                    if condition_found:
-                        break
-                    confidence = possible_screen_conditions[condition]['confidence']
-                    scroll_amount = possible_screen_conditions[condition]['need_scroll'].split('*')
-                    print(f"scrolling {possible_screen_conditions[condition]['need_scroll']} for {current_cond}")
-                    for freq in range(int(scroll_amount[0])+1):
+                confidence = possible_screen_conditions[condition]['confidence']
+                scroll_amount = possible_screen_conditions[condition]['need_scroll'].split('*')
+                print(f"\n\nscrolling {possible_screen_conditions[condition]['need_scroll']} for {condition}")
+                for freq in range(int(scroll_amount[0])+1):
+                    for sign in possible_screen_conditions[condition]['images']:
+                        if condition_found:
+                            break
                         coordinates = __find_image_on_screen(img_name=sign, confidence=confidence)
                         if coordinates:
                             found_sign = sign
@@ -425,7 +430,6 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                             condition_found = True
                             break
                         pyautogui.scroll(int(scroll_amount[1]))
-                    print("scroll complete")
 
 
             if current_cond == 'chrome_restore':
@@ -474,11 +478,18 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                     special_conditions['just_opened'] = False
                     special_conditions['webpage_opened'] = True
 
+            elif current_cond == 'ngrok_visit_site':
+                __click(coordinates)
+
 
             elif current_cond == 'ngrok_direct_open':
                 __click(coordinates)
                 special_conditions['webpage_opened'] = False
                 special_conditions['link_clicked'] = True
+
+
+            elif current_cond == 'cookie_accept':
+                __click(coordinates)
 
 
             elif current_cond == 'unsolvable_captcha':
@@ -487,7 +498,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                 special_conditions['link_clicked'] = False
 
 
-            elif current_cond == 'captcha_solving':
+            elif current_cond == 'captcha':
                 if temp_memory['captcha_solved']:
                     pyautogui.hotkey("f5")
                     temp_memory['captcha_solved'] = False
@@ -512,7 +523,6 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
                 pyautogui.moveTo(coordinates)
                 coordinates = None
                 while not coordinates:
-                    print("free access with ads not on screen")
                     pyautogui.scroll(-100)
                     coordinates = __find_image_on_screen('linkvertise free access with ads', confidence=0.7)
                     if not coordinates:
@@ -523,6 +533,7 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
 
 
             elif current_cond == 'discover_articles':
+                sleep(2)
                 __click(coordinates)
                 special_conditions['article_page_open']= True
 
@@ -535,24 +546,14 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
 
             elif current_cond == 'pre_special_ad':
                 __click(coordinates)
-                if found_sign == 'linkvertise buff gaming download':
-                    special_conditions['buff'] = True
-                if found_sign == 'linkvertise avg secure browser':
-                    special_conditions['avg'] = True
-                if found_sign == 'linkvertise opera gx':
-                    special_conditions['opera_gx'] = True
-                if found_sign == 'linkvertise avast secure browser':
-                    special_conditions['avast'] = True
-                elif found_sign == 'linkvertise pc app store':
-                    special_conditions['pc_store'] = True
                 special_conditions['big_ad_open'] = True
 
 
             elif current_cond == 'special_ad_processing':
                 __click(coordinates)
+                pyautogui.move(0, -50)
                 sleep(10)
                 pyautogui.hotkey("ctrl", "tab")
-
 
 
             elif current_cond == 'post_big_ad':
@@ -568,19 +569,11 @@ def run(__img_dict, _global_host_page = '', _local_page = ''):
             elif current_cond == 'yt_reached':
                 success = True
                 break
-        while True:
-            __close_chrome_forced()
-            sleep(1)
-            __restart_host_machine(1)  ##remove
+
     except Exception as e:
         print(repr(e))
         success = False
         failure = True
-        comment = ''
+    print("\n\n\n\n\n\n\n\nView finished\n\n\n\n\n")
+    sleep(5)
     return [int(success), comment, img_dict]
-
-try:
-    run(img_dict, "", "")
-except Exception as e:
-    print(repr(e))
-print("Program End")

@@ -22,7 +22,7 @@ def run():
     def fetch_global_addresses():
         while True:
             try:
-                response = popen(f"curl https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
+                response = popen(f"curl -s https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md")
                 link_dict = eval(response.read())
                 try:
                     global_host_page = choice(link_dict['global_host_page_list'])
