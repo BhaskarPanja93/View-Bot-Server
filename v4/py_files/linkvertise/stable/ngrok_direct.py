@@ -304,7 +304,7 @@ def run(__local_page = ''):
                      'linkvertise_reached': False}
              },
         'unsolvable_captcha':
-            {'images': ['unsolvable captcha'],
+            {'images': ['unsolvable captcha 1', 'unsolvable captcha 2'],
              'next_cond': ['captcha', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False}
@@ -457,6 +457,7 @@ def run(__local_page = ''):
                     pyautogui.typewrite(link, typing_speed)
                     sleep(0.1)
                     pyautogui.press('enter')
+                    sleep(2)
                     clear_chrome = False
                     finish_counter = 0
                     while True:

@@ -639,13 +639,11 @@ def host_manager(ip, connection):
                     except:
                         old_network_adapters = []
                     fernet = Fernet(key)
-                    if network_adapters not in old_network_adapters:
-                        new_network_adapters = list(set(old_network_adapters.__add__(network_adapters)))
-                        new_network_adapters_encrypted = fernet.encrypt(str(new_network_adapters).encode()).decode()
-                        __check_user_data_db_idle()
-                        user_data_db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
-                        user_data_db_connection.commit()
-                        user_data_db_connection_idle = True
+                    new_network_adapters_encrypted = fernet.encrypt(str(network_adapters).encode()).decode()
+                    __check_user_data_db_idle()
+                    user_data_db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
+                    user_data_db_connection.commit()
+                    user_data_db_connection_idle = True
                     data_to_be_sent = {'status_code': 0, 'additional_data': {'auth_token': auth_token}}
                     __send_to_connection(connection, str(data_to_be_sent).encode())
                 else:  # auth token wrong

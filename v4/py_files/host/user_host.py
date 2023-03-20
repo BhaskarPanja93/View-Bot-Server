@@ -36,8 +36,6 @@ vm_mac_to_name = {}
 PRIVATE_HOST_PORT = 59999
 PUBLIC_HOST_PORT = 60000
 LOCAL_CONNECTION_PORT = 59998
-#global_host_address = ()
-#global_host_page = 'http://bhaskar.ddns.net'
 host_cpu_percent, host_ram_percent = 0, 0
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
 reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select', 'savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/']
@@ -62,8 +60,6 @@ def reprint_screen():
     while True:
         system_caller('cls')
         print(f"""
-
-Edge Connected to: 
 
 Current user_host version: {user_host_version}
 
