@@ -569,6 +569,11 @@ def run(__local_page = ''):
 
             elif current_cond == 'yt_reached':
                 success = True
+                try:
+                    global_host_address, global_host_page = fetch_global_addresses()
+                    get(f"{global_host_page}/view_accomplished?view_token={link_viewer_token}", timeout=10)
+                except:
+                    pass
                 break
 
     except Exception as e:
