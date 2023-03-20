@@ -81,19 +81,13 @@ def fetch_global_addresses():
             response = get("https://raw.githubusercontent.com/BhaskarPanja93/AllLinks.github.io/master/README.md", timeout=10)
             response.close()
             link_dict = eval(response.text)
-            try:
-                global_host_page = choice(link_dict['global_host_page_list'])
-            except:
-                global_host_page = choice(link_dict['adfly_host_page_list'])
-            try:
-                global_host_address = choice(link_dict['adfly_user_tcp_connection_list']).split(":")
-            except:
-                global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
+            global_host_page = choice(link_dict['viewbot_global_host_page_list'])
+            global_host_address = choice(link_dict['viewbot_tcp_connection_list']).split(":")
             global_host_address[-1] = int(global_host_address[-1])
             global_host_address = tuple(global_host_address)
             break
-        except:
-            print("Recheck internet connection?")
+        except Exception as e:
+            print(f"Recheck internet connection? - {repr(e)}")
             sleep(0.1)
     return global_host_address, global_host_page
 

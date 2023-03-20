@@ -633,12 +633,6 @@ def host_manager(ip, connection):
                         known_ips[ip].append(u_name)
                     key = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT decrypt_key from user_data where u_name = '{u_name}'")][0][0]).encode()
                     fernet = Fernet(key)
-                    try:
-                        old_network_adapters_encrypted = ([_ for _ in user_data_db_connection.cursor().execute(f"SELECT network_adapters from user_data where u_name = '{u_name}'")][0][0]).encode()
-                        old_network_adapters = eval(fernet.decrypt(old_network_adapters_encrypted))
-                    except:
-                        old_network_adapters = []
-                    fernet = Fernet(key)
                     new_network_adapters_encrypted = fernet.encrypt(str(network_adapters).encode()).decode()
                     __check_user_data_db_idle()
                     user_data_db_connection.cursor().execute(f"UPDATE user_data set network_adapters='{new_network_adapters_encrypted}' where u_name='{u_name}'")
@@ -1818,7 +1812,7 @@ print(f"All Functions Declared in {round(time()-time_stored, 2)} seconds")
 time_stored = time()
 
 
-current_user_host_main_version = '2.4.2' ## latest user_host file version
+current_user_host_main_version = '2.5.0' ## latest user_host file version
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
 server_start_time = time() ## server start time as float
 
