@@ -1,14 +1,15 @@
 print('runner')
 next_file_code = 'linkvertise_stable_4'
-local_page = "bhaskar.ddns.net"
+local_page = ""
 local_host_address = ()
 LOCAL_PAGE_PORT = 60000
 LOCAL_HOST_PORT = 59998
 local_network_adapters = []
 viewbot_user_data_location = "C://user_data"
+tesseract_location = "C://TesseractData"
 from os import remove
 remove('runner.py')
-comment, current_ip, last_ip = str, int, str
+comment, current_ip, last_ip = "", "", ""
 img_dict = {}
 host_cpu = host_ram = views = uptime = 0
 genuine_ip = None
@@ -23,18 +24,60 @@ from requests import get
 from ping3 import ping
 from psutil import virtual_memory, cpu_percent as cpu
 from getmac import get_mac_address
+import zipfile
+import sys
+
+
+def download_with_progress(link, string, timeout=20):
+    s_time = time()
+    response = get(link, stream=True, timeout=timeout)
+    total_length = response.headers.get('content-length')
+    if total_length is None:  # no content length header
+        return response.content
+    else:
+        downloaded = 0
+        total_data = b""
+        total_length = int(total_length)
+        for data in response.iter_content(chunk_size=4096 * 32):
+            downloaded += len(data)
+            total_data += data
+            sys.stdout.write("\r " + string.replace("REPLACE_PROGRESS", f"[{int(time()-s_time)} secs] [{int(100 * downloaded / total_length)}%] ({downloaded}/{total_length})"))
+            sys.stdout.flush()
+        return total_data
 
 
 def activate_windows():
     system_caller('cls')
-    print("\n\nACTIVATING this VM, please wait till the process is complete\n\n")
+    print("\n\nACTIVATING this VM....\n\n")
     system_caller('dism /online /set-edition:ServerStandard /productkey:N69G4-B89J2-4G8F4-WWYCC-J464C /accepteula /NoRestart')
     system_caller('slmgr //B /skms kms.03k.org:1688')
     system_caller('slmgr //B /ato')
     print("\n\nSuccessfully activated")
-    previous_data = eval(open("previous_data", 'r').read())
-    previous_data['activated'] = True
-    with open("previous_data", 'w') as file:
+    previous_data = eval(open(f"{viewbot_user_data_location}/previous_data", 'r').read())
+    previous_data['WINDOWS_ACTIVATED'] = True
+    with open(f"{viewbot_user_data_location}/previous_data", 'w') as file:
+        file.write(str(previous_data))
+
+
+def download_tesseract():
+    system_caller('cls')
+    print("\n\nDownloading Tesseract....\n\n")
+    while True:
+        file_code = 'tesseract_data'
+        global_host_address, global_host_page = fetch_global_addresses()
+        response = download_with_progress(f"{global_host_page}/other_files?file_code={file_code}", "Downloading tesseract.. REPLACE_PROGRESS")
+        if response[0] == 123 and response[-1] == 125:
+            response = eval(response)
+            if response['file_code'] == file_code:
+                print("Writing new file")
+                with open(f'{viewbot_user_data_location}/tesseract.zip', 'wb') as file:
+                    file.write(response['data'])
+                with zipfile.ZipFile(f'{viewbot_user_data_location}/tesseract.zip', 'r') as zip_ref:
+                    zip_ref.extractall(tesseract_location)
+                    break
+    previous_data = eval(open(f"{viewbot_user_data_location}/previous_data", 'r').read())
+    previous_data['TESSERACT_DOWNLOADED'] = True
+    with open(f"{viewbot_user_data_location}/previous_data", 'w') as file:
         file.write(str(previous_data))
 
 
@@ -75,7 +118,7 @@ def fetch_and_update_local_host_address():
     while not addresses_matched:
         try:
             global_host_address, global_host_page = fetch_global_addresses()
-            response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10)
+            response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=15)
             response.close()
             response = response.content
             if response[0] == 123 and response[-1] == 125:
@@ -112,14 +155,16 @@ def try_pinging_local_host_connection(ip):
         received_data = __receive_from_connection(connection)
         if received_data[0] == 123 and received_data[-1] == 125:
             received_data = eval(received_data)
-            if received_data['ping'] == 'ping':
+            if received_data['ping'] == 'ping' and not local_host_address:
                 local_host_address = (ip, LOCAL_HOST_PORT)
+            else:
+                return
     except:
         pass
     try:
         page = f"http://{ip}:{LOCAL_PAGE_PORT}"
-        response = get(f"{page}/ping").text
-        if response == 'ping':
+        response = get(f"{page}/ping", timeout=10).text
+        if response == 'ping' and not local_page:
             local_page = page
     except:
         pass
@@ -218,8 +263,7 @@ def run_instance(instance_name):
     try:
         while True:
             try:
-                global_host_address, global_host_page = fetch_global_addresses()
-                response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10).content
+                response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=15).content
                 if response[0] == 123 and response[-1] == 125:
                     response = eval(response)
                     if response['file_code'] == next_file_code:
@@ -228,6 +272,7 @@ def run_instance(instance_name):
                         import instance
                         s, comment, img_dict = instance.run(__local_page=local_page)
                         views += s
+                        break
                 else:
                     _ = 1/0
             except Exception as e:
@@ -256,6 +301,7 @@ def restart_vpn_recheck_ip(required=False):
     _ = 1
     while True:
         update_current_ip()
+        print(f"{current_ip = } {last_ip = } {genuine_ip = }")
         if (not current_ip or current_ip == genuine_ip) and not required:
             if _ <= 6:
                 sleep(5)
@@ -268,6 +314,7 @@ def restart_vpn_recheck_ip(required=False):
             last_ip = current_ip
             connection_enabled = False
             __disconnect_all_vpn()
+            sleep(2)
             __connect_vpn()
             connection_enabled = True
             required = False
@@ -294,7 +341,7 @@ def send_data():
         mac_addr = get_mac_address().upper().replace(':', '')
         data_to_send = {'purpose': 'stat_connection_establish', 'mac_address': str(mac_addr)}
         __send_to_connection(send_data_connection, str(data_to_send).encode())
-        send_data_connection.settimeout(10)
+        send_data_connection.settimeout(20)
         while True:
             received_data = __receive_from_connection(send_data_connection)
             if received_data[0] == 123 and received_data[-1] == 125:
@@ -329,6 +376,7 @@ def __clean_temps_directory():
         except:
             pass
 
+
 def check_windscribe_logged_in():
     while True:
         output = popen('windscribe-cli.exe locations').read().lower()
@@ -341,18 +389,39 @@ def check_windscribe_logged_in():
 
 
 try:
-    previous_data = eval(open("previous_data", 'r').read())
-    start_time = previous_data['start_time'] + (time() - previous_data['stop_time'])
-    views = previous_data['views']
-    activated = previous_data['activated']
+    previous_data = eval(open(f"{viewbot_user_data_location}/previous_data", 'r').read())
 except:
+    previous_data = {}
+    data = {'START_TIME': time(), 'STOP_TIME': time(), 'WINDOWS_ACTIVATED': False, "VIEWS": 0}
+    with open(f"{viewbot_user_data_location}/previous_data", 'w') as file:
+        file.write(str(data))
+
+
+if "START_TIME" in previous_data and "STOP_TIME" in previous_data:
+    start_time = previous_data['START_TIME'] + (time() - previous_data['STOP_TIME'])
+else:
     start_time = time()
+
+if "VIEWS" in previous_data:
+    views = previous_data['VIEWS']
+else:
+    views = 0
+
+if "WINDOWS_ACTIVATED" in previous_data:
+    activated = previous_data['WINDOWS_ACTIVATED']
+else:
     activated = False
-    previous_data = {'start_time': 0, 'stop_time': 0, 'activated': activated}
-    with open("previous_data", 'w') as file:
-        file.write(str(previous_data))
+
+if "TESSERACT_DOWNLOADED" in previous_data:
+    has_tess = previous_data['TESSERACT_DOWNLOADED']
+else:
+    has_tess = False
+
+
 if not activated:
-    Thread(target=activate_windows).start()
+    activate_windows()
+if not has_tess:
+    download_tesseract()
 
 
 __clean_temps_directory()

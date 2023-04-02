@@ -12,6 +12,7 @@ from ping3 import ping
 from turbo_flask import Turbo
 from requests import get
 import logging
+import sys
 
 log1 = logging.getLogger('werkzeug')
 log1.setLevel(logging.ERROR)
@@ -37,8 +38,8 @@ PRIVATE_HOST_PORT = 59999
 PUBLIC_HOST_PORT = 60000
 LOCAL_CONNECTION_PORT = 59998
 host_cpu_percent, host_ram_percent = 0, 0
-available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1)))
-reserved_u_names_words = ['invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select', 'savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/']
+available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
+reserved_u_names_words = ['admin', 'invalid', 'bhaskar', 'eval(', ' ', 'grant', 'revoke', 'commit', 'rollback', 'select','savepoint', 'update', 'insert', 'delete', 'drop', 'create', 'alter', 'truncate', '<', '>', '.', '+', '-', '@', '#', '$', '&', '*', '\\', '/'] ## strings not allowed for usernames
 public_vm_data = {}
 vm_stat_connections = {}
 windows_img_files = {}
@@ -73,6 +74,23 @@ To manage VMs and your account, login Here
             print(f"http://{ip}:60000")
         sleep(10)
 
+
+def download_with_progress(link, string, timeout=20):
+    s_time = time()
+    response = get(link, stream=True, timeout=timeout)
+    total_length = response.headers.get('content-length')
+    if total_length is None:  # no content length header
+        return response.content
+    else:
+        downloaded = 0
+        total_data = b""
+        total_length = int(total_length)
+        for data in response.iter_content(chunk_size=4096 * 32):
+            downloaded += len(data)
+            total_data += data
+            sys.stdout.write("\r " + string.replace("REPLACE_PROGRESS", f"[{int(time()-s_time)} secs] [{int(100 * downloaded / total_length)}%] ({downloaded}/{total_length})"))
+            sys.stdout.flush()
+        return total_data
 
 
 def fetch_global_addresses():
@@ -160,8 +178,8 @@ def log_data(ip: str, request_type: str, processing_time: float, additional_data
 def u_name_matches_standard(u_name: str):
     for reserved_word in reserved_u_names_words:
         if reserved_word in u_name:
-            return False
-    return True
+            return False, f"{reserved_word} not allowed"
+    return True, None
 
 
 def password_matches_standard(password: str):
@@ -275,9 +293,9 @@ def process_form_action(viewer_id: str, form: dict):
         username = form['username'].strip().lower()
         password1 = form['password1']
         password2 = form['password2']
-        if not u_name_matches_standard(username):
-            force_send_flask_data("Username not allowed(has unwanted characters or words)", 'severe_info', viewer_id,
-                                  'new_div', 0, 3)
+        boolean, reason = u_name_matches_standard(username)
+        if not boolean:
+            force_send_flask_data(f"Username not allowed {reason}", 'severe_info', viewer_id, 'new_div', 0, 3)
             return
         if password2 != password1:
             force_send_flask_data("Password don't match", 'severe_info', viewer_id, 'new_div', 0, 3)
@@ -618,7 +636,7 @@ def __fetch_image_from_global_host(img_name):
                 version = 0
             global_host_address, global_host_page = fetch_global_addresses()
             s_time = time()
-            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=10).content
+            response = get(f"{global_host_page}/img_files?img_name={img_name}&version={version}", timeout=20).content
             response_time = time() - s_time
             log_data('', 'Global Host Image Request', response_time, img_name)
             if response[0] == 123 and response[-1] == 125:
@@ -650,7 +668,7 @@ def __fetch_py_file_from_global_host(file_code):
                 version = 0
             global_host_address, global_host_page = fetch_global_addresses()
             s_time = time()
-            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=10).content
+            response = get(f"{global_host_page}/py_files?file_code={file_code}&version={version}", timeout=20).content
             response_time = time() - s_time
             log_data('', 'Global Host Py File Request', response_time, file_code)
             if response[0] == 123 and response[-1] == 125:
@@ -1030,8 +1048,9 @@ def private_flask_operations():
             username = form_dict['username'].strip().lower()
             password1 = form_dict['password1']
             password2 = form_dict['password2']
-            if not u_name_matches_standard(username):
-                return redirect('/?reason=Username Not Allowed!!')
+            boolean, reason = u_name_matches_standard(username)
+            if not boolean:
+                return redirect(f'/?reason={reason} in Username')
             elif password2 != password1:
                 return redirect(f"/?reason=Passwords don't match!!&u_name={username}")
             elif not password_matches_standard(password2):
@@ -1184,6 +1203,7 @@ def public_flask_operations():
         windows_img_files, py_files = {}, {}
         return "Deleted"
 
+
     @app.route('/py_files', methods=["GET"])
     def _return_py_files():
         if "file_code" not in request.args:
@@ -1195,6 +1215,7 @@ def public_flask_operations():
             sleep(1)
         data_to_be_sent = {'file_code': file_code, 'py_file_data': py_files[file_code]['data']}
         return str(data_to_be_sent)
+
 
     @app.route('/img_files', methods=["GET"])
     def _return_img_files():
@@ -1526,6 +1547,16 @@ REPLACE_TBODY
         return html_name
 
 
+system_caller("cls")
+print("Downloading all image files")
+global_host_address, global_host_page = fetch_global_addresses()
+response = download_with_progress(f"{global_host_page}/all_img", "Downloading Images: REPLACE_PROGRESS")
+if response[0] == 123 and response[-1] == 125:
+    response = eval(response)
+    for img_name in response:
+        windows_img_files[img_name] = {'data': response[img_name]['data'], 'img_size': response[img_name]['size'], 'version': response[img_name]['version'], 'verified': True}
+system_caller("cls")
+print("Creating Host Connection")
 global_host_peering_authenticator()
 Thread(target=private_flask_operations).start()
 Thread(target=public_flask_operations).start()

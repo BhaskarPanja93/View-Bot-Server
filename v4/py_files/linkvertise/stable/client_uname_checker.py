@@ -1,5 +1,3 @@
-from os import popen
-
 print('uname checker')
 next_file_code = 'linkvertise_stable_3'
 local_host_address = ()
@@ -44,7 +42,7 @@ def run():
         while not addresses_matched:
             try:
                 global_host_address, global_host_page = fetch_global_addresses()
-                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10)
+                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=15)
                 response.close()
                 response = response.content
                 if response[0] == 123 and response[-1] == 125:
@@ -81,14 +79,16 @@ def run():
             received_data = __receive_from_connection(connection)
             if received_data[0] == 123 and received_data[-1] == 125:
                 received_data = eval(received_data)
-                if received_data['ping'] == 'ping':
+                if received_data['ping'] == 'ping' and not local_host_address:
                     local_host_address = (ip, LOCAL_HOST_PORT)
+                else:
+                    return
         except:
             pass
         try:
             page = f"http://{ip}:{LOCAL_PAGE_PORT}"
             response = get(f"{page}/ping", timeout=10).text
-            if response == 'ping':
+            if response == 'ping' and not local_page:
                 local_page = page
         except:
             pass
@@ -133,7 +133,7 @@ def run():
         while True:
             try:
                 global_host_address, global_host_page = fetch_global_addresses()
-                response = get(f"{global_host_page}/verify_instance_token?u_name={u_name}&token={instance_token}", timeout=10)
+                response = get(f"{global_host_page}/verify_instance_token?u_name={u_name}&token={instance_token}", timeout=15)
                 response.close()
                 response = response.content
                 if response[0] == 123 and response[-1] == 125:
@@ -155,7 +155,7 @@ def run():
             user_name = input('enter username: ').strip().lower()
             password = input('enter password: ')
             global_host_address, global_host_page = fetch_global_addresses()
-            response = get(f"{global_host_page}/request_instance_token?u_name={user_name}&password={password}", timeout=10)
+            response = get(f"{global_host_page}/request_instance_token?u_name={user_name}&password={password}", timeout=15)
             response.close()
             response = response.content
             if response[0] == 123 and response[-1] == 125:
@@ -187,7 +187,7 @@ def run():
     fetch_and_update_local_host_address()
     while True:
         try:
-            response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=10)
+            response = get(f"{local_page}/py_files?file_code={next_file_code}", timeout=15)
             response.close()
             response = response.content
             if response[0] == 123 and response[-1] == 125:

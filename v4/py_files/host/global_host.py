@@ -32,7 +32,7 @@ while True:
 
 
 ## pre-installed modules
-from os import path, getcwd, system as system_caller, popen, rename, remove
+from os import path, getcwd, system as system_caller, rename, remove, listdir
 import socket
 from random import choice, randrange
 from threading import Thread
@@ -146,7 +146,7 @@ def __receive_from_connection(connection):
     data_bytes = b''
     length = b''
     a = time()
-    while time() - a < 15:
+    while time() - a < 8:
         if len(length) != 8:
             length += connection.recv(8 - len(length))
             sleep(0.01)
@@ -293,12 +293,12 @@ def u_name_matches_standard(u_name: str):
 
     for reserved_word in reserved_u_names_words:
         if reserved_word in u_name:
-            return False
+            return False, f"{reserved_word} not allowed"
     all_u_names = [row[0] for row in user_data_db_connection.cursor().execute("SELECT u_name from user_data")]
     if u_name in all_u_names:
-        return False
+        return False, f"{u_name} already in use"
     else:
-        return True
+        return True, None
 
 
 def password_matches_standard(password: str):
@@ -552,7 +552,8 @@ def host_manager(ip, connection):
             u_name = response_dict['u_name'].strip().lower()
             password = response_dict['password'].strip().swapcase()
             network_adapters = response_dict['network_adapters']
-            if u_name_matches_standard(u_name):
+            boolean, reason = u_name_matches_standard(u_name)
+            if boolean:
                 if password_matches_standard(password):
                     add_to_logs(ip, 'New Account (Host)', time() - s_time, u_name)
                     if u_name not in known_ips[ip]:
@@ -578,7 +579,7 @@ def host_manager(ip, connection):
                     __send_to_connection(connection, str(data_to_be_sent).encode())
             else:  # username taken
                 log_threats(ip, 'New Account (Host)', time() - s_time, f"Denied {u_name} Uname not allowed")
-                data_to_be_sent = {'status_code': -1, 'reason': 'Username taken. Try a different username!'}
+                data_to_be_sent = {'status_code': -1, 'reason': reason}
                 __send_to_connection(connection, str(data_to_be_sent).encode())
 
         if purpose == 'login':
@@ -687,7 +688,8 @@ def user_manager(ip, connection):
                         login_success = False
                         u_name = response_dict['u_name'].strip().lower()
                         password = response_dict['password'].strip().swapcase()
-                        if u_name_matches_standard(u_name):
+                        boolean, reason = u_name_matches_standard(u_name)
+                        if boolean:
                             if password_matches_standard(password):
                                 add_to_logs(ip, 'New Account (User)', time() - s_time, u_name)
                                 if u_name not in known_ips[ip]:
@@ -716,7 +718,7 @@ def user_manager(ip, connection):
                         else:  # username taken
                             log_threats(ip, 'New account (User)', time() - s_time, f"Denied {u_name} Uname not allowed")
                             expected_token = generate_random_string(10,200)
-                            data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': 'Username taken. Try a different username!'}
+                            data_to_be_sent = {'status_code': -1, 'token': str(expected_token), 'reason': reason}
                             __send_to_connection(connection, str(data_to_be_sent).encode())
 
                     elif purpose == 'login':
@@ -1044,7 +1046,7 @@ def return_other_file(file_id):
     :return: Int, Bytes: version of the file(time created or last modified), file data in bytes
     """
 
-    if file_id == '8' or file_id == 'stable_user_host':
+    if file_id == 'stable_user_host':
         if ('user_host.py' not in python_files['common']) or (path.getmtime(f'{host_files_location}/user_host.py') != python_files['common']['user_host.py']['version']):
             python_files['common']['user_host.py'] = {'version': path.getmtime(f'{host_files_location}/user_host.py'), 'file': open(f'{host_files_location}/user_host.py', 'rb').read()}
             recreate_user_host_exe()
@@ -1057,6 +1059,10 @@ def return_other_file(file_id):
         except:
             recreate_user_host_exe()
         return executable_files['user_host.exe']['version'], executable_files['user_host.exe']['file']
+    elif file_id == "tesseract_data":
+        if 'TesseractData.zip' not in other_files:
+            other_files['TesseractData.zip'] = {'version': path.getmtime(f'{other_files_location}/TesseractData.zip'), 'file': open(f'{other_files_location}/TesseractData.zip', 'rb').read()}
+        return other_files['TesseractData.zip']['version'], other_files['TesseractData.zip']['file']
     else:
         return None, None
 
@@ -1067,7 +1073,6 @@ def return_img_file(image_name):
     :param image_name: String: name of file
     :return: Int, Bytes, Tuple: version of the file(time created or last modified), file data in bytes, size of the image in pixels
     """
-
     if not path.exists(f'{img_location}/{image_name}.PNG') or '/' in image_name or '\\' in image_name:
         return None, None, None
     if (image_name not in windows_img_files) or (path.getmtime(f'{img_location}/{image_name}.PNG') != windows_img_files[image_name]['version']):
@@ -1751,35 +1756,11 @@ Password: <input id='password_entry' type="password" name="password"></br>
         else:
             return __generate_admin_cookie(request.remote_addr, str(request.user_agent), request.host, next_page)
 
-    @app.route('/mc', methods=['GET'])
-    def _return_minecraft_get():
-        if not __check_admin_logged_in(request.cookies, request.remote_addr, request.user_agent, request.host):
-            return redirect(f"{request.root_url}/admin?next_page={request.url}")
-        comment = request.args.get("comment")
-        if comment is None:
-            comment = ''
-        return f"""
-<html>
-<body>
-{comment}</br></br>
-<form method='post' action='/mc'>
-Command: <input type="command" name="command"></br>
-</br><button type=submit>Send Command</button>
-</form>
-</body>
-</html>
-"""
-
-    @app.route('/mc', methods=['POST'])
-    def _return_minecraft_post():
-        if not __check_admin_logged_in(request.cookies, request.remote_addr, request.user_agent, request.host):
-            return redirect(f"{request.root_url}/admin?next_page={request.url}")
-        command = request.form.get("command")
-        return redirect(f'''{request.root_url}/mc?comment={popen(f'mcrcon.exe -p BigBoobsSage@69 "/{command}"').readline()}''')
 
     @app.route('/text', methods=['GET'])
     def _return_text():
         return public_text
+
 
     @app.route('/text_change', methods=['GET'])
     def _text_change_get():
@@ -1805,6 +1786,11 @@ Command: <input type="command" name="command"></br>
         public_text = request.form.get("new_text")
         return redirect(request.url)
 
+
+    @app.route('/all_img', methods=['GET'])
+    def _return_all_images():
+        return str(return_all_img_data)
+
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
 
@@ -1812,7 +1798,7 @@ print(f"All Functions Declared in {round(time()-time_stored, 2)} seconds")
 time_stored = time()
 
 
-current_user_host_main_version = '2.5.0' ## latest user_host file version
+current_user_host_main_version = '2.5.2' ## latest user_host file version
 available_asciis = [].__add__(list(range(97, 122 + 1))).__add__(list(range(48, 57 + 1))).__add__(list(range(65, 90 + 1))) ## ascii values of all markup-safe characters to use for generating random strings
 server_start_time = time() ## server start time as float
 
@@ -1837,6 +1823,7 @@ paragraph_lines = open(f'{read_only_location}paragraph.txt', 'rb').read().decode
 host_files_location = getcwd() + '/py_files/host'  ## location for all server codes
 linkvertise_stable_file_location = getcwd() + '/py_files/linkvertise/stable' ## location for all stable client codes
 proxy_checker_file_location = getcwd() +'/py_files/common/proxy_checker' ## location for proxy checking client codes
+other_files_location = getcwd() + '/other_files'  ## location for all random files
 
 
 proxy_db_last_change = 0 ## proxy database last modified time as float
@@ -1848,11 +1835,19 @@ all_proxies_unique, unchecked_proxies_unique, working_proxies_unique, failed_pro
 python_files = {'host':{}, 'common':{'proxy_checker':{}, 'test':{}}, 'linkvertise':{'stable':{}, 'beta':{}}, 'proxy_checker':{}} ## cache of all python files required according to time modified
 windows_img_files = {} ## cache of all image files required according to time modified
 executable_files = {} ## cache of all .exe files required according to time modified
+other_files = {} ## cache of all random files required according to time modified
 known_ips = {} ## map of IP to username
 logs = [] ## server logs stored here
 active_admins = {}
 ip_ban_remove_time = {}
 
+
+for _ in listdir(img_location):
+    return_img_file(_.replace(".PNG",""))
+return_all_img_data = {}
+for img_name in windows_img_files:
+    current_version, data, size = return_img_file(img_name)
+    return_all_img_data[img_name] = {'img_name': img_name, 'version': current_version, 'data': data, 'size': size}
 
 public_text= "No Text Saved"
 
@@ -1871,8 +1866,8 @@ time_stored = time()
 
 user_data_file_name = "user_data.db"
 clean_DB(read_only_location, user_data_file_name, ["user_data"])
-proxy_file_name = "proxy.db"
-clean_DB(read_only_location, proxy_file_name, ["working_proxies", "failed_proxies", "unchecked_proxies"])
+#proxy_file_name = "proxy.db"
+#clean_DB(read_only_location, proxy_file_name, ["working_proxies", "failed_proxies", "unchecked_proxies"])
 
 
 print(f"All DB Cleaned in {round(time()-time_stored, 2)} seconds")
@@ -1880,7 +1875,7 @@ time_stored = time()
 
 
 user_data_db_connection = sqlite3.connect(read_only_location+user_data_file_name, check_same_thread=False) ## user database
-proxy_db_connection = sqlite3.connect(read_only_location+proxy_file_name, check_same_thread=False) ## proxy database
+#proxy_db_connection = sqlite3.connect(read_only_location+proxy_file_name, check_same_thread=False) ## proxy database
 
 
 print(f"All DB Connected in {round(time()-time_stored, 2)} seconds")
@@ -1897,10 +1892,10 @@ for port in USER_CONNECTION_PORT_LIST:
     Thread(target=accept_connections_from_users, args=(port,)).start()
 
 ### PROXY OPERATIONS
-fetch_old_proxy_data()
-Thread(target=fetch_proxies_from_sites).start()
-Thread(target=re_add_old_proxies).start()
-Thread(target=write_proxy_stats).start()
+#fetch_old_proxy_data()
+#Thread(target=fetch_proxies_from_sites).start()
+#Thread(target=re_add_old_proxies).start()
+#Thread(target=write_proxy_stats).start()
 
 
 print(f"Main Thread ended in {round(time()-time_stored, 2)} seconds")

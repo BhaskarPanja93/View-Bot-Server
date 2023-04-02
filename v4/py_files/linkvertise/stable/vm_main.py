@@ -15,6 +15,7 @@ while True:
         import psutil
         import PIL
         import pyautogui
+        import numpy
         break
     except:
         import pip
@@ -25,6 +26,7 @@ while True:
         pip.main(['install', 'pillow'])
         pip.main(['install', 'pyautogui'])
         pip.main(['install', 'opencv_python'])
+        pip.main(['install', 'numpy'])
 from time import sleep
 from random import choice
 from requests import get
@@ -67,7 +69,7 @@ print("Checking vm main version...\n\n")
 while True:
     try:
         global_host_address, global_host_page = fetch_global_addresses()
-        response = get(f"{global_host_page}/py_files?file_code={self_file_code}&version={vm_main_version}", timeout=10)
+        response = get(f"{global_host_page}/py_files?file_code={self_file_code}&version={vm_main_version}", timeout=15)
         response.close()
         response = response.content
         if response[0] == 123 and response[-1] == 125:
@@ -93,7 +95,7 @@ while True:
 while True:
     try:
         global_host_address, global_host_page = fetch_global_addresses()
-        response = get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=10)
+        response = get(f"{global_host_page}/py_files?file_code={next_file_code}", timeout=15)
         response.close()
         received_data = response.content
         if received_data[0] == 123 and received_data[-1] == 125:

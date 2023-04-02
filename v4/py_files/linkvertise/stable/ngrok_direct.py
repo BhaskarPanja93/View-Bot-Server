@@ -1,4 +1,14 @@
-from os import popen
+import shlex
+import string
+import subprocess
+import sys
+from contextlib import contextmanager
+from errno import ENOENT
+from glob import iglob
+from os import remove, extsep, environ
+from os.path import realpath, normpath, normcase
+from tempfile import NamedTemporaryFile
+from numpy import ndarray
 
 print('stable instance')
 local_page = ''
@@ -7,14 +17,16 @@ LOCAL_HOST_PORT = 59998
 LOCAL_PAGE_PORT = 60000
 local_network_adapters = []
 viewbot_user_data_location = "C://user_data"
+tesseract_path = 'C://TesseractData/tesseract.exe'
 start_time  = 0.0
 link_viewer_token = ''
 comment = ''
 img_dict = {}
-link = 'http://bhaskar.ddns.net'
+link = ''
+clear_chrome = True
 
 def run(__local_page = ''):
-    global local_page, link, img_dict, comment
+    global local_page, link, img_dict, comment, clear_chrome
     #from os import remove
     #remove('instance.py')
     global start_time, link_viewer_token
@@ -53,7 +65,7 @@ def run(__local_page = ''):
         while not addresses_matched:
             try:
                 global_host_address, global_host_page = fetch_global_addresses()
-                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=10)
+                response = get(f"{global_host_page}/network_adapters?u_name={u_name}&token={instance_token}", timeout=15)
                 response.close()
                 response = response.content
                 if response[0] == 123 and response[-1] == 125:
@@ -91,17 +103,17 @@ def run(__local_page = ''):
             received_data = __receive_from_connection(connection)
             if received_data[0] == 123 and received_data[-1] == 125:
                 received_data = eval(received_data)
-                if received_data['ping'] == 'ping':
+                if received_data['ping'] == 'ping' and not local_host_address:
                     local_host_address = (ip, LOCAL_HOST_PORT)
+                else:
+                    return
         except:
             pass
         try:
             page = f"http://{ip}:{LOCAL_PAGE_PORT}"
-            response = get(f"{page}/ping")
-            response.close()
-            if response.text == 'ping':
+            response = get(f"{page}/ping", timeout=10).text
+            if response == 'ping' and not local_page:
                 local_page = page
-                print(f"{local_page = }")
         except:
             pass
 
@@ -141,11 +153,64 @@ def run(__local_page = ''):
         system_caller('taskkill /F /IM "chrome.exe" /T')
 
     def __start_chrome_forced():
+        global clear_chrome, link
         system_caller('start chrome')
-        sleep(2)
+        sleep(randrange(2,7))
+        pyautogui.hotkey('ctrl', 'l')
+        sleep(1)
+        if clear_chrome:
+            link = 'chrome://settings/resetProfileSettings'
+        elif not link:
+            link = get_link()
+        pyautogui.typewrite(link, typing_speed)
+        sleep(0.1)
+        pyautogui.press('enter')
+        if clear_chrome:
+            sleep(2)
+            coordinates = __find_image_on_screen('reset settings', confidence=0.8)
+            if coordinates:
+                __click(coordinates)
+            sleep(3)
+            link = 'chrome://settings/clearBrowserData'
+            pyautogui.hotkey('ctrl', 'l')
+            pyautogui.typewrite(link, typing_speed)
+            sleep(0.1)
+            pyautogui.press('enter')
+            sleep(2)
+            coordinates = __find_image_on_screen('clear data', confidence=0.8)
+            if coordinates:
+                __click(coordinates)
+                sleep(2)
+            link = 'chrome://extensions/'
+            pyautogui.hotkey('ctrl', 'l')
+            pyautogui.typewrite(link, typing_speed)
+            sleep(0.1)
+            pyautogui.press('enter')
+            sleep(2)
+            clear_chrome = False
+            finish_counter = 0
+            while True:
+                sleep(1)
+                coordinates = __find_image_on_screen('enable extensions', all_findings=False, confidence=0.8)
+                if finish_counter >= 3:
+                    break
+                elif coordinates:
+                    finish_counter = 0
+                    __click(coordinates)
+                else:
+                    finish_counter += 1
+                    pyautogui.scroll(-500)
+            pyautogui.hotkey('ctrl', 'l')
+            sleep(0.1)
+            link = get_link()
+            pyautogui.typewrite(link, typing_speed)
+            sleep(0.2)
+            pyautogui.press('enter')
+            special_conditions['just_opened'] = False
+            special_conditions['webpage_opened'] = True
 
 
-    def __fetch_image_from_host(img_name, timeout=10):
+    def __fetch_image_from_host(img_name, timeout=20):
         global img_dict
         if img_name in img_dict:
             if time() - img_dict[img_name]['updated'] < 30:
@@ -240,7 +305,7 @@ def run(__local_page = ''):
                 global_host_address, global_host_page = fetch_global_addresses()
                 global link_viewer_token
                 instance_token = eval(open(f"{viewbot_user_data_location}/user_data", 'rb').read())['token']
-                received_data = get(f"{global_host_page}/linkvertise_suffix_link?token={instance_token}", timeout=10).content
+                received_data = get(f"{global_host_page}/linkvertise_suffix_link?token={instance_token}", timeout=15).content
                 if received_data[0] == 123 and received_data[-1] == 125:
                     received_data = eval(received_data)
                     link_viewer_token = received_data['link_viewer_token']
@@ -258,6 +323,142 @@ def run(__local_page = ''):
             except:
                 pass
         return str(global_host_page + side_link)
+
+
+
+    class TesseractError(RuntimeError):
+        def __init__(self, status, message):
+            self.status = status
+            self.message = message
+            self.args = (status, message)
+
+    class TesseractNotFoundError(EnvironmentError):
+        def __init__(self):
+            super().__init__(f"{tesseract_path} not found")
+    def kill(process, code):
+        process.terminate()
+        try:
+            process.wait(1)
+        except TypeError:  # python2 Popen.wait(1) fallback
+            sleep(1)
+        except Exception:  # python3 subprocess.TimeoutExpired
+            pass
+        finally:
+            process.kill()
+            process.returncode = code
+    @contextmanager
+    def timeout_manager(proc, seconds=None):
+        try:
+            if not seconds:
+                yield proc.communicate()[1]
+                return
+
+            try:
+                _, error_string = proc.communicate(timeout=seconds)
+                yield error_string
+            except subprocess.TimeoutExpired:
+                kill(proc, -1)
+                raise RuntimeError('Tesseract process timeout')
+        finally:
+            proc.stdin.close()
+            proc.stdout.close()
+            proc.stderr.close()
+    def get_errors(error_string):
+        return ' '.join(line for line in error_string.decode().splitlines()).strip()
+    def cleanup(temp_name):
+        """Tries to remove temp files by filename wildcard path."""
+        for filename in iglob(f'{temp_name}*' if temp_name else temp_name):
+            try:
+                remove(filename)
+            except OSError as e:
+                if e.errno != ENOENT:
+                    raise
+    def prepare(image):
+        if isinstance(image, ndarray):
+            image = Image.fromarray(image)
+        if not isinstance(image, Image.Image):
+            raise TypeError('Unsupported image object')
+        extension = 'PNG' if not image.format else image.format
+        if 'A' in image.getbands():
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            background.paste(image, (0, 0), image.getchannel('A'))
+            image = background
+        image.format = extension
+        return image, extension
+    @contextmanager
+    def save(image):
+        try:
+            with NamedTemporaryFile(prefix='tess_', delete=False) as f:
+                if isinstance(image, str):
+                    yield f.name, realpath(normpath(normcase(image)))
+                    return
+                image, extension = prepare(image)
+                input_file_name = f'{f.name}_input{extsep}{extension}'
+                image.save(input_file_name, format=image.format)
+                yield f.name, input_file_name
+        finally:
+            cleanup(f.name)
+    def subprocess_args(include_stdout=True):
+        kwargs = {
+            'stdin': subprocess.PIPE,
+            'stderr': subprocess.PIPE,
+            'startupinfo': None,
+            'env': environ,
+        }
+        if hasattr(subprocess, 'STARTUPINFO'):
+            kwargs['startupinfo'] = subprocess.STARTUPINFO()
+            kwargs['startupinfo'].dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            kwargs['startupinfo'].wShowWindow = subprocess.SW_HIDE
+        if include_stdout:
+            kwargs['stdout'] = subprocess.PIPE
+        else:
+            kwargs['stdout'] = subprocess.DEVNULL
+        return kwargs
+    def run_tesseract(input_filename, output_filename_base, extension, lang, config='', nice=0, timeout=0, ):
+        cmd_args = []
+        if not sys.platform.startswith('win32') and nice != 0:
+            cmd_args += ('nice', '-n', str(nice))
+        cmd_args += (tesseract_path, input_filename, output_filename_base)
+        if lang is not None:
+            cmd_args += ('-l', lang)
+        if config:
+            cmd_args += shlex.split(config)
+        if extension and extension not in {'box', 'osd', 'tsv', 'xml'}:
+            cmd_args.append(extension)
+        try:
+            proc = subprocess.Popen(cmd_args, **subprocess_args())
+        except OSError as e:
+            if e.errno != ENOENT:
+                raise
+            else:
+                raise TesseractNotFoundError()
+        with timeout_manager(proc, timeout) as error_string:
+            if proc.returncode:
+                raise TesseractError(proc.returncode, get_errors(error_string))
+    def run_and_get_output(image, extension='', lang=None, config='', nice=0, timeout=0, return_bytes=False, ):
+        with save(image) as (temp_name, input_filename):
+            kwargs = {
+                'input_filename': input_filename,
+                'output_filename_base': temp_name,
+                'extension': extension,
+                'lang': lang,
+                'config': config,
+                'nice': nice,
+                'timeout': timeout,
+            }
+            run_tesseract(**kwargs)
+            filename = f"{kwargs['output_filename_base']}{extsep}{extension}"
+            with open(filename, 'rb') as output_file:
+                if return_bytes:
+                    return output_file.read()
+                return output_file.read().decode()
+    def image_to_string(image, lang=None, config='', nice=0, output_type='string', timeout=0, ):
+        args = [image, 'txt', lang, config, nice, timeout]
+        return {'string': lambda: run_and_get_output(*args), }[output_type]()
+
+
+
+
 
     fetch_and_update_local_host_address()
     pyautogui.FAILSAFE = False
@@ -289,76 +490,60 @@ def run(__local_page = ''):
              },
         'ngrok_direct_open':
             {'images': ['ngrok direct link initial 1', 'ngrok direct link initial 2'],
-             'next_cond': ['cookie_accept'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.8,
+             'next_cond': ['cookie_accept'], 'need_scroll': '0*0', 'wait': 10, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': True, 'link_clicked': False}
              },
         'cookie_accept':
             {'images': ['linkvertise cookie accept'],
-             'next_cond': ['captcha', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
+             'next_cond': ['re_captcha', 'v2_captcha', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 3, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False}
              },
-        'unsolvable_captcha':
-            {'images': ['unsolvable captcha 1', 'unsolvable captcha 2'],
-             'next_cond': ['captcha', 'linkvertise top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
-             'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                     'linkvertise_reached': False}
-             },
-        'captcha':
+        're_captcha':
             {'images': ['linkvertise im not a robot', 'linkvertise captcha solver'],
-             'next_cond': ['captcha'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.85,
+             'next_cond': ['linkvertise_top'], 'need_scroll': '0*0', 'wait': 5, 'confidence': 0.85,
+             'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
+                     'linkvertise_reached': False}
+             },
+        'v2_captcha':
+            {'images': ['linkvertise please validate that you are not robot'],
+             'next_cond': ['linkvertise_top'], 'need_scroll': '0*0', 'wait': 2, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False}
              },
         'linkvertise_top':
-            {'images': ['linkvertise post captcha', 'linkvertise top'],
-             'next_cond': ['discover_articles'], 'need_scroll': '0*0', 'wait': 4, 'confidence': 0.85,
+            {'images': ['linkvertise top'],
+             'next_cond': ['big_ad_page'], 'need_scroll': '0*0', 'wait': 4, 'confidence': 0.85,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
                      'linkvertise_reached': False, 'article_page_open': False, 'articles_read': False}
              },
-        'discover_articles':
-            {'images': ['linkvertise discover articles', 'linkvertise discover interesting articles'],
-             'next_cond': ['close_articles'], 'need_scroll': '5*-20', 'wait': 7, 'confidence': 0.85,
+        'big_ad_page':
+            {'images': ['linkvertise to get website'],
+               'next_cond': ['article_process', 'install_process'], 'need_scroll': '2*-20', 'wait': 3, 'confidence': 0.85,
+               'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
+                       'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
+                       'special_ad_waiting': False, 'article_read': False, 'install_done':False}
+            },
+        'article_process':
+            {'images': ['linkvertise read the article'],
+             'next_cond': ['post_big_ad'], 'need_scroll': '2*-50', 'wait': 5, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                     'linkvertise_reached': True, 'article_page_open': False, 'articles_read': False}
+                     'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
+                     'big_ad_open': True, 'article_read': False, 'install_done':False}
              },
-        'close_articles':
-            {'images': ['linkvertise ad close'],
-             'next_cond': ['pre_special_ad'], 'need_scroll': '10*20', 'wait': 0, 'confidence': 0.85,
+        'install_process':
+            {'images': ['linkvertise install and'],
+             'next_cond': ['post_big_ad'], 'need_scroll': '2*-50', 'wait': 5, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                     'linkvertise_reached': True, 'article_page_open': True, 'articles_read': False}
+                     'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
+                     'big_ad_open': True, 'article_read': False, 'install_done':False}
              },
-        'pre_special_ad': {'images': ['linkvertise buff gaming download', 'linkvertise avg secure browser', 'linkvertise opera gx', 'linkvertise avast secure browser', 'linkvertise pc app store', 'linkvertise browser extension for chrome'],
-                           'next_cond': ['special_ad_processing'], 'need_scroll': '2*-20', 'wait': 3, 'confidence': 0.85,
-                           'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                                   'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
-                                   'big_ad_open': False, 'special_ad_waiting': False, 'special_ad_viewed': False}
-                           },
-        'special_ad_processing': {'images': ['linkvertise install and', 'linkvertise install and sign up an account', 'linkvertise install and launch avg browser', 'linkvertise install and launch opera gx', 'linkvertise install and launch the browser', 'linkvertise install and launch pc app store', 'linkvertise add the extension to chrome'],
-                                  'next_cond': ['waiting_big_ad'], 'need_scroll': '5*-20', 'wait': 10, 'confidence': 0.85,
-                                  'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                                          'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
-                                          'big_ad_open': True}
-                                  },
-        'waiting_big_ad': {'images': ['linkvertise waiting for completion'],
-                           'next_cond': [], 'need_scroll': '5*-20', 'wait': 10, 'confidence': 0.85,
-                           'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                                   'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
-                                   'big_ad_open': True}
-                           },
         'post_big_ad':
             {'images': ['linkvertise get website 1', 'linkvertise get website 2'],
-             'next_cond': ['final_go_to_website'], 'need_scroll': '2*-50', 'wait': 0, 'confidence': 0.8,
+             'next_cond': ['yt_reached', ], 'need_scroll': '2*-50', 'wait': 5, 'confidence': 0.8,
              'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                 'linkvertise_reached': True, 'article_page_open': False,'free_access_complete': True,
-                 'big_ad_open': True, 'special_ad_viewed': False}
-             },
-
-        'final_go_to_website':
-            {'images': ['linkvertise continue to website 1', 'linkvertise continue to website 2'],
-             'next_cond': [], 'need_scroll': '2*-50', 'wait': 0, 'confidence': 0.75, 'article_page_open': False,
-             'req': {'just_opened': False, 'webpage_opened': False, 'link_clicked': True,
-                 'linkvertise_reached': True, 'article_page_open': False, 'big_ad_open': False}
+                     'linkvertise_reached': True, 'article_page_open': False, 'free_access_complete': True,
+                     'big_ad_open': True}
              },
         'yt_reached': {'images': ['yt logo 1', 'yt logo 2'],
                        'next_cond': [], 'need_scroll': '0*0', 'wait': 0, 'confidence': 0.85, 'article_page_open': False,
@@ -374,20 +559,11 @@ def run(__local_page = ''):
         special_conditions = {
             'just_opened': True, 'webpage_opened': False, 'link_clicked':False, 'captcha_opened': False, 'captcha_solved': False,
             'linkvertise_reached': False, 'article_page_open': False, 'articles_read': False, 'free_access_complete': False, 'big_ad_open':False,
-            'big_ad_opened': False, 'special_ad_processing': False, 'special_ad_waiting': False, 'special_ad_viewed': False,
-
+            'article_read':False, 'install_done':False, 'special_ad_waiting': False, 'special_ad_viewed': False,
         }
 
-
-        thread_name = Thread()
         __close_chrome_forced()
         __start_chrome_forced()
-        for condition_name in possible_screen_conditions:
-            for img_name in possible_screen_conditions[condition_name]['images']:
-                sleep(0.01)
-                thread_name = Thread(target=__fetch_image_from_host, args=(img_name,))
-                thread_name.start()
-        thread_name.join()
         current_cond = ''
         while not success and not failure:
             sleep(randrange(0,4))
@@ -431,49 +607,6 @@ def run(__local_page = ''):
                 __click(coordinates, 'top_right')
 
 
-            elif current_cond == 'blank_chrome':
-                pyautogui.hotkey('ctrl', 'l')
-                sleep(0.1)
-                if clear_chrome:
-                    link = 'chrome://settings/resetProfileSettings'
-                elif not link:
-                    link = get_link()
-                pyautogui.typewrite(link, typing_speed)
-                sleep(0.1)
-                pyautogui.press('enter')
-                sleep(2)
-                if clear_chrome:
-                    coordinates = __find_image_on_screen('reset settings', confidence=0.8)
-                    if coordinates:
-                        __click(coordinates)
-                        sleep(2)
-                    link = 'chrome://extensions/'
-                    pyautogui.hotkey('ctrl', 'l')
-                    pyautogui.typewrite(link, typing_speed)
-                    sleep(0.1)
-                    pyautogui.press('enter')
-                    sleep(2)
-                    clear_chrome = False
-                    finish_counter = 0
-                    while True:
-                        coordinates = __find_image_on_screen('enable extensions', all_findings=False, confidence=0.8)
-                        if finish_counter >= 3:
-                            break
-                        elif coordinates:
-                            finish_counter = 0
-                            __click(coordinates)
-                        else:
-                            finish_counter += 1
-                            pyautogui.scroll(-500)
-                    pyautogui.hotkey('ctrl', 'l')
-                    sleep(0.1)
-                    link = get_link()
-                    pyautogui.typewrite(link, typing_speed)
-                    sleep(0.2)
-                    pyautogui.press('enter')
-                    special_conditions['just_opened'] = False
-                    special_conditions['webpage_opened'] = True
-
             elif current_cond == 'ngrok_visit_site':
                 __click(coordinates)
 
@@ -488,13 +621,24 @@ def run(__local_page = ''):
                 __click(coordinates)
 
 
-            elif current_cond == 'unsolvable_captcha':
-                pyautogui.hotkey('browserback')
-                special_conditions['webpage_opened'] = True
-                special_conditions['link_clicked'] = False
+            elif current_cond == 'v2_captcha':
+                if temp_memory['captcha_solved']:
+                    pyautogui.hotkey("f5")
+                    temp_memory['captcha_solved'] = False
+                    continue
+                else:
+                    sleep(5)
+                    x, y, x_thick, y_thick = coordinates
+                    region = (x, y, x_thick + 50, y_thick + 40) ## needs fix
+                    pyautogui.screenshot(region=region).save("trial.png")
+                    item = image_to_string(pyautogui.screenshot(region=region), config='--oem 1 --psm 6').split()[-1].translate(str.maketrans("", "", string.punctuation))
+                    coordinates = __find_image_on_screen("v2_captcha_"+item, confidence=0.7)
+                    if coordinates:
+                        __click(coordinates)
+                        temp_memory['captcha_solved'] = True
 
 
-            elif current_cond == 'captcha':
+            elif current_cond == 're_captcha':
                 if temp_memory['captcha_solved']:
                     pyautogui.hotkey("f5")
                     temp_memory['captcha_solved'] = False
@@ -519,62 +663,57 @@ def run(__local_page = ''):
                 pyautogui.moveTo(coordinates)
                 coordinates = None
                 while not coordinates:
-                    pyautogui.scroll(-100)
-                    coordinates = __find_image_on_screen('linkvertise free access with ads', confidence=0.7)
+                    pyautogui.scroll(-20)
+                    coordinates = __find_image_on_screen('linkvertise free access', confidence=0.7)
                     if not coordinates:
-                        coordinates = __find_image_on_screen('linkvertise free access', confidence=0.7)
+                        coordinates = __find_image_on_screen('linkvertise free access with ads', confidence=0.7)
                 __click(coordinates)
                 special_conditions['free_access_complete'] = True
 
 
-
-            elif current_cond == 'discover_articles':
-                sleep(2)
-                __click(coordinates)
-                special_conditions['article_page_open']= True
-
-
-            elif current_cond == 'close_articles':
-                __click(coordinates)
-                special_conditions['article_page_open'] = False
-                special_conditions['articles_read'] = True
-
-
-            elif current_cond == 'pre_special_ad':
-                __click(coordinates)
+            elif current_cond == "big_ad_page":
                 special_conditions['big_ad_open'] = True
-
-
-            elif current_cond == 'special_ad_processing':
+                pyautogui.moveTo(coordinates)
+                coordinates = None
+                while not coordinates:
+                    pyautogui.scroll(-50)
+                    coordinates = __find_image_on_screen('linkvertise im interested', confidence=0.7)
+                    if not coordinates:
+                        pass
                 __click(coordinates)
-                pyautogui.move(0, -50)
-                sleep(10)
+
+
+            elif current_cond == 'article_process':
+                __click(coordinates)
+                sleep(60)
+                special_conditions["article_read"] = True
+                pyautogui.hotkey("ctrl", "tab")
+
+
+
+            elif current_cond == 'install_process':
+                __click(coordinates)
+                sleep(45)
+                special_conditions["install_done"] = True
                 pyautogui.hotkey("ctrl", "tab")
 
 
             elif current_cond == 'post_big_ad':
                 __click(coordinates)
                 special_conditions['big_ad_open'] = False
-                special_conditions['big_ad_opened'] = True
-
-
-            elif current_cond == 'final_go_to_website':
-                __click(coordinates)
 
 
             elif current_cond == 'yt_reached':
                 success = True
                 try:
                     global_host_address, global_host_page = fetch_global_addresses()
-                    get(f"{global_host_page}/view_accomplished?view_token={link_viewer_token}", timeout=10)
+                    get(f"{global_host_page}/view_accomplished?view_token={link_viewer_token}", timeout=15)
                 except:
                     pass
                 break
 
     except Exception as e:
         print(repr(e))
-        success = False
-        failure = True
     print("\n\n\n\n\n\n\n\nView finished\n\n\n\n\n")
-    sleep(5)
+    __close_chrome_forced()
     return [int(success), comment, img_dict]

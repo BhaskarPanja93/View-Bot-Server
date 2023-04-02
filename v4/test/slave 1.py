@@ -2,7 +2,7 @@ from random import choice, randrange
 from threading import Thread
 import socket
 from time import sleep, time
-
+from cryptography.fernet import Fernet
 from requests import get
 
 
@@ -33,33 +33,35 @@ def fetch_global_addresses():
             sleep(0.1)
     return global_host_address
 
-class SingleDataObject:
 
+class SingleDataObject:
     def __init__(self):
         self.TimeSent = 0
         self.TimeReceived = 0
         self.SendDecrypted = None
         self.SendEncrypted = None
         self.ReceivedDecrypted = None
-        self.ReceivedEncrypted = None
         self.SendToken = None
         self.EncryptionKey = None
 
 
-class SocketTransmission:
+class SocketSlave:
 
     def __init__(self, address_generator):
-        self.Connections = {} ## {connection1: {"LAST_SENT":0, "ENCRYPTION_KEY":None}, connection2: {"LAST_SENT":0, "ENCRYPTION_KEY":None}}
+        self.Connections = {} ## {connection1: {"LAST_ACTIVITY":0, "ENCRYPTION_KEY":None}, connection2: {"LAST_ACTIVITY":0, "ENCRYPTION_KEY":None}}
         self.SendWaitListTokens = [] ## Tokens for Data sent and Waiting for Reply
-        self.DataCollection = {} ## {str(token): raw_data}
+        self.DataCollection = {} ## {str(token): SingleDataObject}
+        self.KeyLessDataCollection = [] ## [SingleDataObject1, SingleDataObject2]
+        self.UnknownKeyDataCollection = {}  ## {str(token): SingleDataObject}
 
-        self.SocketCoolDownPeriod = 4 ## time in secs to wait after a socket sent data for next data
+        self.SocketCoolDownPeriod = 1 ## time in secs to wait after a socket sent data for next data
         self.CpuWaitTime = (1/10)**10 ## time in secs to allow CPu to rest in between infinite loops
-        self.ConnectionTimeoutPeriod = (10, 20) ## time in secs (min max) min<time<max: send ping,  time>max connection dead
+        self.ConnectionTimeoutTime = 10 ## time in secs after which send ping
+        self.ConnectionDeadTime = 20 ##time in secs after which connection dead
 
         self.MasterAddressGenerator = address_generator ## function to return address to connect to
 
-        Thread(target=self.__check_queue).start()
+        Thread(target=self.__check_send_queue).start()
 
 
     def QueueSend(self, DataToSendDecrypted):
@@ -76,9 +78,9 @@ class SocketTransmission:
 
     def CheckReceived(self, SendToken):
         if SendToken in self.DataCollection:
-            if self.DataCollection[SendToken].ReceivedEncrypted is not None:
+            if self.DataCollection[SendToken].ReceivedDecrypted is not None:
                 DataInstance = self.DataCollection.pop(SendToken)
-                return self.__dataDecryptor(DataInstance.ReceivedEncrypted, DataInstance.EncryptionKey)
+                return DataInstance.ReceivedDecrypted
         else:
             return None
 
@@ -87,7 +89,9 @@ class SocketTransmission:
         AddressToConnect = self.MasterAddressGenerator()
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection.connect(AddressToConnect)
-        self.Connections[connection] = {"LAST_SENT":0, "ENCRYPTION_KEY":None}
+        self.Connections[connection] = {"LAST_ACTIVITY":0, "ENCRYPTION_KEY":None}
+        Thread(target=self.__ping_connection, args=(connection,)).start()
+        Thread(target=self.__check_receive_queue, args=(self, connection,)).start()
         return connection
 
 
@@ -125,36 +129,47 @@ class SocketTransmission:
 
     def __ping_connection(self, connection):
         while connection in self.Connections:
-            if self.Connections[connection]["LAST_SENT"] != 0:
-                TimeLeft = self.ConnectionTimeoutPeriod[20]-(time()-self.Connections[connection]["LAST_SENT"])
+            if self.Connections[connection]["LAST_ACTIVITY"] == 0:
+                sleep(self.CpuWaitTime)
+            elif self.Connections[connection]["LAST_ACTIVITY"] != 0:
+                TimeLeft = self.ConnectionDeadTime-(time()-self.Connections[connection]["LAST_ACTIVITY"])-2
                 sleep(TimeLeft)
-                self.__send_to_connection(connection, self.__dataEncryptor({"ping":"ping"}, connection))
+            elif time() - self.Connections[connection]["LAST_ACTIVITY"] > 10:
+                self.Connections[connection]["LAST_ACTIVITY"] = time()
+                self.__send_to_connection(connection, self.__dataEncrypt({"PING": "PING"}, connection))
 
 
-    @staticmethod
-    def __dataEncryptor( data, encryption_key): ## needs mod
-        return bytes(data)
+    def __dataEncrypt(self, data, connection, send_key=None):
+        BytesObject = str({"SEND_KEY": send_key, "DATA": data}).encode()
+        FernetInstance = Fernet(self.Connections[connection]["ENCRYPTION_KEY"])
+        return FernetInstance.encrypt(BytesObject)
 
 
-    @staticmethod
-    def __dataDecryptor(data, encryption_key): ## needs mod
-        return eval(data)
+    def __dataDecrypt(self, data, connection):
+        FernetInstance = Fernet(self.Connections[connection]["ENCRYPTION_KEY"])
+        return eval(FernetInstance.decrypt(data))
 
 
     def __sender(self, SendToken):
         start = time()
         while SendToken not in self.DataCollection and time()-start < 2:
             sleep(self.CpuWaitTime)
+        if SendToken not in self.DataCollection:
+            return
         DecryptedData = self.DataCollection[SendToken]
-        for ConnectionToUse in self.Connections:
-            if time() - self.Connections[ConnectionToUse]["LAST_SENT"] > self.SocketCoolDownPeriod:
-                break
-        else:
-            ConnectionToUse = self.__appointNewConnection()
-        self.__send_to_connection(ConnectionToUse, self.__dataEncryptor(DecryptedData, ConnectionToUse))
+        DataSent = False
+        while not DataSent:
+            for Connection in self.Connections:
+                if time() - self.Connections[Connection]["LAST_ACTIVITY"] > self.SocketCoolDownPeriod:
+                    ConnectionToUse = Connection
+                    self.__send_to_connection(ConnectionToUse, self.__dataEncrypt(DecryptedData, ConnectionToUse))
+                    DataSent = True
+                    break
+            else:
+                self.__appointNewConnection()
 
 
-    def __check_queue(self):
+    def __check_send_queue(self):
         while True:
             sleep(self.CpuWaitTime)
             if self.SendWaitListTokens:
@@ -162,11 +177,28 @@ class SocketTransmission:
                 Thread(target=self.__sender, args=(SendToken,)).start()
 
 
+    def __check_receive_queue(self, connection):
+        while True:
+            EncryptedData = self.__receive_from_connection(connection)
+            if not EncryptedData:
+                continue
+
+            DecryptedData = self.__dataDecrypt(EncryptedData, self.Connections[connection]["ENCRYPTION_KEY"])
+            if not DecryptedData:
+                continue
+
+            self.Connections[connection]["LAST_ACTIVITY"] = time()
+            if "PING" in DecryptedData:
+                pass
+            elif "SEND_KEY" not in DecryptedData:
+                self.KeyLessDataCollection.append(DecryptedData["DATA"])
+            else:
+                self.DataCollection[DecryptedData["SEND_KEY"]].ReceivedDecrypted = DecryptedData["DATA"]
 
 
 
 
-SocketTransmission(fetch_global_addresses)
+SocketSlave(fetch_global_addresses)
 print("end")
 
 
