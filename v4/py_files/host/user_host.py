@@ -623,6 +623,7 @@ def force_send_flask_data(new_data: str, expected_div_name: str, viewer_id: str,
         pass
 
 
+
 def __fetch_image_from_global_host(img_name):
     if img_name in windows_img_files and 'version' in windows_img_files[img_name]:
         if windows_img_files[img_name]['verified'] is None:
