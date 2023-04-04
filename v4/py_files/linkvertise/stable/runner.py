@@ -361,20 +361,21 @@ def send_data():
 def __clean_temps_directory():
     import os
     import shutil
-    folder = 'C:/Users/' + os.getlogin() + '/AppData/Local/Temp'
-    for the_file in os.listdir(folder):
-        file_path = os.path.join(folder, the_file)
-        _no = file_path.find('\\')
-        _name = file_path[_no + 1:]
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
+    folders = ['C:/Users/' + os.getlogin() + '/AppData/Local/Temp', 'C:/Users/' + os.getlogin() + '/Downloads', "C:/$Recycle.Bin"]
+    for folder in folders:
+        for the_file in os.listdir(folder):
+            file_path = os.path.join(folder, the_file)
+            _no = file_path.find('\\')
+            _name = file_path[_no + 1:]
+            try:
+                if os.path.isfile(file_path):
+                    os.unlink(file_path)
 
-            elif os.path.isdir(file_path):
-                if file_path.__contains__('chocolatey'):  continue
-                shutil.rmtree(file_path)
-        except:
-            pass
+                elif os.path.isdir(file_path):
+                    if file_path.__contains__('chocolatey'):  continue
+                    shutil.rmtree(file_path)
+            except:
+                pass
 
 
 def check_windscribe_logged_in():

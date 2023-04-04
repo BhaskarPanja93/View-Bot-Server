@@ -155,9 +155,9 @@ def run(__local_page = ''):
     def __start_chrome_forced():
         global clear_chrome, link
         system_caller('start chrome')
-        sleep(randrange(2,7))
+        sleep(randrange(7,10))
         pyautogui.hotkey('ctrl', 'l')
-        sleep(1)
+        sleep(0.1)
         if clear_chrome:
             link = 'chrome://settings/resetProfileSettings'
         elif not link:
@@ -170,9 +170,10 @@ def run(__local_page = ''):
             coordinates = __find_image_on_screen('reset settings', confidence=0.8)
             if coordinates:
                 __click(coordinates)
-            sleep(3)
+            sleep(5)
             link = 'chrome://settings/clearBrowserData'
             pyautogui.hotkey('ctrl', 'l')
+            sleep(0.5)
             pyautogui.typewrite(link, typing_speed)
             sleep(0.1)
             pyautogui.press('enter')
@@ -180,9 +181,10 @@ def run(__local_page = ''):
             coordinates = __find_image_on_screen('clear data', confidence=0.8)
             if coordinates:
                 __click(coordinates)
-                sleep(2)
+                sleep(5)
             link = 'chrome://extensions/'
             pyautogui.hotkey('ctrl', 'l')
+            sleep(0.5)
             pyautogui.typewrite(link, typing_speed)
             sleep(0.1)
             pyautogui.press('enter')
@@ -190,7 +192,7 @@ def run(__local_page = ''):
             clear_chrome = False
             finish_counter = 0
             while True:
-                sleep(1)
+                sleep(0.5)
                 coordinates = __find_image_on_screen('enable extensions', all_findings=False, confidence=0.8)
                 if finish_counter >= 3:
                     break
@@ -201,10 +203,9 @@ def run(__local_page = ''):
                     finish_counter += 1
                     pyautogui.scroll(-500)
             pyautogui.hotkey('ctrl', 'l')
-            sleep(0.1)
             link = get_link()
             pyautogui.typewrite(link, typing_speed)
-            sleep(0.2)
+            sleep(0.1)
             pyautogui.press('enter')
             special_conditions['just_opened'] = False
             special_conditions['webpage_opened'] = True
